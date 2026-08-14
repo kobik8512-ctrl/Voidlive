@@ -138,12 +138,14 @@
     overflow: hidden; text-overflow: ellipsis; max-width: 120px;
   }
   .viewers { font-size: 13px; font-weight: 700; flex: none; }
-  .end-btn {
+  .top-actions { display: flex; gap: 8px; flex: none; }
+  .end-btn, .flip-btn {
     width: 36px; height: 36px; border-radius: 50%;
     border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.55);
-    color: #fff; font-size: 18px; cursor: pointer;
+    color: #fff; font-size: 16px; cursor: pointer;
     display: flex; align-items: center; justify-content: center; flex: none;
   }
+  .flip-btn { font-size: 15px; }
   .floats {
     position: absolute; right: 10px; bottom: 38%; width: 60px; height: 40%;
     pointer-events: none; z-index: 15; overflow: hidden;
@@ -167,8 +169,9 @@
     display: flex; flex-direction: column; justify-content: flex-end; gap: 4px;
     mask-image: linear-gradient(to bottom, transparent, #000 18%);
   }
-  .chat-line { font-size: 13px; line-height: 1.3; word-break: break-word; animation: chatIn .18s ease-out; }
-  @keyframes chatIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .chat-line { font-size: 13px; line-height: 1.3; word-break: break-word; }
+  .chat-line.new { animation: chatIn .15s ease-out; }
+  @keyframes chatIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
   .chat-user { font-weight: 700; margin-right: 6px; }
   .chat-input-row { display: flex; gap: 8px; padding: 8px 12px max(10px, env(safe-area-inset-bottom)); }
   .chat-input {
@@ -213,6 +216,13 @@
     'follow','dont end','love from eu','na gang','fit check','chat moving','fyp brought me',
     'clip that','gg','❤️','🔥','😂','😭','💀','👏','🙌','👀','✨','💯','🚀','👑'
   ];
+  const GREET_POOL = [
+    'hi','hi','hi','hello','hello','hey','hey','hii','hiii','yo',
+    'hi kobi','hi kobi','hello kobi','hey kobi','hii kobi','yo kobi',
+    'hi kobi!','hello kobi!','hey kobi 👋','kobi hi','kobi hello',
+    'wassup kobi','whats up kobi','hi host','hello host','first!','early gang',
+    'just joined hi','hi everyone','hello chat','hey chat','hi 👋','hello 👋'
+  ];
   const SPAM_PACKS = {
     w: ['W','W','W','WW','WWW','W stream','W chat','big W'],
     l: ['L','L','LL','L stream'],
@@ -253,12 +263,14 @@
     botViewers: 0,
     stream: null,
     demo: false,
-    chatBurstUntil: 0
+    chatBurstUntil: 0,
+    facingMode: 'user'
   };
 
   let livesUnsub = null, liveUnsub = null, chatUnsub = null, presenceUnsub = null;
-  let chatTimer = null, viewerTimer = null, recognition = null;
+  let chatTimer = null, viewerTimer = null, recognition = null, paintScheduled = false;
   const chatLines = [];
+  let lastPaintedId = null;
 
   function isOwnerEmail(email) { return (email || '').toLowerCase() === OWNER_EMAIL; }
   function randName() {
@@ -338,48 +350,68 @@
     if (!fbReady || !state.user) return;
     const title = (state.streamTitle || '').trim() || (state.user.name + "'s Live");
     state.showNameModal = false;
-    try {
-      const prev = await fbDb.collection('lives').where('hostUid', '==', state.user.uid).where('status', '==', 'live').get();
-      const batch = fbDb.batch();
-      prev.forEach(d => batch.update(d.ref, { status: 'ended', endedAt: firebase.firestore.FieldValue.serverTimestamp() }));
-      if (!prev.empty) await batch.commit();
-    } catch (e) {}
-
-    const ref = fbDb.collection('lives').doc();
-    const isOwnerStream = !!state.user.isOwner;
-    await ref.set({
-      hostUid: state.user.uid,
-      hostName: state.user.name,
-      hostEmail: state.user.email || '',
-      title: title,
-      status: 'live',
-      isOwnerStream: isOwnerStream,
-      viewerCount: 0,
-      realViewerCount: 0,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-    state.liveId = ref.id;
-    state.isHost = true;
-    state.isOwnerStream = isOwnerStream;
-    state.hostName = state.user.name;
-    state.title = title;
-    state.viewers = 0;
-    state.realViewers = 0;
-    state.botViewers = 0;
-    state.screen = 'live';
-    chatLines.length = 0;
-
-    const camOk = await startCamera();
-    state.demo = !camOk;
+    state.error = 'Starting live…';
     render();
-    attachCam();
-    subscribeToLive(ref.id);
-    subscribeChat(ref.id);
-    await joinPresence(ref.id);
-    startViewerGrowth();
-    if (isOwnerStream) startBotChatEngine();
-    startListening();
+
+    try {
+      try {
+        const prev = await fbDb.collection('lives').where('hostUid', '==', state.user.uid).where('status', '==', 'live').get();
+        const batch = fbDb.batch();
+        prev.forEach(d => batch.update(d.ref, { status: 'ended', endedAt: firebase.firestore.FieldValue.serverTimestamp() }));
+        if (!prev.empty) await batch.commit();
+      } catch (e) { /* ignore cleanup errors */ }
+
+      const ref = fbDb.collection('lives').doc();
+      const isOwnerStream = !!state.user.isOwner;
+      await ref.set({
+        hostUid: state.user.uid,
+        hostName: state.user.name,
+        hostEmail: state.user.email || '',
+        title: title,
+        status: 'live',
+        isOwnerStream: isOwnerStream,
+        viewerCount: 0,
+        realViewerCount: 0,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      state.liveId = ref.id;
+      state.isHost = true;
+      state.isOwnerStream = isOwnerStream;
+      state.hostName = state.user.name;
+      state.title = title;
+      state.viewers = 0;
+      state.realViewers = 0;
+      state.botViewers = 0;
+      state.screen = 'live';
+      state.error = null;
+      chatLines.length = 0;
+
+      const camOk = await startCamera();
+      state.demo = !camOk;
+      render();
+      attachCam();
+      subscribeToLive(ref.id);
+      subscribeChat(ref.id);
+      await joinPresence(ref.id);
+      startViewerGrowth();
+      if (isOwnerStream) {
+        startBotChatEngine();
+        burstGreetings();
+      }
+      startListening();
+    } catch (err) {
+      console.error('go live failed', err);
+      const msg = (err && err.message) || String(err);
+      if (/permission|insufficient|Missing or insufficient/i.test(msg)) {
+        state.error = 'Firestore blocked the write. Update Firebase Rules for collection "lives" (see instructions).';
+      } else {
+        state.error = 'Could not start live: ' + msg;
+      }
+      state.showNameModal = false;
+      state.screen = 'home';
+      render();
+    }
   }
 
   async function joinLive(liveId) {
@@ -563,8 +595,8 @@
           id: r.id, user: r.name || 'user', color: r.color || randColor(), text: r.text || '', local: false
         }));
         locals.slice(-15).forEach(l => chatLines.push(l));
-        while (chatLines.length > 80) chatLines.shift();
-        paintChat();
+        while (chatLines.length > 90) chatLines.shift();
+        schedulePaintChat();
       }, err => console.warn('chat', err));
   }
 
@@ -573,17 +605,46 @@
       id: 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       user, color: color || randColor(), text, local: true
     });
-    while (chatLines.length > 80) chatLines.shift();
-    paintChat();
+    while (chatLines.length > 90) chatLines.shift();
+    schedulePaintChat();
+  }
+  function schedulePaintChat() {
+    if (paintScheduled) return;
+    paintScheduled = true;
+    requestAnimationFrame(() => {
+      paintScheduled = false;
+      paintChat();
+    });
   }
   function paintChat() {
     const list = document.getElementById('chatList');
     if (!list) return;
-    const slice = chatLines.slice(-40);
-    list.innerHTML = slice.map(c =>
-      `<div class="chat-line"><span class="chat-user" style="color:${c.color}">${escapeHtml(c.user)}</span><span class="chat-text">${escapeHtml(c.text)}</span></div>`
-    ).join('');
+    const slice = chatLines.slice(-45);
+    const lastId = slice.length ? slice[slice.length - 1].id : null;
+    // Full rebuild only when needed; still cheaper with rAF batching
+    const html = slice.map((c, i) => {
+      const isNew = i >= slice.length - 3;
+      return `<div class="chat-line${isNew ? ' new' : ''}"><span class="chat-user" style="color:${c.color}">${escapeHtml(c.user)}</span><span class="chat-text">${escapeHtml(c.text)}</span></div>`;
+    }).join('');
+    if (list.dataset.lastId === lastId && list.childElementCount === slice.length) return;
+    list.dataset.lastId = lastId || '';
+    list.innerHTML = html;
     list.scrollTop = list.scrollHeight;
+  }
+
+  function burstGreetings() {
+    // 70–80% of early chat is hi / hello kobi
+    const total = 28 + Math.floor(Math.random() * 18);
+    for (let i = 0; i < total; i++) {
+      setTimeout(() => {
+        if (!(state.isHost && state.isOwnerStream)) return;
+        const useGreet = Math.random() < 0.78;
+        const text = useGreet
+          ? GREET_POOL[Math.floor(Math.random() * GREET_POOL.length)]
+          : randChat();
+        pushLocalChat(randName(), text, randColor());
+      }, 80 + i * (40 + Math.random() * 90));
+    }
   }
 
   async function sendUserChat() {
@@ -705,19 +766,30 @@
     }
   }
 
-  async function startCamera() {
+  async function startCamera(facing) {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
+    const mode = facing || state.facingMode || 'user';
+    state.facingMode = mode;
     try {
+      stopCamera();
       try {
         state.stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: { facingMode: { ideal: mode }, width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false
         });
       } catch (e) {
-        state.stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        state.stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: mode },
+          audio: false
+        });
       }
       return true;
-    } catch (e) { return false; }
+    } catch (e) {
+      try {
+        state.stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        return true;
+      } catch (e2) { return false; }
+    }
   }
   function stopCamera() {
     if (state.stream) {
@@ -729,7 +801,18 @@
     const video = document.getElementById('cam');
     if (video && state.stream) {
       video.srcObject = state.stream;
+      // Mirror only front camera
+      video.style.transform = state.facingMode === 'user' ? 'scaleX(-1)' : 'none';
       video.play().catch(() => {});
+    }
+  }
+  async function flipCamera() {
+    if (!state.isHost) return;
+    const next = state.facingMode === 'user' ? 'environment' : 'user';
+    const ok = await startCamera(next);
+    if (ok) {
+      state.demo = false;
+      attachCam();
     }
   }
 
@@ -745,7 +828,7 @@
             return `<div class="live-card">
               <div class="live-card-info">
                 <div class="live-card-title">${escapeHtml(l.title || 'Live')}</div>
-                <div class="live-card-meta"><span class="live-dot-sm"></span>${escapeHtml(l.hostName || 'Host')} · 👁 ${vc}${mine ? ' · you' : ''}</div>
+                <div class="live-card-meta"><span class="live-dot-sm"></span>${escapeHtml(l.hostName || 'Host')} · ${vc} watching${mine ? ' · you' : ''}</div>
               </div>
               <button class="join-btn" data-id="${l.id}">${mine ? 'Open' : 'Join'}</button>
             </div>`;
@@ -758,7 +841,7 @@
             <div class="home-title">GO <span>LIVE</span></div>
             <div class="user-row">${
               state.user
-                ? `Signed in as <strong>${escapeHtml(state.user.isOwner ? '[Owner] ' : '')}${escapeHtml(state.user.name)}</strong>`
+                ? `Signed in as <strong>${escapeHtml(state.user.name)}</strong>`
                 : 'Sign in to go live or join'
             }</div>
           </div>
@@ -820,9 +903,12 @@
               <div class="live-dot"></div>
               <div class="live-label">LIVE</div>
               <div class="stream-title">${escapeHtml(state.title)}</div>
-              <div class="viewers">👁 <span id="viewerCount">${formatViewers(state.viewers)}</span></div>
+              <div class="viewers"><span id="viewerCount">${formatViewers(state.viewers)}</span> watching</div>
             </div>
-            <button class="end-btn" id="endBtn">×</button>
+            <div class="top-actions">
+              ${state.isHost ? `<button class="flip-btn" id="flipBtn" title="Flip camera">⟲</button>` : ''}
+              <button class="end-btn" id="endBtn">×</button>
+            </div>
           </div>
           <div class="floats" id="floats"></div>
         </div>
@@ -837,6 +923,8 @@
       </div>`;
 
     document.getElementById('endBtn').onclick = () => leaveCurrentLive(true);
+    const flip = document.getElementById('flipBtn');
+    if (flip) flip.onclick = flipCamera;
     document.getElementById('chatSend').onclick = sendUserChat;
     document.getElementById('chatInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') sendUserChat();
