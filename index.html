@@ -1050,43 +1050,67 @@
   function startBotChatEngine() {
     stopBotChatEngine();
     if (!(state.isHost && state.isOwnerStream)) return;
-    // Scales with displayed viewers:
-    // 0 → silence | 1 → one slow typer | 2 → a bit more | 10 → faster | high → busy
-    chatTimer = setInterval(() => {
+
+    // Adaptive: 10 calm → 50 alive → 100 faster → keeps ramping
+    const tick = () => {
       if (!(state.isHost && state.isOwnerStream)) return;
-      const v = Math.floor(state.viewers || (state.botViewers + state.realViewers));
-      if (v <= 0) return;
+      const v = Math.max(0, Math.floor(state.viewers || (state.botViewers + state.realViewers)));
 
-      let n = 0;
-      if (v === 1) n = Math.random() < 0.28 ? 1 : 0;       // ~1 msg / 6–7s
-      else if (v === 2) n = Math.random() < 0.4 ? 1 : 0;  // ~1 / 4–5s
-      else if (v <= 4) n = Math.random() < 0.5 ? 1 : 0;
-      else if (v <= 8) n = Math.random() < 0.65 ? 1 : 0;
-      else if (v <= 15) n = Math.random() < 0.8 ? 1 : 0;
-      else if (v <= 40) n = 1 + (Math.random() < 0.35 ? 1 : 0);
-      else if (v <= 100) n = 1 + Math.floor(Math.random() * 2);
-      else if (v <= 500) n = 2 + Math.floor(Math.random() * 2);
-      else if (v <= 2000) n = 2 + Math.floor(Math.random() * 3);
-      else n = 3 + Math.floor(Math.random() * 4);
+      let delay;
+      if (v <= 0) delay = 2600;
+      else if (v < 10) delay = 1500 + Math.random() * 700;
+      else if (v < 30) delay = 1000 + Math.random() * 400;
+      else if (v < 50) delay = 700 + Math.random() * 280;
+      else if (v < 100) delay = 450 + Math.random() * 200;
+      else if (v < 250) delay = 300 + Math.random() * 140;
+      else if (v < 600) delay = 200 + Math.random() * 100;
+      else if (v < 2000) delay = 150 + Math.random() * 70;
+      else delay = 100 + Math.random() * 50;
 
-      if (Date.now() < state.chatBurstUntil) n += 1 + Math.floor(Math.random() * 2);
+      chatTimer = setTimeout(() => {
+        chatTimer = null;
+        if (!(state.isHost && state.isOwnerStream)) return;
+        const viewers = Math.max(0, Math.floor(state.viewers || (state.botViewers + state.realViewers)));
+        if (viewers <= 0) { tick(); return; }
 
-      for (let i = 0; i < n; i++) {
-        setTimeout(() => {
-          if (!(state.isHost && state.isOwnerStream)) return;
-          if ((state.viewers || 0) <= 0) return;
-          // Low viewers: more hi/hello energy
-          const early = (state.viewers || 0) < 12 && Math.random() < 0.5;
-          const text = early
-            ? GREET_POOL[Math.floor(Math.random() * GREET_POOL.length)]
-            : randChat();
-          pushLocalChat(randName(), text, randColor(), { bot: true });
-        }, Math.random() * 500);
-      }
-    }, 1800);
+        let n = 0;
+        if (viewers === 1) n = Math.random() < 0.28 ? 1 : 0;
+        else if (viewers < 5) n = Math.random() < 0.4 ? 1 : 0;
+        else if (viewers < 10) n = Math.random() < 0.5 ? 1 : 0;
+        else if (viewers < 25) n = Math.random() < 0.65 ? 1 : 0;
+        else if (viewers < 50) n = 1 + (Math.random() < 0.3 ? 1 : 0);
+        else if (viewers < 100) n = 1 + Math.floor(Math.random() * 2);
+        else if (viewers < 250) n = 2 + Math.floor(Math.random() * 2);
+        else if (viewers < 600) n = 2 + Math.floor(Math.random() * 3);
+        else if (viewers < 2000) n = 3 + Math.floor(Math.random() * 3);
+        else if (viewers < 8000) n = 4 + Math.floor(Math.random() * 4);
+        else n = 5 + Math.floor(Math.random() * 5);
+
+        if (Date.now() < state.chatBurstUntil) n += 1 + Math.floor(Math.random() * 3);
+        n = Math.min(n, 12);
+
+        for (let i = 0; i < n; i++) {
+          setTimeout(() => {
+            if (!(state.isHost && state.isOwnerStream)) return;
+            if ((state.viewers || 0) <= 0) return;
+            const early = (state.viewers || 0) < 20 && Math.random() < 0.4;
+            const text = early
+              ? GREET_POOL[Math.floor(Math.random() * GREET_POOL.length)]
+              : randChat();
+            pushLocalChat(randName(), text, randColor(), { bot: true });
+          }, Math.random() * Math.min(400, delay * 0.85));
+        }
+        tick();
+      }, delay);
+    };
+    tick();
   }
   function stopBotChatEngine() {
-    if (chatTimer) { clearInterval(chatTimer); chatTimer = null; }
+    if (chatTimer) {
+      clearTimeout(chatTimer);
+      clearInterval(chatTimer);
+      chatTimer = null;
+    }
   }
 
   function spawnFloat(emoji) {
