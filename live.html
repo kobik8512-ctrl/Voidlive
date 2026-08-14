@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0a0c" />
+<title>GO LIVE</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0c;
+    --panel: #14141a;
+    --line: #2a2a35;
+    --ink: #f2f2f5;
+    --muted: #8b8b9a;
+    --red: #ff3b4a;
+    --pink: #ff2d55;
+    --green: #3dff9a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif; overflow: hidden; }
+  #app { height: 100%; width: 100%; position: relative; }
+
+  .home {
+    height: 100%; display: flex; flex-direction: column;
+    padding: max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  }
+  .home-head { margin-bottom: 12px; }
+  .logo { font-size: 11px; letter-spacing: .24em; text-transform: uppercase; color: var(--muted); }
+  .home-title { font-size: 28px; font-weight: 800; margin-top: 4px; }
+  .home-title span { color: var(--red); }
+  .user-row { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .user-row strong { color: var(--green); }
+
+  .lives-label {
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); margin: 8px 0 8px;
+  }
+  .lives-list {
+    flex: 1; overflow-y: auto; min-height: 0;
+    display: flex; flex-direction: column; gap: 10px;
+    padding-bottom: 12px;
+  }
+  .live-card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .live-card-info { flex: 1; min-width: 0; }
+  .live-card-title {
+    font-weight: 700; font-size: 15px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .live-card-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .live-dot-sm {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--red);
+    display: inline-block; margin-right: 5px;
+    animation: pulse 1.4s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255,59,74,.55); }
+    70% { box-shadow: 0 0 0 8px rgba(255,59,74,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,59,74,0); }
+  }
+  .join-btn {
+    flex: none; border: none; border-radius: 999px;
+    padding: 8px 14px; background: var(--pink); color: #fff;
+    font-weight: 700; font-size: 13px; cursor: pointer;
+  }
+  .empty {
+    text-align: center; color: var(--muted); font-size: 14px;
+    padding: 40px 16px; line-height: 1.5;
+  }
+
+  .bottom-bar { padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .go-live {
+    width: 100%; padding: 16px; border: none; border-radius: 999px;
+    background: linear-gradient(135deg, #ff2d55, #ff5c8a);
+    color: #fff; font-size: 16px; font-weight: 800; letter-spacing: .04em;
+    text-transform: uppercase; cursor: pointer;
+    box-shadow: 0 10px 32px rgba(255,45,85,.3);
+  }
+  .ghost-btn {
+    width: 100%; padding: 12px; border-radius: 999px;
+    border: 1px solid var(--line); background: transparent;
+    color: var(--muted); font-size: 13px; cursor: pointer;
+  }
+  .err { color: var(--red); font-size: 13px; text-align: center; }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    display: flex; align-items: flex-end; justify-content: center;
+    z-index: 50; padding: 16px;
+  }
+  .modal-card {
+    width: 100%; max-width: 420px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 18px;
+    padding: 18px; margin-bottom: env(safe-area-inset-bottom);
+  }
+  .modal-card h2 { font-size: 18px; margin-bottom: 6px; }
+  .modal-card p { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  .input {
+    width: 100%; padding: 12px 14px; border-radius: 12px;
+    border: 1px solid var(--line); background: #0c0c10; color: #fff;
+    font-size: 15px; outline: none; margin-bottom: 12px;
+  }
+
+  .stage { height: 100%; display: flex; flex-direction: column; background: #000; }
+  .video-wrap { position: relative; flex: 1; min-height: 0; background: #000; overflow: hidden; }
+  #cam {
+    width: 100%; height: 100%; object-fit: cover;
+    transform: scaleX(-1); background: #111;
+  }
+  .cam-fallback {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; text-align: center; color: var(--muted);
+    font-size: 14px; padding: 24px; line-height: 1.5;
+  }
+  .topbar {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: max(12px, env(safe-area-inset-top)) 12px 12px;
+    background: linear-gradient(to bottom, rgba(0,0,0,.65), transparent);
+  }
+  .live-pill {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 999px; padding: 6px 12px 6px 8px;
+    backdrop-filter: blur(8px); max-width: 75%;
+  }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: pulse 1.4s infinite; flex: none; }
+  .live-label { font-size: 11px; font-weight: 800; letter-spacing: .12em; flex: none; }
+  .stream-title {
+    font-size: 12px; font-weight: 600; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; max-width: 120px;
+  }
+  .viewers { font-size: 13px; font-weight: 700; flex: none; }
+  .end-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.55);
+    color: #fff; font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex: none;
+  }
+  .floats {
+    position: absolute; right: 10px; bottom: 38%; width: 60px; height: 40%;
+    pointer-events: none; z-index: 15; overflow: hidden;
+  }
+  .float-emoji {
+    position: absolute; bottom: 0; left: 50%; font-size: 22px;
+    animation: floatUp 2.2s ease-out forwards; opacity: 0;
+  }
+  @keyframes floatUp {
+    0% { transform: translate(-50%,0) scale(.6); opacity: 0; }
+    15% { opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--dx)), -180px) scale(1.15); opacity: 0; }
+  }
+  .chat-wrap {
+    position: relative; height: min(38vh, 320px);
+    background: linear-gradient(to top, rgba(0,0,0,.92) 70%, rgba(0,0,0,.55));
+    display: flex; flex-direction: column; z-index: 10;
+  }
+  .chat-list {
+    flex: 1; overflow: hidden; padding: 10px 12px 6px;
+    display: flex; flex-direction: column; justify-content: flex-end; gap: 4px;
+    mask-image: linear-gradient(to bottom, transparent, #000 18%);
+  }
+  .chat-line { font-size: 13px; line-height: 1.3; word-break: break-word; animation: chatIn .18s ease-out; }
+  @keyframes chatIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .chat-user { font-weight: 700; margin-right: 6px; }
+  .chat-input-row { display: flex; gap: 8px; padding: 8px 12px max(10px, env(safe-area-inset-bottom)); }
+  .chat-input {
+    flex: 1; border: 1px solid var(--line); background: rgba(255,255,255,.06);
+    color: #fff; border-radius: 999px; padding: 10px 14px; font-size: 14px; outline: none;
+  }
+  .chat-send {
+    border: none; border-radius: 999px; padding: 0 16px;
+    background: var(--pink); color: #fff; font-weight: 700; cursor: pointer;
+  }
+  .mic-status {
+    position: absolute; top: -28px; left: 12px; font-size: 11px; color: var(--muted);
+    background: rgba(0,0,0,.5); padding: 3px 8px; border-radius: 6px;
+  }
+  .mic-status.on { color: var(--green); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(function () {
+  const OWNER_EMAIL = 'kobik8512@gmail.com';
+  const firebaseConfig = {
+    apiKey: 'AIzaSyA_dIpy_Nu9F_gTIJ_P6w4yysCgabusLFw',
+    authDomain: 'timer-imposter.firebaseapp.com',
+    projectId: 'timer-imposter',
+    storageBucket: 'timer-imposter.firebasestorage.app',
+    messagingSenderId: '173473961509',
+    appId: '1:173473961509:web:03040fa242a3e6006f51cc'
+  };
+
+  const NAMES = [
+    'nova_x','kaiplayz','shadowfox','luna99','pixeljay','momo_ttv','dreww','skye_','rileyqt',
+    'jaxn','emberly','frostbyte','vibeonly','chillax','prodigy7','nightowl','sunnyyy','blobfish',
+    'mapleleaf','orbitkid','zenmode','hexagon','coralreef','neonbat','quietstorm','loudpack'
+  ];
+  const COLORS = ['#ff6b9d','#5b9dff','#3dff9a','#ffc14a','#c084fc','#67e8f9','#fb7185','#a3e635','#f472b6','#38bdf8'];
+  const CHAT_POOL = [
+    'yo','hey','hi','hello','first','early','lets go','LFG','W','WW','WWW','W stream',
+    'hi chat','whats good','im here','joined late','quality is good','cam looks clean',
+    'this is fire','mid','respect','bruh','lol','lmao','spam W','W in chat','based','real',
+    'follow','dont end','love from eu','na gang','fit check','chat moving','fyp brought me',
+    'clip that','gg','❤️','🔥','😂','😭','💀','👏','🙌','👀','✨','💯','🚀','👑'
+  ];
+  const SPAM_PACKS = {
+    w: ['W','W','W','WW','WWW','W stream','W chat','big W'],
+    l: ['L','L','LL','L stream'],
+    f: ['F','F','F in chat','press F'],
+    fire: ['🔥','🔥🔥','fire','this is fire'],
+    heart: ['❤️','❤️','💕','love'],
+    lol: ['lol','lmao','😂','😭','💀'],
+    hi: ['hi','hey','hello','yo','hihi'],
+    pog: ['POG','lets go','LFG','GOATED']
+  };
+  const VOICE_TRIGGERS = [
+    { re: /\b(chat|say w|spam w|type w|w in chat)\b/i, pack: 'w', intensity: 0.72 },
+    { re: /\b(say l|spam l|l in chat)\b/i, pack: 'l', intensity: 0.55 },
+    { re: /\b(f in chat|press f|say f)\b/i, pack: 'f', intensity: 0.6 },
+    { re: /\b(fire|this is fire|heat)\b/i, pack: 'fire', intensity: 0.5 },
+    { re: /\b(i love you|love you|hearts|send hearts)\b/i, pack: 'heart', intensity: 0.65 },
+    { re: /\b(laugh|funny|joke|lol)\b/i, pack: 'lol', intensity: 0.45 },
+    { re: /\b(say hi|hello chat|hi chat|wave)\b/i, pack: 'hi', intensity: 0.7 },
+    { re: /\b(lets go|let's go|pog|hype)\b/i, pack: 'pog', intensity: 0.55 }
+  ];
+
+  let fbApp = null, fbAuth = null, fbDb = null, fbReady = false;
+
+  const state = {
+    screen: 'home',
+    user: null,
+    error: null,
+    lives: [],
+    showNameModal: false,
+    streamTitle: '',
+    liveId: null,
+    isHost: false,
+    isOwnerStream: false,
+    hostName: '',
+    title: '',
+    viewers: 0,
+    realViewers: 0,
+    botViewers: 0,
+    stream: null,
+    demo: false,
+    chatBurstUntil: 0
+  };
+
+  let livesUnsub = null, liveUnsub = null, chatUnsub = null, presenceUnsub = null;
+  let chatTimer = null, viewerTimer = null, recognition = null;
+  const chatLines = [];
+
+  function isOwnerEmail(email) { return (email || '').toLowerCase() === OWNER_EMAIL; }
+  function randName() {
+    if (Math.random() < 0.55) return NAMES[Math.floor(Math.random() * NAMES.length)];
+    return 'user' + Math.floor(100 + Math.random() * 8900);
+  }
+  function randColor() { return COLORS[Math.floor(Math.random() * COLORS.length)]; }
+  function randChat() { return CHAT_POOL[Math.floor(Math.random() * CHAT_POOL.length)]; }
+  function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function formatViewers(n) {
+    n = Math.max(0, Math.floor(n));
+    if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return String(n);
+  }
+
+  try {
+    fbApp = firebase.initializeApp(firebaseConfig);
+    fbAuth = firebase.auth();
+    fbDb = firebase.firestore();
+    fbReady = true;
+    fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    fbAuth.onAuthStateChanged(u => {
+      if (u) {
+        state.user = {
+          uid: u.uid,
+          name: u.displayName || 'Player',
+          email: (u.email || '').toLowerCase(),
+          photoURL: u.photoURL || '',
+          isOwner: isOwnerEmail(u.email)
+        };
+      } else state.user = null;
+      if (state.screen === 'home') { subscribeLives(); render(); }
+    });
+  } catch (e) { state.error = 'Firebase init failed'; }
+
+  function signIn() {
+    if (!fbReady) return;
+    const provider = new firebase.auth.GoogleAuthProvider();
+    fbAuth.signInWithPopup(provider).catch(() => {
+      fbAuth.signInWithRedirect(provider).catch(e2 => {
+        state.error = e2.message || 'Sign in failed';
+        render();
+      });
+    });
+  }
+  function signOut() { if (fbAuth) fbAuth.signOut(); }
+
+  function subscribeLives() {
+    if (!fbReady) return;
+    if (livesUnsub) livesUnsub();
+    livesUnsub = fbDb.collection('lives').where('status', '==', 'live')
+      .onSnapshot(snap => {
+        const list = [];
+        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+        list.sort((a, b) => {
+          const ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+          const tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+          return tb - ta;
+        });
+        state.lives = list;
+        if (state.screen === 'home') render();
+      }, err => console.warn('lives', err));
+  }
+
+  function openNameModal() {
+    if (!state.user) { signIn(); return; }
+    state.showNameModal = true;
+    state.streamTitle = state.user.name + "'s Live";
+    state.error = null;
+    render();
+  }
+
+  async function confirmGoLive() {
+    if (!fbReady || !state.user) return;
+    const title = (state.streamTitle || '').trim() || (state.user.name + "'s Live");
+    state.showNameModal = false;
+    try {
+      const prev = await fbDb.collection('lives').where('hostUid', '==', state.user.uid).where('status', '==', 'live').get();
+      const batch = fbDb.batch();
+      prev.forEach(d => batch.update(d.ref, { status: 'ended', endedAt: firebase.firestore.FieldValue.serverTimestamp() }));
+      if (!prev.empty) await batch.commit();
+    } catch (e) {}
+
+    const ref = fbDb.collection('lives').doc();
+    const isOwnerStream = !!state.user.isOwner;
+    await ref.set({
+      hostUid: state.user.uid,
+      hostName: state.user.name,
+      hostEmail: state.user.email || '',
+      title: title,
+      status: 'live',
+      isOwnerStream: isOwnerStream,
+      viewerCount: 0,
+      realViewerCount: 0,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    state.liveId = ref.id;
+    state.isHost = true;
+    state.isOwnerStream = isOwnerStream;
+    state.hostName = state.user.name;
+    state.title = title;
+    state.viewers = 0;
+    state.realViewers = 0;
+    state.botViewers = 0;
+    state.screen = 'live';
+    chatLines.length = 0;
+
+    const camOk = await startCamera();
+    state.demo = !camOk;
+    render();
+    attachCam();
+    subscribeToLive(ref.id);
+    subscribeChat(ref.id);
+    await joinPresence(ref.id);
+    startViewerGrowth();
+    if (isOwnerStream) startBotChatEngine();
+    startListening();
+  }
+
+  async function joinLive(liveId) {
+    if (!fbReady || !state.user) { signIn(); return; }
+    if (state.liveId === liveId) return;
+    await leaveCurrentLive(false);
+
+    const doc = await fbDb.collection('lives').doc(liveId).get();
+    if (!doc.exists || doc.data().status !== 'live') {
+      state.error = 'That live ended.';
+      render();
+      return;
+    }
+    const data = doc.data();
+    state.liveId = liveId;
+    state.isHost = data.hostUid === state.user.uid;
+    state.isOwnerStream = !!data.isOwnerStream;
+    state.hostName = data.hostName || 'Host';
+    state.title = data.title || 'Live';
+    state.viewers = data.viewerCount || 0;
+    state.realViewers = data.realViewerCount || 0;
+    state.botViewers = 0;
+    state.screen = state.isHost ? 'live' : 'watch';
+    state.demo = true;
+    chatLines.length = 0;
+    render();
+    subscribeToLive(liveId);
+    subscribeChat(liveId);
+    await joinPresence(liveId);
+    if (state.isHost && state.isOwnerStream) {
+      startViewerGrowth();
+      startBotChatEngine();
+      const camOk = await startCamera();
+      state.demo = !camOk;
+      render();
+      attachCam();
+      startListening();
+    }
+  }
+
+  async function leaveCurrentLive(goHome) {
+    stopListening();
+    stopBotChatEngine();
+    stopViewerGrowth();
+    stopCamera();
+    if (liveUnsub) { liveUnsub(); liveUnsub = null; }
+    if (chatUnsub) { chatUnsub(); chatUnsub = null; }
+    if (presenceUnsub) { presenceUnsub(); presenceUnsub = null; }
+
+    if (fbReady && state.liveId && state.user) {
+      try {
+        await fbDb.collection('lives').doc(state.liveId).collection('viewers').doc(state.user.uid).delete();
+      } catch (e) {}
+      if (state.isHost) {
+        try {
+          await fbDb.collection('lives').doc(state.liveId).update({
+            status: 'ended',
+            endedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        } catch (e) {}
+      }
+    }
+    state.liveId = null;
+    state.isHost = false;
+    state.isOwnerStream = false;
+    state.viewers = 0;
+    state.botViewers = 0;
+    state.realViewers = 0;
+    chatLines.length = 0;
+    if (goHome !== false) {
+      state.screen = 'home';
+      render();
+    }
+  }
+
+  function subscribeToLive(liveId) {
+    if (liveUnsub) liveUnsub();
+    liveUnsub = fbDb.collection('lives').doc(liveId).onSnapshot(doc => {
+      if (!doc.exists) return;
+      const d = doc.data();
+      if (d.status !== 'live' && !state.isHost) {
+        state.error = 'Live ended.';
+        leaveCurrentLive(true);
+        return;
+      }
+      state.title = d.title || state.title;
+      state.hostName = d.hostName || state.hostName;
+      state.isOwnerStream = !!d.isOwnerStream;
+      if (!state.isOwnerStream || !state.isHost) {
+        state.viewers = d.viewerCount || 0;
+        state.realViewers = d.realViewerCount || 0;
+        updateViewerLabel();
+      }
+    });
+  }
+
+  async function joinPresence(liveId) {
+    if (!state.user) return;
+    const vRef = fbDb.collection('lives').doc(liveId).collection('viewers').doc(state.user.uid);
+    await vRef.set({
+      name: state.user.name,
+      joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    if (presenceUnsub) presenceUnsub();
+    presenceUnsub = fbDb.collection('lives').doc(liveId).collection('viewers')
+      .onSnapshot(async snap => {
+        state.realViewers = snap.size;
+        if (state.isOwnerStream && state.isHost) {
+          state.viewers = state.realViewers + state.botViewers;
+        } else {
+          state.viewers = snap.size;
+        }
+        updateViewerLabel();
+        if (state.isHost) {
+          try {
+            await fbDb.collection('lives').doc(liveId).update({
+              realViewerCount: snap.size,
+              viewerCount: state.isOwnerStream ? (snap.size + state.botViewers) : snap.size
+            });
+          } catch (e) {}
+        }
+      });
+  }
+
+  function startViewerGrowth() {
+    stopViewerGrowth();
+    if (!(state.isHost && state.isOwnerStream)) {
+      state.botViewers = 0;
+      state.viewers = state.realViewers;
+      updateViewerLabel();
+      return;
+    }
+    state.botViewers = 0;
+    state.viewers = state.realViewers;
+    updateViewerLabel();
+
+    viewerTimer = setInterval(() => {
+      if (!(state.isHost && state.isOwnerStream) || state.screen === 'home') return;
+      const v = state.botViewers;
+      let add = 0;
+      if (v < 20) add = Math.random() < 0.45 ? 1 : 0;
+      else if (v < 80) add = Math.random() < 0.55 ? (1 + Math.floor(Math.random() * 2)) : 0;
+      else if (v < 300) add = 1 + Math.floor(Math.random() * 4);
+      else if (v < 1200) add = 3 + Math.floor(Math.random() * 10);
+      else if (v < 5000) add = 10 + Math.floor(Math.random() * 35);
+      else if (v < 15000) add = 25 + Math.floor(Math.random() * 80);
+      else add = 40 + Math.floor(Math.random() * 150);
+      if (v > 100 && Math.random() < 0.12) add = -Math.floor(1 + Math.random() * Math.min(20, v * 0.02));
+
+      state.botViewers = Math.max(0, state.botViewers + add);
+      state.viewers = state.realViewers + state.botViewers;
+      updateViewerLabel();
+      if (state.liveId && Math.random() < 0.35) {
+        fbDb.collection('lives').doc(state.liveId).update({
+          viewerCount: state.viewers,
+          realViewerCount: state.realViewers
+        }).catch(() => {});
+      }
+    }, 1600);
+  }
+  function stopViewerGrowth() {
+    if (viewerTimer) { clearInterval(viewerTimer); viewerTimer = null; }
+  }
+  function updateViewerLabel() {
+    const el = document.getElementById('viewerCount');
+    if (el) el.textContent = formatViewers(state.viewers);
+  }
+
+  function subscribeChat(liveId) {
+    if (chatUnsub) chatUnsub();
+    chatUnsub = fbDb.collection('lives').doc(liveId).collection('messages')
+      .orderBy('createdAt', 'desc').limit(50)
+      .onSnapshot(snap => {
+        const rows = [];
+        snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+        rows.reverse();
+        const remoteIds = new Set(rows.map(r => r.id));
+        const locals = chatLines.filter(c => c.local && !remoteIds.has(c.id));
+        chatLines.length = 0;
+        rows.forEach(r => chatLines.push({
+          id: r.id, user: r.name || 'user', color: r.color || randColor(), text: r.text || '', local: false
+        }));
+        locals.slice(-15).forEach(l => chatLines.push(l));
+        while (chatLines.length > 80) chatLines.shift();
+        paintChat();
+      }, err => console.warn('chat', err));
+  }
+
+  function pushLocalChat(user, text, color) {
+    chatLines.push({
+      id: 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      user, color: color || randColor(), text, local: true
+    });
+    while (chatLines.length > 80) chatLines.shift();
+    paintChat();
+  }
+  function paintChat() {
+    const list = document.getElementById('chatList');
+    if (!list) return;
+    const slice = chatLines.slice(-40);
+    list.innerHTML = slice.map(c =>
+      `<div class="chat-line"><span class="chat-user" style="color:${c.color}">${escapeHtml(c.user)}</span><span class="chat-text">${escapeHtml(c.text)}</span></div>`
+    ).join('');
+    list.scrollTop = list.scrollHeight;
+  }
+
+  async function sendUserChat() {
+    const input = document.getElementById('chatInput');
+    if (!input || !state.user || !state.liveId) return;
+    const text = (input.value || '').trim();
+    if (!text) return;
+    input.value = '';
+    pushLocalChat(state.user.name, text, '#fff');
+    try {
+      await fbDb.collection('lives').doc(state.liveId).collection('messages').add({
+        uid: state.user.uid,
+        name: state.user.name,
+        text: text,
+        color: '#ffffff',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (e) {}
+  }
+
+  function startBotChatEngine() {
+    stopBotChatEngine();
+    if (!(state.isHost && state.isOwnerStream)) return;
+    chatTimer = setInterval(() => {
+      if (!(state.isHost && state.isOwnerStream)) return;
+      const v = state.botViewers;
+      let n = 0;
+      if (v < 5) n = Math.random() < 0.25 ? 1 : 0;
+      else if (v < 30) n = Math.random() < 0.5 ? 1 : 0;
+      else if (v < 150) n = 1 + (Math.random() < 0.4 ? 1 : 0);
+      else if (v < 800) n = 2 + Math.floor(Math.random() * 2);
+      else if (v < 4000) n = 3 + Math.floor(Math.random() * 3);
+      else n = 5 + Math.floor(Math.random() * 6);
+      if (Date.now() < state.chatBurstUntil) n += 4 + Math.floor(Math.random() * 8);
+      for (let i = 0; i < n; i++) {
+        setTimeout(() => {
+          if (!(state.isHost && state.isOwnerStream)) return;
+          pushLocalChat(randName(), randChat(), randColor());
+        }, Math.random() * 300);
+      }
+    }, 220);
+  }
+  function stopBotChatEngine() {
+    if (chatTimer) { clearInterval(chatTimer); chatTimer = null; }
+  }
+
+  function spawnFloat(emoji) {
+    const root = document.getElementById('floats');
+    if (!root) return;
+    const el = document.createElement('div');
+    el.className = 'float-emoji';
+    el.textContent = emoji;
+    el.style.setProperty('--dx', (Math.random() * 40 - 20) + 'px');
+    root.appendChild(el);
+    setTimeout(() => el.remove(), 2300);
+  }
+  function spamReaction(packKey, intensity) {
+    if (!(state.isHost && state.isOwnerStream)) return;
+    const pack = SPAM_PACKS[packKey] || SPAM_PACKS.w;
+    const count = Math.floor(18 + intensity * 55);
+    state.chatBurstUntil = Date.now() + 1400;
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => {
+        const msg = pack[Math.floor(Math.random() * pack.length)];
+        pushLocalChat(randName(), msg, randColor());
+        if (/[🔥❤️💕😂😭💀👏]/.test(msg) || Math.random() < 0.2) {
+          spawnFloat(msg.match(/[🔥❤️💕😂😭💀👏🙌👀✨💯🚀👑]/)?.[0] || '❤️');
+        }
+      }, Math.random() * 1100);
+    }
+    state.botViewers += Math.floor(30 + intensity * 200);
+    state.viewers = state.realViewers + state.botViewers;
+    updateViewerLabel();
+  }
+
+  function startListening() {
+    if (!(state.isHost && state.isOwnerStream)) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const mic = document.getElementById('micStatus');
+    if (!SR) { if (mic) mic.textContent = 'Mic: not supported'; return; }
+    try {
+      if (recognition) { try { recognition.stop(); } catch (e) {} }
+      recognition = new SR();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      recognition.onstart = () => { if (mic) { mic.textContent = 'Mic: listening…'; mic.className = 'mic-status on'; } };
+      recognition.onend = () => {
+        if (state.screen === 'live' && state.isHost) {
+          setTimeout(() => { try { recognition.start(); } catch (e) {} }, 400);
+        }
+      };
+      recognition.onresult = (ev) => {
+        let finalText = '';
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript;
+        }
+        if (finalText) handleVoice(finalText.trim());
+      };
+      recognition.start();
+    } catch (e) { if (mic) mic.textContent = 'Mic: blocked'; }
+  }
+  function stopListening() {
+    if (recognition) {
+      try { recognition.onend = null; recognition.stop(); } catch (e) {}
+      recognition = null;
+    }
+  }
+  let lastTriggerAt = 0;
+  function handleVoice(text) {
+    const now = Date.now();
+    if (now - lastTriggerAt < 1800) return;
+    for (const tr of VOICE_TRIGGERS) {
+      if (tr.re.test(text)) {
+        lastTriggerAt = now;
+        spamReaction(tr.pack, tr.intensity);
+        return;
+      }
+    }
+  }
+
+  async function startCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
+    try {
+      try {
+        state.stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+      } catch (e) {
+        state.stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+      return true;
+    } catch (e) { return false; }
+  }
+  function stopCamera() {
+    if (state.stream) {
+      state.stream.getTracks().forEach(t => t.stop());
+      state.stream = null;
+    }
+  }
+  function attachCam() {
+    const video = document.getElementById('cam');
+    if (video && state.stream) {
+      video.srcObject = state.stream;
+      video.play().catch(() => {});
+    }
+  }
+
+  function render() {
+    const app = document.getElementById('app');
+    if (state.screen === 'home') {
+      const lives = state.lives || [];
+      const listHtml = lives.length === 0
+        ? `<div class="empty">No one is live right now.<br/>Be the first — hit Go Live.</div>`
+        : lives.map(l => {
+            const vc = formatViewers(l.viewerCount || 0);
+            const mine = state.user && l.hostUid === state.user.uid;
+            return `<div class="live-card">
+              <div class="live-card-info">
+                <div class="live-card-title">${escapeHtml(l.title || 'Live')}</div>
+                <div class="live-card-meta"><span class="live-dot-sm"></span>${escapeHtml(l.hostName || 'Host')} · 👁 ${vc}${mine ? ' · you' : ''}</div>
+              </div>
+              <button class="join-btn" data-id="${l.id}">${mine ? 'Open' : 'Join'}</button>
+            </div>`;
+          }).join('');
+
+      app.innerHTML = `
+        <div class="home">
+          <div class="home-head">
+            <div class="logo">Broadcast</div>
+            <div class="home-title">GO <span>LIVE</span></div>
+            <div class="user-row">${
+              state.user
+                ? `Signed in as <strong>${escapeHtml(state.user.isOwner ? '[Owner] ' : '')}${escapeHtml(state.user.name)}</strong>`
+                : 'Sign in to go live or join'
+            }</div>
+          </div>
+          <div class="lives-label">Live now</div>
+          <div class="lives-list">${listHtml}</div>
+          ${state.error ? `<p class="err">${escapeHtml(state.error)}</p>` : ''}
+          <div class="bottom-bar">
+            <button class="go-live" id="goLiveBtn">${state.user ? '● Go Live' : 'Sign in to Go Live'}</button>
+            ${state.user
+              ? `<button class="ghost-btn" id="signOutBtn">Sign out</button>`
+              : `<button class="ghost-btn" id="signInBtn">Sign in with Google</button>`}
+          </div>
+        </div>
+        ${state.showNameModal ? `
+          <div class="modal-overlay" id="modalBg">
+            <div class="modal-card" onclick="event.stopPropagation()">
+              <h2>Name your live</h2>
+              <p>This title shows up on the lives list for everyone.</p>
+              <input class="input" id="titleInput" maxlength="48" value="${escapeHtml(state.streamTitle)}" placeholder="My Live" />
+              <button class="go-live" id="confirmLive">Start Live</button>
+              <button class="ghost-btn" id="cancelLive" style="margin-top:8px;">Cancel</button>
+            </div>
+          </div>` : ''}`;
+
+      document.getElementById('goLiveBtn').onclick = () => {
+        if (!state.user) signIn();
+        else openNameModal();
+      };
+      const so = document.getElementById('signOutBtn');
+      if (so) so.onclick = signOut;
+      const si = document.getElementById('signInBtn');
+      if (si) si.onclick = signIn;
+      document.querySelectorAll('.join-btn').forEach(btn => {
+        btn.onclick = () => joinLive(btn.getAttribute('data-id'));
+      });
+      if (state.showNameModal) {
+        document.getElementById('modalBg').onclick = () => { state.showNameModal = false; render(); };
+        document.getElementById('cancelLive').onclick = () => { state.showNameModal = false; render(); };
+        document.getElementById('confirmLive').onclick = () => {
+          state.streamTitle = document.getElementById('titleInput').value;
+          confirmGoLive();
+        };
+      }
+      return;
+    }
+
+    const isWatch = state.screen === 'watch';
+    app.innerHTML = `
+      <div class="stage">
+        <div class="video-wrap">
+          <video id="cam" playsinline autoplay muted></video>
+          ${(state.demo || isWatch) ? `<div class="cam-fallback">${
+            isWatch
+              ? `<strong>${escapeHtml(state.hostName)}</strong> is live<br/><span style="opacity:.7">Video to viewers comes later — chat works now</span>`
+              : `No camera — demo mode<br/><span style="opacity:.7">Chat & viewers still work</span>`
+          }</div>` : ''}
+          <div class="topbar">
+            <div class="live-pill">
+              <div class="live-dot"></div>
+              <div class="live-label">LIVE</div>
+              <div class="stream-title">${escapeHtml(state.title)}</div>
+              <div class="viewers">👁 <span id="viewerCount">${formatViewers(state.viewers)}</span></div>
+            </div>
+            <button class="end-btn" id="endBtn">×</button>
+          </div>
+          <div class="floats" id="floats"></div>
+        </div>
+        <div class="chat-wrap">
+          ${state.isHost && state.isOwnerStream ? `<div class="mic-status" id="micStatus">Mic: starting…</div>` : ''}
+          <div class="chat-list" id="chatList"></div>
+          <div class="chat-input-row">
+            <input class="chat-input" id="chatInput" placeholder="Say something…" maxlength="120" />
+            <button class="chat-send" id="chatSend">Send</button>
+          </div>
+        </div>
+      </div>`;
+
+    document.getElementById('endBtn').onclick = () => leaveCurrentLive(true);
+    document.getElementById('chatSend').onclick = sendUserChat;
+    document.getElementById('chatInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') sendUserChat();
+    });
+    attachCam();
+    paintChat();
+    updateViewerLabel();
+  }
+
+  if (fbReady) subscribeLives();
+  render();
+})();
+</script>
+</body>
+</html>
