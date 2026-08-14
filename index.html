@@ -588,28 +588,49 @@
   async function joinPresence(liveId) {
     if (!state.user) return;
     const vRef = fbDb.collection('lives').doc(liveId).collection('viewers').doc(state.user.uid);
-    await vRef.set({
-      name: state.user.name,
-      joinedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    // Host must never appear as a watcher
+    if (state.isHost) {
+      try { await vRef.delete(); } catch (e) {}
+    } else {
+      await vRef.set({
+        name: state.user.name,
+        joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
     if (presenceUnsub) presenceUnsub();
     presenceUnsub = fbDb.collection('lives').doc(liveId).collection('viewers')
       .onSnapshot(async snap => {
-        state.realViewers = snap.size;
+        let real = 0;
+        snap.forEach(doc => {
+          // Never count the host uid
+          if (doc.id === (state.user && state.user.uid) && state.isHost) return;
+          // Also skip if this doc is the live host
+          real++;
+        });
+        // Host-side: exclude own uid if leftover
+        if (state.isHost) {
+          real = 0;
+          snap.forEach(doc => {
+            if (doc.id !== state.user.uid) real++;
+          });
+        } else {
+          real = snap.size;
+        }
+
+        state.realViewers = real;
         if (state.isOwnerStream && state.isHost) {
           state.viewers = state.realViewers + state.botViewers;
         } else {
-          state.viewers = snap.size;
+          state.viewers = real;
         }
         updateViewerLabel();
         if (state.isHost) {
           try {
             await fbDb.collection('lives').doc(liveId).update({
-              realViewerCount: snap.size,
-              viewerCount: state.isOwnerStream ? (snap.size + state.botViewers) : snap.size
+              realViewerCount: real,
+              viewerCount: state.isOwnerStream ? (real + state.botViewers) : real
             });
           } catch (e) {}
-          // Host: open WebRTC to each real viewer (not self)
           snap.forEach(doc => {
             if (doc.id !== state.user.uid) ensureHostPeer(doc.id);
           });
@@ -712,13 +733,28 @@
         const video = document.getElementById('cam');
         const fallback = document.querySelector('.cam-fallback');
         if (video) {
-          video.srcObject = ev.streams[0];
+          const stream = ev.streams[0] || new MediaStream([ev.track]);
+          video.srcObject = stream;
+          video.setAttribute('playsinline', '');
           video.muted = false;
+          video.volume = 1;
           video.style.transform = 'none';
-          video.play().catch(() => {});
+          const play = () => video.play().catch(() => {});
+          play();
+          window._unlockLiveSound = () => {
+            video.muted = false;
+            video.volume = 1;
+            play();
+            const hint = document.getElementById('soundHint');
+            if (hint) hint.style.display = 'none';
+          };
+          document.body.addEventListener('touchstart', window._unlockLiveSound, { once: true });
+          document.body.addEventListener('click', window._unlockLiveSound, { once: true });
         }
         if (fallback) fallback.style.display = 'none';
         state.demo = false;
+        const hint = document.getElementById('soundHint');
+        if (hint) hint.style.display = 'block';
       };
 
       signalUnsub = signalsRef(liveId, state.user.uid).onSnapshot(async doc => {
@@ -764,15 +800,25 @@
       return;
     }
     state.botViewers = 0;
-    state.viewers = state.realViewers;
+    state.viewers = state.realViewers; // starts at 0 if alone
     updateViewerLabel();
+    // Push 0 to list so others see 0 watching
+    if (state.liveId) {
+      fbDb.collection('lives').doc(state.liveId).update({
+        viewerCount: state.viewers,
+        realViewerCount: state.realViewers
+      }).catch(() => {});
+    }
 
     viewerTimer = setInterval(() => {
       if (!(state.isHost && state.isOwnerStream) || state.screen === 'home') return;
       const v = state.botViewers;
       let add = 0;
-      if (v < 20) add = Math.random() < 0.45 ? 1 : 0;
-      else if (v < 80) add = Math.random() < 0.55 ? (1 + Math.floor(Math.random() * 2)) : 0;
+      // Very slow ramp from 0 so chat stays quiet at the start
+      if (v < 3) add = Math.random() < 0.35 ? 1 : 0;
+      else if (v < 10) add = Math.random() < 0.4 ? 1 : 0;
+      else if (v < 25) add = Math.random() < 0.5 ? (1 + Math.floor(Math.random() * 2)) : 0;
+      else if (v < 80) add = 1 + Math.floor(Math.random() * 2);
       else if (v < 300) add = 1 + Math.floor(Math.random() * 4);
       else if (v < 1200) add = 3 + Math.floor(Math.random() * 10);
       else if (v < 5000) add = 10 + Math.floor(Math.random() * 35);
@@ -877,18 +923,19 @@
   }
 
   function burstGreetings() {
-    // Light wave of hi / hello kobi — not a spam bomb
-    const total = 8 + Math.floor(Math.random() * 6);
-    for (let i = 0; i < total; i++) {
-      setTimeout(() => {
-        if (!(state.isHost && state.isOwnerStream)) return;
-        const useGreet = Math.random() < 0.8;
-        const text = useGreet
-          ? GREET_POOL[Math.floor(Math.random() * GREET_POOL.length)]
-          : randChat();
-        pushLocalChat(randName(), text, randColor(), { bot: true });
-      }, 300 + i * (350 + Math.random() * 400));
-    }
+    // Only after first viewer growth tick has some people — wait a bit
+    setTimeout(() => {
+      if (!(state.isHost && state.isOwnerStream)) return;
+      if ((state.botViewers + state.realViewers) < 1) return;
+      const total = 3 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < total; i++) {
+        setTimeout(() => {
+          if (!(state.isHost && state.isOwnerStream)) return;
+          if ((state.botViewers + state.realViewers) < 1) return;
+          pushLocalChat(randName(), GREET_POOL[Math.floor(Math.random() * GREET_POOL.length)], randColor(), { bot: true });
+        }, i * (500 + Math.random() * 500));
+      }
+    }, 2500);
   }
 
   async function sendUserChat() {
@@ -912,26 +959,40 @@
   function startBotChatEngine() {
     stopBotChatEngine();
     if (!(state.isHost && state.isOwnerStream)) return;
-    // Slow base tick — chat scales with viewers, not crazy at 10 people
+    // Scales with displayed viewers:
+    // 0 → silence | 1 → one slow typer | 2 → a bit more | 10 → faster | high → busy
     chatTimer = setInterval(() => {
       if (!(state.isHost && state.isOwnerStream)) return;
-      const v = state.botViewers + state.realViewers;
+      const v = Math.floor(state.viewers || (state.botViewers + state.realViewers));
+      if (v <= 0) return;
+
       let n = 0;
-      if (v < 12) n = Math.random() < 0.4 ? 1 : 0;           // ~1 msg / 3s
-      else if (v < 40) n = Math.random() < 0.55 ? 1 : 0;       // ~1 / 2s
-      else if (v < 120) n = Math.random() < 0.7 ? 1 : 0;
-      else if (v < 400) n = 1 + (Math.random() < 0.35 ? 1 : 0);
-      else if (v < 1500) n = 1 + Math.floor(Math.random() * 2);
-      else if (v < 6000) n = 2 + Math.floor(Math.random() * 2);
-      else n = 3 + Math.floor(Math.random() * 3);
-      if (Date.now() < state.chatBurstUntil) n += 2 + Math.floor(Math.random() * 4);
+      if (v === 1) n = Math.random() < 0.28 ? 1 : 0;       // ~1 msg / 6–7s
+      else if (v === 2) n = Math.random() < 0.4 ? 1 : 0;  // ~1 / 4–5s
+      else if (v <= 4) n = Math.random() < 0.5 ? 1 : 0;
+      else if (v <= 8) n = Math.random() < 0.65 ? 1 : 0;
+      else if (v <= 15) n = Math.random() < 0.8 ? 1 : 0;
+      else if (v <= 40) n = 1 + (Math.random() < 0.35 ? 1 : 0);
+      else if (v <= 100) n = 1 + Math.floor(Math.random() * 2);
+      else if (v <= 500) n = 2 + Math.floor(Math.random() * 2);
+      else if (v <= 2000) n = 2 + Math.floor(Math.random() * 3);
+      else n = 3 + Math.floor(Math.random() * 4);
+
+      if (Date.now() < state.chatBurstUntil) n += 1 + Math.floor(Math.random() * 2);
+
       for (let i = 0; i < n; i++) {
         setTimeout(() => {
           if (!(state.isHost && state.isOwnerStream)) return;
-          pushLocalChat(randName(), randChat(), randColor(), { bot: true });
-        }, Math.random() * 400);
+          if ((state.viewers || 0) <= 0) return;
+          // Low viewers: more hi/hello energy
+          const early = (state.viewers || 0) < 12 && Math.random() < 0.5;
+          const text = early
+            ? GREET_POOL[Math.floor(Math.random() * GREET_POOL.length)]
+            : randChat();
+          pushLocalChat(randName(), text, randColor(), { bot: true });
+        }, Math.random() * 500);
       }
-    }, 1200);
+    }, 1800);
   }
   function stopBotChatEngine() {
     if (chatTimer) { clearInterval(chatTimer); chatTimer = null; }
@@ -1020,15 +1081,26 @@
       stopCamera();
       // Host captures mic too so mute works + future viewers can hear
       const wantAudio = !!state.isHost;
+      const audioOpts = wantAudio ? {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      } : false;
       try {
         state.stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: mode }, width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: wantAudio
+          audio: audioOpts
         });
       } catch (e) {
         state.stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: mode },
-          audio: wantAudio
+          audio: audioOpts
+        });
+      }
+      // Ensure mic track is live (not muted by OS)
+      if (state.stream) {
+        state.stream.getAudioTracks().forEach(t => {
+          t.enabled = !state.muted;
         });
       }
       applyMuteState();
@@ -1049,7 +1121,19 @@
   }
   function applyMuteState() {
     if (!state.stream) return;
-    state.stream.getAudioTracks().forEach(t => { t.enabled = !state.muted; });
+    state.stream.getAudioTracks().forEach(t => {
+      t.enabled = !state.muted;
+    });
+    // Keep WebRTC senders in sync
+    Object.values(pcs).forEach(pc => {
+      try {
+        pc.getSenders().forEach(sender => {
+          if (sender.track && sender.track.kind === 'audio') {
+            sender.track.enabled = !state.muted;
+          }
+        });
+      } catch (e) {}
+    });
   }
   function toggleMute() {
     state.muted = !state.muted;
@@ -1061,7 +1145,7 @@
     const video = document.getElementById('cam');
     if (video && state.stream) {
       video.srcObject = state.stream;
-      video.muted = true; // avoid echo on host
+      video.muted = true; // host preview: no echo
       video.style.transform = state.facingMode === 'user' ? 'scaleX(-1)' : 'none';
       video.play().catch(() => {});
     }
@@ -1155,9 +1239,10 @@
           <video id="cam" playsinline autoplay muted></video>
           ${(state.demo || isWatch) ? `<div class="cam-fallback">${
             isWatch
-              ? `<div><strong>${escapeHtml(state.hostName)}</strong> is live</div><div style="opacity:.7;margin-top:8px;max-width:260px">Chat is live. Host video/audio to other phones needs a stream server (coming next).</div>`
+              ? `<div><strong>${escapeHtml(state.hostName)}</strong> is live</div><div style="opacity:.7;margin-top:8px;max-width:260px">Connecting video… Tap screen if you see picture but no sound.</div>`
               : `<div>No camera — demo mode</div><div style="opacity:.7;margin-top:8px">Chat & viewers still work</div>`
           }</div>` : ''}
+          <button id="soundHint" style="display:none;position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:25;border:none;border-radius:999px;padding:10px 16px;background:rgba(0,0,0,.7);color:#fff;font-weight:700;font-size:13px;">Tap for sound 🔊</button>
           <div class="topbar">
             <div class="live-pill">
               <div class="live-dot"></div>
@@ -1188,6 +1273,18 @@
     if (flip) flip.onclick = flipCamera;
     const mute = document.getElementById('muteBtn');
     if (mute) mute.onclick = toggleMute;
+    const soundHint = document.getElementById('soundHint');
+    if (soundHint) {
+      soundHint.onclick = () => {
+        const video = document.getElementById('cam');
+        if (video) {
+          video.muted = false;
+          video.volume = 1;
+          video.play().catch(() => {});
+        }
+        soundHint.style.display = 'none';
+      };
+    }
     document.getElementById('chatSend').onclick = sendUserChat;
     document.getElementById('chatInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') sendUserChat();
