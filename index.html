@@ -552,7 +552,7 @@
   let heartbeatTimer = null, injectedChatTimer = null, injectedLeaveTimer = null;
   const chatLines = [];
   let lastPaintedId = null;
-  const STALE_MS = 55000; // live without heartbeat this long = dead
+  const STALE_MS = 120000; // 2 min without heartbeat = hide from list
 
   function isOwnerEmail(email) { return (email || '').toLowerCase() === OWNER_EMAIL; }
   function randName() {
@@ -706,14 +706,17 @@
 
   function isLiveFresh(data) {
     if (!data || data.status !== 'live') return false;
+    const now = Date.now();
     const hb = typeof data.hb === 'number' ? data.hb : 0;
-    if (hb && (Date.now() - hb) < STALE_MS) return true;
-    // Brand new live may not have hb yet (first 20s grace)
+    const started = typeof data.startedAt === 'number' ? data.startedAt : 0;
     const created = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : 0;
-    if (created && (Date.now() - created) < 20000) return true;
-    // No heartbeat and older than grace → stale
-    if (!hb) return false;
-    return (Date.now() - hb) < STALE_MS;
+    // Any recent signal = still live
+    if (hb && (now - hb) < STALE_MS) return true;
+    if (started && (now - started) < STALE_MS) return true;
+    if (created && (now - created) < STALE_MS) return true;
+    // Very new doc with no timestamps yet — keep visible briefly
+    if (!hb && !started && !created) return true;
+    return false;
   }
 
   function subscribeLives() {
@@ -722,25 +725,15 @@
     livesUnsub = fbDb.collection('lives').where('status', '==', 'live')
       .onSnapshot(snap => {
         const list = [];
-        const now = Date.now();
         snap.forEach(doc => {
           const data = doc.data();
-          if (!isLiveFresh(data)) {
-            // Owner auto-cleans ghost lives
-            if (state.user && state.user.isOwner) {
-              fbDb.collection('lives').doc(doc.id).update({
-                status: 'ended',
-                endedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                endReason: 'stale'
-              }).catch(() => {});
-            }
-            return;
-          }
+          // Only HIDE stale lives — never auto-end from another phone (that killed live early)
+          if (!isLiveFresh(data)) return;
           list.push({ id: doc.id, ...data });
         });
         list.sort((a, b) => {
-          const ta = a.hb || (a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0);
-          const tb = b.hb || (b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0);
+          const ta = a.hb || a.startedAt || 0;
+          const tb = b.hb || b.startedAt || 0;
           return tb - ta;
         });
         state.lives = list;
@@ -753,10 +746,13 @@
     if (!state.isHost || !state.liveId) return;
     const beat = () => {
       if (!state.isHost || !state.liveId) return;
-      fbDb.collection('lives').doc(state.liveId).update({ hb: Date.now() }).catch(() => {});
+      fbDb.collection('lives').doc(state.liveId).update({
+        hb: Date.now(),
+        status: 'live'
+      }).catch(() => {});
     };
     beat();
-    heartbeatTimer = setInterval(beat, 12000);
+    heartbeatTimer = setInterval(beat, 5000);
   }
   function stopHeartbeat() {
     if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
@@ -808,6 +804,7 @@
         viewerCount: 0,
         realViewerCount: 0,
         hb: Date.now(),
+        startedAt: Date.now(),
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
 
@@ -1538,18 +1535,25 @@
   function startListening() {
     if (!(state.isHost && state.isOwnerStream)) return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const mic = document.getElementById('micStatus');
-    if (!SR) { if (mic) mic.textContent = 'Mic: not supported'; return; }
+    const setMic = (t, on) => {
+      const mic = document.getElementById('micStatus');
+      if (!mic) return;
+      mic.textContent = t;
+      mic.className = on ? 'mic-status on' : 'mic-status';
+    };
+    if (!SR) { setMic('Mic: tap to talk (unsupported)', false); return; }
     try {
-      if (recognition) { try { recognition.stop(); } catch (e) {} }
+      if (recognition) { try { recognition.onend = null; recognition.stop(); } catch (e) {} }
       recognition = new SR();
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
-      recognition.onstart = () => { if (mic) { mic.textContent = 'Mic: listening…'; mic.className = 'mic-status on'; } };
+      recognition.onstart = () => setMic('Mic: listening…', true);
+      recognition.onerror = () => setMic('Mic: off (tap page)', false);
       recognition.onend = () => {
+        setMic('Mic: paused', false);
         if (state.screen === 'live' && state.isHost) {
-          setTimeout(() => { try { recognition.start(); } catch (e) {} }, 400);
+          setTimeout(() => { try { recognition.start(); } catch (e) {} }, 600);
         }
       };
       recognition.onresult = (ev) => {
@@ -1560,7 +1564,12 @@
         if (finalText) handleVoice(finalText.trim());
       };
       recognition.start();
-    } catch (e) { if (mic) mic.textContent = 'Mic: blocked'; }
+      // Don't stick on "starting…" forever
+      setTimeout(() => {
+        const mic = document.getElementById('micStatus');
+        if (mic && /starting/i.test(mic.textContent || '')) setMic('Mic: ready', false);
+      }, 2500);
+    } catch (e) { setMic('Mic: blocked', false); }
   }
   function stopListening() {
     if (recognition) {
@@ -1793,7 +1802,14 @@
   }
 
   async function addBotToCurrentLive(silent) {
-    if (!state.user || !state.user.isOwner || !state.liveId) return;
+    if (!state.user || !state.user.isOwner) {
+      if (!silent) alert('Only owner can add bots');
+      return;
+    }
+    if (!state.liveId) {
+      if (!silent) alert('Join or start a live first');
+      return;
+    }
     const botId = 'bot_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     const botName = randName();
     const color = randColor();
@@ -1801,7 +1817,7 @@
       await fbDb.collection('lives').doc(state.liveId).collection('viewers').doc(botId).set({
         name: botName,
         isBot: true,
-        joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+        joinedAt: Date.now()
       });
       if (!silent) {
         await fbDb.collection('lives').doc(state.liveId).collection('messages').add({
@@ -1817,20 +1833,22 @@
       }
       state.injectedBots = state.injectedBots || [];
       state.injectedBots.push({ id: botId, name: botName, color: color });
-      // Start continuous engine if not already running
       if (!injectedChatTimer) startInjectedBotEngine();
 
+      // Always bump count for owner host stream
       if (state.isHost && state.isOwnerStream) {
         state.botViewers = (state.botViewers || 0) + 1;
         state.viewers = state.realViewers + state.botViewers;
         updateViewerLabel();
-        fbDb.collection('lives').doc(state.liveId).update({
-          viewerCount: state.viewers,
-          realViewerCount: state.realViewers
-        }).catch(() => {});
+        if (!chatTimer) startBotChatEngine();
       }
+      fbDb.collection('lives').doc(state.liveId).update({
+        viewerCount: firebase.firestore.FieldValue.increment(1),
+        hb: Date.now()
+      }).catch(() => {});
     } catch (e) {
       console.warn('add bot', e);
+      if (!silent) alert('Bot failed: ' + (e.message || e));
     }
   }
 
