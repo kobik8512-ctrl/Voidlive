@@ -214,7 +214,65 @@
     'hi chat','whats good','im here','joined late','quality is good','cam looks clean',
     'this is fire','mid','respect','bruh','lol','lmao','spam W','W in chat','based','real',
     'follow','dont end','love from eu','na gang','fit check','chat moving','fyp brought me',
-    'clip that','gg','❤️','🔥','😂','😭','💀','👏','🙌','👀','✨','💯','🚀','👑'
+    'clip that','gg','nice','cool','fire stream','good vibes','who else here','anyone playing',
+    'minecraft later?','lets play minecraft','minecraft survival','hardcore world','speedrun?',
+    'bedwars?','skywars','hypixel?','build battle','redstone king','creeper!','diamond gear',
+    'netherite','enchant table','villager trade','iron farm','mob farm','ender dragon',
+    'fortnite?','ranked?','duo?','trio scrims','warmup','one more game','gg wp','ez clap',
+    'touch grass','ratio','no cap','fr fr','ong','lowkey','highkey','sheesh','aura','rizz',
+    'sigma','npc energy','main character','side quest','plot twist','cooking','ate that',
+    'left no crumbs','slay','period','bestie','dude','bro','sis','fam','chat is wild',
+    'mods asleep','slow mode','can you hear me','mic check','camera good','lighting hits',
+    'what game is that','song name?','playlist?','drop the link','follow for follow',
+    'been here since 0','day one','lurking','typing...','wait what','say that again',
+    'clip it','someone clip','I clipped it','sending to friends','this is funny',
+    'bored at school','at work quiet','parents home','headphones on','volume up',
+    'europe here','usa here','asia hi','brazil present','india hello','uk time',
+    'good morning','good night','late stream','early stream','schedule?','when next live',
+    'do a collab','raid someone','host is chill','host is funny','host is cooking',
+    'tell a story','rant time','drama?','tea spill','no drama','keep it positive',
+    'I play roblox','adopt me','brookhaven','bedwars roblox','mm2','arsenal',
+    'valorant','aim training','clutch','ace','eco round','op is cracked',
+    'gta v','roleplay','freeroam','heist','online lobby','add me',
+    'cod mobile','pubg','free fire','mlbb','wild rift','afk arena',
+    'chess?','puzzle','quiz time','truth or dare','would you rather',
+    'favorite food','pizza','sushi','burger','ramen','energy drink',
+    'cat person','dog person','pet tax','show the room','desk setup',
+    'rgb lights','mechanical keyboard','headset','new phone?','ios or android',
+    'wifi lag','ping 200','lag spike','freeze','buffering?','quality drop',
+    '1080 looks good','phone stream still clean','respect the grind',
+    'hustle','motivation','you got this','keep going','proud of you',
+    'new follower','welcome','welcome to the stream','make them feel welcome',
+    'chat help him','chat help her','type 1 if yes','type 2 if no','vote in chat',
+    'W or L','mid or fire','rate 1-10','score the fit','fit check overdue',
+    'hair looks good','drip','clean fit','drip too hard','fashion',
+    'math homework','science test','exam season','summer break','holiday',
+    'football','soccer','basketball','nba','messi','ronaldo','goat debate',
+    'anime recs','manga','one piece','naruto','aot','jjk','demon slayer',
+    'netflix','movie night','series binge','spoiler free','no spoilers',
+    'music?','rap','pop','rock','lofi','phonk','nightcore','karaoke',
+    'sing something','dance','talent show','dare accepted','challenge',
+    'pushup challenge','plank timer','water drink','hydrate','stand up stretch',
+    'brb 2 min','reconnecting','back','still here','didnt leave',
+    'algorithm cooked','fyp hit different','random recommend','glad i stayed',
+    'mute the haters','positivity only','be kind','nice chat','wholesome',
+    'L take','W take','hot take','cold take','facts only','cap detected',
+    'sus','among us vibes','impostor?','emergency meeting','vote red',
+    'building','mining','crafting','smelting','enchanting','exploring',
+    'village raid','pillagers','warden','deep dark','ancient city',
+    'axolotl','bee farm','honey','wheat farm','auto sorter','item sorter',
+    'storage system','mega base','starter house','modern house','castle build',
+    'pixel art','map art','redstone door','secret base','bunker',
+    'pvp practice','crystal pvp','sword pvp','axe pvp','shield disable',
+    'totem pop','gapple','god apple','nether portal','end portal',
+    'elytra','firework rocket','shulker box','end city','chorus fruit',
+    'trading hall','iron golem','gold farm','xp farm','guardian farm',
+    'witherskeleton','beacons','haste 2','fortune 3','efficiency 5',
+    'mending','unbreaking','sharpness','protection','thorns',
+    'lets squad up','party me','invite link','discord?','vc?',
+    'too quiet','chat dead','chat alive','chat go crazy','wake up chat',
+    'spam 1','spam W','spam heart','hearts in chat','fire in chat',
+    '❤️','🔥','😂','😭','💀','👏','🙌','👀','✨','💯','🚀','👑','🎮','⛏️','🗡️','🏰'
   ];
   const GREET_POOL = [
     'hi','hi','hi','hello','hello','hey','hey','hii','hiii','yo',
@@ -264,7 +322,8 @@
     stream: null,
     demo: false,
     chatBurstUntil: 0,
-    facingMode: 'user'
+    facingMode: 'user',
+    muted: false
   };
 
   let livesUnsub = null, liveUnsub = null, chatUnsub = null, presenceUnsub = null;
@@ -600,13 +659,38 @@
       }, err => console.warn('chat', err));
   }
 
-  function pushLocalChat(user, text, color) {
+  let botWriteQueue = [];
+  let botWriteTimer = null;
+  function flushBotWrites() {
+    botWriteTimer = null;
+    if (!state.liveId || !state.isHost) { botWriteQueue = []; return; }
+    const batch = botWriteQueue.splice(0, 4);
+    batch.forEach(m => {
+      fbDb.collection('lives').doc(state.liveId).collection('messages').add({
+        uid: 'bot',
+        name: m.user,
+        text: m.text,
+        color: m.color,
+        bot: true,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).catch(() => {});
+    });
+    if (botWriteQueue.length) botWriteTimer = setTimeout(flushBotWrites, 350);
+  }
+  function pushLocalChat(user, text, color, opts) {
+    const o = opts || {};
+    const col = color || randColor();
     chatLines.push({
       id: 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-      user, color: color || randColor(), text, local: true
+      user, color: col, text, local: true
     });
     while (chatLines.length > 90) chatLines.shift();
     schedulePaintChat();
+    // Sync host bot chat to Firebase so other phones see comments
+    if (o.bot && state.isHost && state.isOwnerStream && state.liveId) {
+      botWriteQueue.push({ user, text, color: col });
+      if (!botWriteTimer) botWriteTimer = setTimeout(flushBotWrites, 300);
+    }
   }
   function schedulePaintChat() {
     if (paintScheduled) return;
@@ -642,7 +726,7 @@
         const text = useGreet
           ? GREET_POOL[Math.floor(Math.random() * GREET_POOL.length)]
           : randChat();
-        pushLocalChat(randName(), text, randColor());
+        pushLocalChat(randName(), text, randColor(), { bot: true });
       }, 80 + i * (40 + Math.random() * 90));
     }
   }
@@ -682,7 +766,7 @@
       for (let i = 0; i < n; i++) {
         setTimeout(() => {
           if (!(state.isHost && state.isOwnerStream)) return;
-          pushLocalChat(randName(), randChat(), randColor());
+          pushLocalChat(randName(), randChat(), randColor(), { bot: true });
         }, Math.random() * 300);
       }
     }, 220);
@@ -709,7 +793,7 @@
     for (let i = 0; i < count; i++) {
       setTimeout(() => {
         const msg = pack[Math.floor(Math.random() * pack.length)];
-        pushLocalChat(randName(), msg, randColor());
+        pushLocalChat(randName(), msg, randColor(), { bot: true });
         if (/[🔥❤️💕😂😭💀👏]/.test(msg) || Math.random() < 0.2) {
           spawnFloat(msg.match(/[🔥❤️💕😂😭💀👏🙌👀✨💯🚀👑]/)?.[0] || '❤️');
         }
@@ -772,21 +856,25 @@
     state.facingMode = mode;
     try {
       stopCamera();
+      // Host captures mic too so mute works + future viewers can hear
+      const wantAudio = !!state.isHost;
       try {
         state.stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: mode }, width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false
+          audio: wantAudio
         });
       } catch (e) {
         state.stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: mode },
-          audio: false
+          audio: wantAudio
         });
       }
+      applyMuteState();
       return true;
     } catch (e) {
       try {
-        state.stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        state.stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: !!state.isHost });
+        applyMuteState();
         return true;
       } catch (e2) { return false; }
     }
@@ -797,11 +885,21 @@
       state.stream = null;
     }
   }
+  function applyMuteState() {
+    if (!state.stream) return;
+    state.stream.getAudioTracks().forEach(t => { t.enabled = !state.muted; });
+  }
+  function toggleMute() {
+    state.muted = !state.muted;
+    applyMuteState();
+    const btn = document.getElementById('muteBtn');
+    if (btn) btn.textContent = state.muted ? '🔇' : '🎤';
+  }
   function attachCam() {
     const video = document.getElementById('cam');
     if (video && state.stream) {
       video.srcObject = state.stream;
-      // Mirror only front camera
+      video.muted = true; // avoid echo on host
       video.style.transform = state.facingMode === 'user' ? 'scaleX(-1)' : 'none';
       video.play().catch(() => {});
     }
@@ -895,8 +993,8 @@
           <video id="cam" playsinline autoplay muted></video>
           ${(state.demo || isWatch) ? `<div class="cam-fallback">${
             isWatch
-              ? `<strong>${escapeHtml(state.hostName)}</strong> is live<br/><span style="opacity:.7">Video to viewers comes later — chat works now</span>`
-              : `No camera — demo mode<br/><span style="opacity:.7">Chat & viewers still work</span>`
+              ? `<div><strong>${escapeHtml(state.hostName)}</strong> is live</div><div style="opacity:.7;margin-top:8px;max-width:260px">Chat is live. Host video/audio to other phones needs a stream server (coming next).</div>`
+              : `<div>No camera — demo mode</div><div style="opacity:.7;margin-top:8px">Chat & viewers still work</div>`
           }</div>` : ''}
           <div class="topbar">
             <div class="live-pill">
@@ -906,6 +1004,7 @@
               <div class="viewers"><span id="viewerCount">${formatViewers(state.viewers)}</span> watching</div>
             </div>
             <div class="top-actions">
+              ${state.isHost ? `<button class="flip-btn" id="muteBtn" title="Mute mic">${state.muted ? '🔇' : '🎤'}</button>` : ''}
               ${state.isHost ? `<button class="flip-btn" id="flipBtn" title="Flip camera">⟲</button>` : ''}
               <button class="end-btn" id="endBtn">×</button>
             </div>
@@ -925,6 +1024,8 @@
     document.getElementById('endBtn').onclick = () => leaveCurrentLive(true);
     const flip = document.getElementById('flipBtn');
     if (flip) flip.onclick = flipCamera;
+    const mute = document.getElementById('muteBtn');
+    if (mute) mute.onclick = toggleMute;
     document.getElementById('chatSend').onclick = sendUserChat;
     document.getElementById('chatInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') sendUserChat();
