@@ -286,7 +286,21 @@
     'lets squad up','party me','invite link','discord?','vc?',
     'too quiet','chat dead','chat alive','chat go crazy','wake up chat',
     'spam 1','spam W','spam heart','hearts in chat','fire in chat',
-    '❤️','🔥','😂','😭','💀','👏','🙌','👀','✨','💯','🚀','👑','🎮','⛏️','🗡️','🏰'
+    '❤️','🔥','😂','😭','💀','👏','🙌','👀','✨','💯','🚀','👑','🎮','⛏️','🗡️','🏰',
+    'play that','play that again','play this','play it','queue that','song name please',
+    'what song is this','this song slaps','turn it up','volume up','bass','drop it',
+    'replay','one more time','sound good','audio is clean','can barely hear','louder',
+    'play minecraft','lets play','who wants to play','game time','join my game',
+    'add me','party up','queue up','scrim now','ranked climb','im down','im in',
+    'not now','maybe later','after this stream','when live ends','tomorrow?',
+    'teach me','how do you do that','tutorial?','tips please','coach me',
+    'nice play','clean','cracked','goated movement','no way that hit','lucky',
+    'unlucky','so close','one more try','reset','run it back','rematch',
+    'chat is funny','chat is toxic','be nice chat','positive only','love this chat',
+    'host reacted','he heard us','she heard us','say hi again','wave chat',
+    'camera freeze?','lag?','back online','welcome back','still watching',
+    'dont leave','stay a bit','5 more minutes','last song','outro soon',
+    'good stream','best stream today','see you next time','bye chat','gn'
   ];
   const GREET_POOL = [
     'hi','hi','hi','hello','hello','hey','hey','hii','hiii','yo',
@@ -631,8 +645,26 @@
               viewerCount: state.isOwnerStream ? (real + state.botViewers) : real
             });
           } catch (e) {}
+          const active = new Set();
           snap.forEach(doc => {
-            if (doc.id !== state.user.uid) ensureHostPeer(doc.id);
+            if (doc.id !== state.user.uid) {
+              active.add(doc.id);
+              ensureHostPeer(doc.id);
+            }
+          });
+          // Viewer left → close their WebRTC so rejoin can reconnect cleanly
+          Object.keys(pcs).forEach(uid => {
+            if (uid === 'host') return;
+            if (!active.has(uid)) {
+              try {
+                if (pcs[uid]._unsub) pcs[uid]._unsub();
+                if (pcs[uid]._iceUnsub) pcs[uid]._iceUnsub();
+                pcs[uid].close();
+              } catch (e) {}
+              delete pcs[uid];
+              // Clear old signal so next join gets a fresh offer
+              signalsRef(liveId, uid).delete().catch(() => {});
+            }
           });
         }
       });
@@ -668,15 +700,34 @@
   }
 
   async function ensureHostPeer(viewerUid) {
-    if (!state.isHost || !state.stream || pcs[viewerUid]) return;
+    if (!state.isHost || !state.stream) return;
+    // Reuse only if still healthy
+    if (pcs[viewerUid]) {
+      const st = pcs[viewerUid].connectionState;
+      if (st === 'connected' || st === 'connecting' || st === 'new') return;
+      try {
+        if (pcs[viewerUid]._unsub) pcs[viewerUid]._unsub();
+        if (pcs[viewerUid]._iceUnsub) pcs[viewerUid]._iceUnsub();
+        pcs[viewerUid].close();
+      } catch (e) {}
+      delete pcs[viewerUid];
+    }
     try {
+      // Fresh signal doc for this viewer
+      try { await signalsRef(state.liveId, viewerUid).delete(); } catch (e) {}
       const pc = new RTCPeerConnection(iceServers);
       pcs[viewerUid] = pc;
-      state.stream.getTracks().forEach(track => pc.addTrack(track, state.stream));
+      state.stream.getTracks().forEach(track => {
+        try { pc.addTrack(track, state.stream); } catch (e) {}
+      });
       wireIce(pc, viewerUid);
       pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-          try { pc.close(); } catch (e) {}
+        if (pc.connectionState === 'failed' || pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
+          try {
+            if (pc._unsub) pc._unsub();
+            if (pc._iceUnsub) pc._iceUnsub();
+            pc.close();
+          } catch (e) {}
           delete pcs[viewerUid];
         }
       };
@@ -719,15 +770,17 @@
   async function startViewerWebRTC(liveId) {
     if (state.isHost || !state.user) return;
     stopAllPeers();
-    const hostUid = null; // resolved from live doc
     try {
       const liveDoc = await fbDb.collection('lives').doc(liveId).get();
       const host = liveDoc.exists ? liveDoc.data().hostUid : null;
       if (!host) return;
 
+      // Clear stale signal so host sends a new offer
+      try { await signalsRef(liveId, state.user.uid).delete(); } catch (e) {}
+
       const pc = new RTCPeerConnection(iceServers);
       pcs['host'] = pc;
-      wireIce(pc, host);
+      wireIce(pc, state.user.uid); // ICE channel is viewer uid (same as host writes to)
 
       pc.ontrack = (ev) => {
         const video = document.getElementById('cam');
@@ -848,18 +901,44 @@
   function subscribeChat(liveId) {
     if (chatUnsub) chatUnsub();
     chatUnsub = fbDb.collection('lives').doc(liveId).collection('messages')
-      .orderBy('createdAt', 'desc').limit(50)
+      .orderBy('createdAt', 'desc').limit(60)
       .onSnapshot(snap => {
         const rows = [];
         snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
         rows.reverse();
-        const remoteIds = new Set(rows.map(r => r.id));
-        const locals = chatLines.filter(c => c.local && !remoteIds.has(c.id));
+
+        // Build remote list — host already paints bots locally, so skip remote bots on host (stops doubles)
+        const remote = [];
+        rows.forEach(r => {
+          if (state.isHost && r.bot) return;
+          remote.push({
+            id: r.id,
+            user: r.name || 'user',
+            color: r.color || randColor(),
+            text: r.text || '',
+            local: false,
+            bot: !!r.bot
+          });
+        });
+
+        // Keep only local bots on host; drop local user msgs that already arrived from server
+        const remoteKeys = new Set(remote.map(r => (r.user + '|' + r.text).toLowerCase()));
+        const locals = chatLines.filter(c => {
+          if (!c.local) return false;
+          if (c.bot) return true; // host bot lines
+          // user optimistic line already on server → drop
+          if (remoteKeys.has((c.user + '|' + c.text).toLowerCase())) return false;
+          return true;
+        });
+
         chatLines.length = 0;
-        rows.forEach(r => chatLines.push({
-          id: r.id, user: r.name || 'user', color: r.color || randColor(), text: r.text || '', local: false
-        }));
-        locals.slice(-15).forEach(l => chatLines.push(l));
+        remote.forEach(r => chatLines.push(r));
+        locals.slice(-20).forEach(l => chatLines.push(l));
+        // Final dedupe consecutive identical lines
+        for (let i = chatLines.length - 1; i > 0; i--) {
+          const a = chatLines[i], b = chatLines[i - 1];
+          if (a.user === b.user && a.text === b.text) chatLines.splice(i, 1);
+        }
         while (chatLines.length > 90) chatLines.shift();
         schedulePaintChat();
       }, err => console.warn('chat', err));
@@ -886,9 +965,12 @@
   function pushLocalChat(user, text, color, opts) {
     const o = opts || {};
     const col = color || randColor();
+    // Skip exact consecutive duplicate
+    const last = chatLines[chatLines.length - 1];
+    if (last && last.user === user && last.text === text) return;
     chatLines.push({
       id: 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-      user, color: col, text, local: true
+      user, color: col, text, local: true, bot: !!o.bot
     });
     while (chatLines.length > 90) chatLines.shift();
     schedulePaintChat();
@@ -944,13 +1026,15 @@
     const text = (input.value || '').trim();
     if (!text) return;
     input.value = '';
-    pushLocalChat(state.user.name, text, '#fff');
+    // Optimistic show once — server echo is deduped in subscribeChat
+    pushLocalChat(state.user.name, text, '#fff', { bot: false });
     try {
       await fbDb.collection('lives').doc(state.liveId).collection('messages').add({
         uid: state.user.uid,
         name: state.user.name,
         text: text,
         color: '#ffffff',
+        bot: false,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     } catch (e) {}
