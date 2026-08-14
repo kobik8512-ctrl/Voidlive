@@ -115,9 +115,14 @@
     transform: scaleX(-1); background: #111;
   }
   .cam-fallback {
-    position: absolute; inset: 0; display: flex; align-items: center;
-    justify-content: center; text-align: center; color: var(--muted);
-    font-size: 14px; padding: 24px; line-height: 1.5;
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    color: var(--muted); font-size: 14px; padding: 24px; line-height: 1.5;
+    z-index: 5;
+  }
+  .camera-retry {
+    margin-top: 16px; border: 0; border-radius: 999px; padding: 11px 18px;
+    background: var(--red); color: #fff; font-weight: 800; font-size: 14px;
   }
   .topbar {
     position: absolute; top: 0; left: 0; right: 0; z-index: 20;
@@ -1626,8 +1631,10 @@
           <video id="cam" playsinline autoplay muted></video>
           ${(state.demo || isWatch) ? `<div class="cam-fallback">${
             isWatch
-              ? `<div><strong>${escapeHtml(state.hostName)}</strong> is live</div><div style="opacity:.7;margin-top:8px;max-width:260px">Connecting video… Tap screen if you see picture but no sound.</div>`
-              : `<div>No camera — demo mode</div><div style="opacity:.7;margin-top:8px">Chat & viewers still work</div>`
+              ? `<div><strong>${escapeHtml(state.hostName)}</strong> is live</div><div style="opacity:.7;margin-top:8px;max-width:260px">Connecting video…</div>`
+              : `<div><strong>Camera isn't connected</strong></div>
+                 <div style="opacity:.7;margin-top:8px;max-width:280px">Your live is still running. Allow camera access, then tap the button below.</div>
+                 <button class="camera-retry" id="cameraRetry">Enable camera</button>`
           }</div>` : ''}
           <button id="soundHint" style="display:none;position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:25;border:none;border-radius:999px;padding:10px 16px;background:rgba(0,0,0,.7);color:#fff;font-weight:700;font-size:13px;">Tap for sound 🔊</button>
           <div class="topbar">
@@ -1663,6 +1670,25 @@
     if (flip) flip.onclick = flipCamera;
     const mute = document.getElementById('muteBtn');
     if (mute) mute.onclick = toggleMute;
+
+    const cameraRetry = document.getElementById('cameraRetry');
+    if (cameraRetry) {
+      cameraRetry.onclick = async () => {
+        cameraRetry.disabled = true;
+        cameraRetry.textContent = 'Opening camera…';
+        const ok = await startCamera(state.facingMode || 'user');
+        state.demo = !ok;
+        render();
+        attachCam();
+
+        if (!ok) {
+          const msg = 'Camera access was blocked. In Chrome, tap the site icon next to the address → Permissions → Camera → Allow, then reload.';
+          state.error = msg;
+          render();
+        }
+      };
+    }
+
     const soundHint = document.getElementById('soundHint');
     if (soundHint) {
       soundHint.onclick = () => {
