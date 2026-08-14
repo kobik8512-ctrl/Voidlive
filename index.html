@@ -146,6 +146,12 @@
     display: flex; align-items: center; justify-content: center; flex: none;
   }
   .flip-btn { font-size: 15px; }
+  .b-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.25); background: rgba(255,45,85,.85);
+    color: #fff; font-size: 14px; font-weight: 800; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex: none;
+  }
   .floats {
     position: absolute; right: 10px; bottom: 38%; width: 60px; height: 40%;
     pointer-events: none; z-index: 15; overflow: hidden;
@@ -649,7 +655,8 @@
           snap.forEach(doc => {
             if (doc.id !== state.user.uid) {
               active.add(doc.id);
-              ensureHostPeer(doc.id);
+              // Don't try WebRTC to fake bots
+              if (!doc.data().isBot) ensureHostPeer(doc.id);
             }
           });
           // Viewer left → close their WebRTC so rejoin can reconnect cleanly
@@ -1237,10 +1244,104 @@
   async function flipCamera() {
     if (!state.isHost) return;
     const next = state.facingMode === 'user' ? 'environment' : 'user';
-    const ok = await startCamera(next);
-    if (ok) {
-      state.demo = false;
-      attachCam();
+    // Get NEW camera without stopping old tracks first (avoids freeze for viewers)
+    let newStream = null;
+    try {
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: next }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false // keep existing mic track
+        });
+      } catch (e) {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: next },
+          audio: false
+        });
+      }
+    } catch (e) {
+      // Fallback: full restart
+      const ok = await startCamera(next);
+      if (ok) {
+        state.demo = false;
+        attachCam();
+        // Reconnect peers with new tracks
+        Object.keys(pcs).forEach(uid => {
+          if (uid === 'host') return;
+          try { pcs[uid].close(); } catch (e2) {}
+          delete pcs[uid];
+          ensureHostPeer(uid);
+        });
+      }
+      return;
+    }
+
+    const newVideo = newStream.getVideoTracks()[0];
+    if (!newVideo) return;
+
+    // Replace video on every peer so viewers don't freeze
+    const replacements = [];
+    Object.keys(pcs).forEach(uid => {
+      if (uid === 'host') return;
+      const pc = pcs[uid];
+      if (!pc) return;
+      pc.getSenders().forEach(sender => {
+        if (sender.track && sender.track.kind === 'video') {
+          replacements.push(sender.replaceTrack(newVideo).catch(() => {}));
+        }
+      });
+    });
+    await Promise.all(replacements);
+
+    // Swap local stream video track; keep audio from old stream
+    const oldStream = state.stream;
+    const oldAudio = oldStream ? oldStream.getAudioTracks() : [];
+    const combined = new MediaStream([newVideo, ...oldAudio]);
+    state.stream = combined;
+    state.facingMode = next;
+    state.demo = false;
+    attachCam();
+
+    // Stop only the old VIDEO track
+    if (oldStream) {
+      oldStream.getVideoTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+    }
+  }
+
+  async function addBotToCurrentLive() {
+    if (!state.user || !state.user.isOwner || !state.liveId) return;
+    const botId = 'bot_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const botName = randName();
+    const color = randColor();
+    try {
+      // Appear as a watcher in this live (host or someone else's)
+      await fbDb.collection('lives').doc(state.liveId).collection('viewers').doc(botId).set({
+        name: botName,
+        isBot: true,
+        joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      // Chat line
+      await fbDb.collection('lives').doc(state.liveId).collection('messages').add({
+        uid: botId,
+        name: botName,
+        text: Math.random() < 0.55
+          ? GREET_POOL[Math.floor(Math.random() * GREET_POOL.length)]
+          : randChat(),
+        color: color,
+        bot: true,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      // If we are host of our owner stream, also bump local bot count feel
+      if (state.isHost && state.isOwnerStream) {
+        state.botViewers = (state.botViewers || 0) + 1;
+        state.viewers = state.realViewers + state.botViewers;
+        updateViewerLabel();
+        fbDb.collection('lives').doc(state.liveId).update({
+          viewerCount: state.viewers,
+          realViewerCount: state.realViewers
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('add bot', e);
     }
   }
 
@@ -1335,6 +1436,7 @@
               <div class="viewers"><span id="viewerCount">${formatViewers(state.viewers)}</span> watching</div>
             </div>
             <div class="top-actions">
+              ${state.user && state.user.isOwner ? `<button class="b-btn" id="bBtn" title="Add 1 bot">b</button>` : ''}
               ${state.isHost ? `<button class="flip-btn" id="muteBtn" title="Mute mic">${state.muted ? '🔇' : '🎤'}</button>` : ''}
               ${state.isHost ? `<button class="flip-btn" id="flipBtn" title="Flip camera">⟲</button>` : ''}
               <button class="end-btn" id="endBtn">×</button>
@@ -1353,6 +1455,8 @@
       </div>`;
 
     document.getElementById('endBtn').onclick = () => leaveCurrentLive(true);
+    const bBtn = document.getElementById('bBtn');
+    if (bBtn) bBtn.onclick = addBotToCurrentLive;
     const flip = document.getElementById('flipBtn');
     if (flip) flip.onclick = flipCamera;
     const mute = document.getElementById('muteBtn');
