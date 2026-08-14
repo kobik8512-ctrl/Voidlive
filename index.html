@@ -446,20 +446,19 @@
         snap.forEach(doc => {
           const data = doc.data();
 
-          // A live is only considered active while its host is sending heartbeats.
-          // This removes abandoned/crashed live cards instead of leaving them stuck.
-          if (!isLiveFresh(data)) {
-            if (state.user && data.hostUid === state.user.uid) {
-              doc.ref.update({
-                status: 'ended',
-                endedAt: Date.now(),
-                lastHeartbeat: firebase.firestore.FieldValue.delete()
-              }).catch(() => {});
-            }
-            return;
-          }
-
+          // Keep every Firestore live visible immediately. Heartbeat cleanup is
+          // handled separately so a slow/mobile client is not hidden just because
+          // its first heartbeat has not arrived yet.
           list.push({ id: doc.id, ...data });
+
+          const hb = heartbeatMillis(data.lastHeartbeat);
+          if (hb > 0 && (Date.now() - hb) > LIVE_STALE_MS && state.user && data.hostUid === state.user.uid) {
+            doc.ref.update({
+              status: 'ended',
+              endedAt: Date.now(),
+              lastHeartbeat: firebase.firestore.FieldValue.delete()
+            }).catch(() => {});
+          }
         });
 
         list.sort((a, b) => {
@@ -588,7 +587,7 @@
       startListening();
     } else if (!state.isHost) {
       // Viewer: receive host camera + mic via WebRTC
-      setTimeout(() => startViewerWebRTC(liveId), 400);
+      startViewerWebRTC(liveId).catch(e => console.warn('viewer start', e));
     }
   }
 
@@ -678,7 +677,7 @@
     liveUnsub = fbDb.collection('lives').doc(liveId).onSnapshot(doc => {
       if (!doc.exists) return;
       const d = doc.data();
-      if (!isLiveFresh(d) && !state.isHost) {
+      if (d.status !== 'live' || (heartbeatMillis(d.lastHeartbeat) > 0 && (Date.now() - heartbeatMillis(d.lastHeartbeat)) > LIVE_STALE_MS)) {
         state.error = 'Live ended.';
         leaveCurrentLive(true);
         return;
@@ -801,8 +800,8 @@
       delete pcs[viewerUid];
     }
     try {
-      // Fresh signal doc for this viewer
-      try { await signalsRef(state.liveId, viewerUid).delete(); } catch (e) {}
+      const viewerDoc = await fbDb.collection('lives').doc(state.liveId).collection('viewers').doc(viewerUid).get();
+      const session = viewerDoc.exists ? (viewerDoc.data().rtcSession || '') : '';
       const pc = new RTCPeerConnection(iceServers);
       pcs[viewerUid] = pc;
       state.stream.getTracks().forEach(track => {
@@ -824,37 +823,37 @@
           }, 1800);
         }
       };
+      // Listen for answer + ICE BEFORE publishing the offer, so the viewer
+      // cannot win a race and overwrite/delete the signaling state.
+      pc._unsub = signalsRef(state.liveId, viewerUid).onSnapshot(async doc => {
+        if (!doc.exists) return;
+        const d = doc.data();
+        if (d.session && session && d.session !== session) return;
+        if (d.type === 'answer' && d.sdp && pc.signalingState !== 'stable') {
+          try { await pc.setRemoteDescription({ type: 'answer', sdp: d.sdp }); } catch (e) {}
+        }
+      });
+      pc._iceUnsub = signalsRef(state.liveId, viewerUid).collection('ice')
+        .onSnapshot(snap => {
+          snap.docChanges().forEach(async ch => {
+            if (ch.type !== 'added') return;
+            const d = ch.doc.data();
+            if (d.from === viewerUid && d.candidate) {
+              try { await pc.addIceCandidate(d.candidate); } catch (e) {}
+            }
+          });
+        });
+
       const offer = await pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false });
       await pc.setLocalDescription(offer);
       await signalsRef(state.liveId, viewerUid).set({
         type: 'offer',
         from: state.user.uid,
         to: viewerUid,
+        session,
         sdp: offer.sdp,
         t: Date.now()
-      });
-      // Listen for answer + ICE from this viewer
-      if (!pc._unsub) {
-        pc._unsub = signalsRef(state.liveId, viewerUid).onSnapshot(async doc => {
-          if (!doc.exists) return;
-          const d = doc.data();
-          if (d.type === 'answer' && d.sdp && pc.signalingState !== 'stable') {
-            try {
-              await pc.setRemoteDescription({ type: 'answer', sdp: d.sdp });
-            } catch (e) {}
-          }
-        });
-        pc._iceUnsub = signalsRef(state.liveId, viewerUid).collection('ice')
-          .onSnapshot(snap => {
-            snap.docChanges().forEach(async ch => {
-              if (ch.type !== 'added') return;
-              const d = ch.doc.data();
-              if (d.from === viewerUid && d.candidate) {
-                try { await pc.addIceCandidate(d.candidate); } catch (e) {}
-              }
-            });
-          });
-      }
+      }, { merge: true });
     } catch (e) {
       console.warn('host peer', e);
     }
@@ -881,9 +880,7 @@
       const host = liveDoc.exists ? liveDoc.data().hostUid : null;
       if (!host) return;
 
-      // Clear stale signal so host sends a new offer
-      try { await signalsRef(liveId, state.user.uid).delete(); } catch (e) {}
-
+      const session = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
       const pc = new RTCPeerConnection(iceServers);
       pcs['host'] = pc;
       wireIce(pc, state.user.uid); // ICE channel is viewer uid (same as host writes to)
@@ -897,6 +894,7 @@
           video.setAttribute('playsinline', '');
           video.muted = false;
           video.volume = 1;
+          video.autoplay = true;
           video.style.transform = 'none';
           const play = () => video.play().catch(() => {});
           play();
@@ -916,19 +914,28 @@
         if (hint) hint.style.display = 'block';
       };
 
+      let remoteIceQueue = [];
+      let remoteDescriptionReady = false;
+
       signalUnsub = signalsRef(liveId, state.user.uid).onSnapshot(async doc => {
         if (!doc.exists) return;
         const d = doc.data();
+        if (d.session && d.session !== session) return;
         if (d.type === 'offer' && d.sdp) {
           try {
             if (!pc.currentRemoteDescription) {
               await pc.setRemoteDescription({ type: 'offer', sdp: d.sdp });
+              remoteDescriptionReady = true;
+              for (const candidate of remoteIceQueue.splice(0)) {
+                try { await pc.addIceCandidate(candidate); } catch (e) {}
+              }
               const answer = await pc.createAnswer();
               await pc.setLocalDescription(answer);
               await signalsRef(liveId, state.user.uid).set({
                 type: 'answer',
                 from: state.user.uid,
                 to: host,
+                session,
                 sdp: answer.sdp,
                 t: Date.now()
               }, { merge: true });
@@ -936,15 +943,28 @@
           } catch (e) { console.warn('answer', e); }
         }
       });
-      signalsRef(liveId, state.user.uid).collection('ice').onSnapshot(snap => {
+
+      pc._iceUnsub = signalsRef(liveId, state.user.uid).collection('ice').onSnapshot(snap => {
         snap.docChanges().forEach(async ch => {
           if (ch.type !== 'added') return;
           const d = ch.doc.data();
-          if (d.from === host && d.candidate) {
-            try { await pc.addIceCandidate(d.candidate); } catch (e) {}
-          }
+          if (d.from !== host || !d.candidate) return;
+          try {
+            if (remoteDescriptionReady) await pc.addIceCandidate(d.candidate);
+            else remoteIceQueue.push(d.candidate);
+          } catch (e) {}
         });
       });
+
+      // Tell the host that this viewer is ready. The host presence listener
+      // creates the offer after this request, eliminating the old race where
+      // the viewer deleted the offer after the host had already created it.
+      await fbDb.collection('lives').doc(liveId).collection('viewers').doc(state.user.uid).set({
+        name: state.user.name,
+        joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        rtcSession: session,
+        rtcRequestAt: Date.now()
+      }, { merge: true });
     } catch (e) {
       console.warn('viewer webrtc', e);
     }
@@ -1409,37 +1429,29 @@
 
     const oldStream = state.stream;
     const oldVideo = oldStream.getVideoTracks()[0] || null;
-    const peerJobs = [];
-
-    // replaceTrack keeps the existing WebRTC session alive, so viewers do not
-    // get a frozen/black video while the physical camera changes.
-    for (const uid of Object.keys(pcs)) {
-      if (uid === 'host') continue;
-      const pc = pcs[uid];
-      if (!pc || pc.connectionState === 'closed') continue;
-
-      const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-      if (!sender) continue;
-
-      peerJobs.push((async () => {
-        try {
-          await sender.replaceTrack(newVideo);
-        } catch (e) {
-          // Some mobile WebRTC implementations reject a direct camera-track
-          // swap. Rebuilding just this peer gives it a fresh offer/track.
-          await reconnectHostPeer(uid);
-        }
-      })());
-    }
-
-    await Promise.all(peerJobs);
-
-    const oldAudio = oldStream.getAudioTracks();
-    const combined = new MediaStream([newVideo, ...oldAudio]);
+    const oldAudio = oldStream.getAudioTracks()[0] || null;
+    const combined = new MediaStream([newVideo, ...(oldAudio ? [oldAudio] : [])]);
     state.stream = combined;
     state.facingMode = next;
     state.demo = false;
     attachCam();
+
+    // Replace the video track on every existing peer. Audio is deliberately
+    // kept from the original stream, so a camera flip never drops the mic.
+    const reconnects = [];
+    for (const uid of Object.keys(pcs)) {
+      if (uid === 'host') continue;
+      const pc = pcs[uid];
+      if (!pc || pc.connectionState === 'closed') continue;
+      const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+      if (!sender) continue;
+      try {
+        await sender.replaceTrack(newVideo);
+      } catch (e) {
+        reconnects.push(reconnectHostPeer(uid));
+      }
+    }
+    await Promise.all(reconnects);
 
     if (oldVideo && oldVideo !== newVideo) {
       try { oldVideo.stop(); } catch (e) {}
@@ -1654,7 +1666,7 @@
           <div class="floats" id="floats"></div>
         </div>
         <div class="chat-wrap">
-          ${state.isHost && state.isOwnerStream ? `<div class="mic-status" id="micStatus">Mic: starting…</div>` : ''}
+          ${state.isHost ? `<div class="mic-status" id="micStatus">Mic: ${state.stream && state.stream.getAudioTracks().length ? 'on' : 'off'}</div>` : ''}
           <div class="chat-list" id="chatList"></div>
           <div class="chat-input-row">
             <input class="chat-input" id="chatInput" placeholder="Say something…" maxlength="120" />
