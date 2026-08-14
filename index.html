@@ -190,7 +190,7 @@
   }
   .mic-status {
     position: absolute; top: -28px; left: 12px; font-size: 11px; color: var(--muted);
-    background: rgba(0,0,0,.5); padding: 3px 8px; border-radius: 6px;
+    background: rgba(0,0,0,.5); padding: 3px 8px; border-radius: 6px; cursor: pointer;
   }
   .mic-status.on { color: var(--green); }
   .gift-btn {
@@ -414,7 +414,6 @@
     hostUid: null
   };
 
-  // 100+ gifts: name, emoji, cost
   const GIFTS = [
     { id:'rose', n:'Rose', e:'🌹', c:1 },
     { id:'heart', n:'Heart', e:'❤️', c:5 },
@@ -552,7 +551,8 @@
   let heartbeatTimer = null, injectedChatTimer = null, injectedLeaveTimer = null;
   const chatLines = [];
   let lastPaintedId = null;
-  const STALE_MS = 120000; // 2 min without heartbeat = hide from list
+  // 5 min — more tolerant so other phones still see the live if heartbeat hiccups
+  const STALE_MS = 300000;
 
   function isOwnerEmail(email) { return (email || '').toLowerCase() === OWNER_EMAIL; }
   function randName() {
@@ -571,28 +571,12 @@
     return String(n);
   }
 
-  try {
-    fbApp = firebase.initializeApp(firebaseConfig);
-    fbAuth = firebase.auth();
-    fbDb = firebase.firestore();
-    fbReady = true;
-    fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-    fbAuth.onAuthStateChanged(u => {
-      if (u) {
-        state.user = {
-          uid: u.uid,
-          name: u.displayName || 'Player',
-          email: (u.email || '').toLowerCase(),
-          photoURL: u.photoURL || '',
-          isOwner: isOwnerEmail(u.email)
-        };
-        loadCoins();
-      } else {
-        state.user = null;
-        state.coins = 0;
-      }
-      if (state.screen === 'home') { subscribeLives(); render(); }
-    });
+  function formatCoins(n) {
+    if (n === Infinity || n > 1e15) return '∞';
+    if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return String(Math.floor(n));
+  }
 
   async function loadCoins() {
     if (!state.user || !fbDb) return;
@@ -612,13 +596,6 @@
     } catch (e) {
       state.coins = 0;
     }
-  }
-
-  function formatCoins(n) {
-    if (n === Infinity || n > 1e15) return '∞';
-    if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
-    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-    return String(Math.floor(n));
   }
 
   function showGiftAnim(emoji, label) {
@@ -657,7 +634,6 @@
         });
         state.coins = Math.max(0, state.coins - cost);
       }
-      // Credit host 70% (skip if self-gift to owner infinite)
       if (state.hostUid && state.hostUid !== state.user.uid) {
         const href = fbDb.collection('userCoins').doc(state.hostUid);
         await fbDb.runTransaction(async tx => {
@@ -683,14 +659,40 @@
       showGiftAnim(gift.e, state.user.name + ' → ' + gift.n);
       state.showGifts = false;
       render();
-      // re-show anim after render
       setTimeout(() => showGiftAnim(gift.e, state.user.name + ' sent ' + gift.n), 50);
     } catch (e) {
       state.error = e.message || 'Gift failed';
       render();
     }
   }
-  } catch (e) { state.error = 'Firebase init failed'; }
+
+  // ===== Firebase init (functions above are OUTSIDE try so they are always available) =====
+  try {
+    fbApp = firebase.initializeApp(firebaseConfig);
+    fbAuth = firebase.auth();
+    fbDb = firebase.firestore();
+    fbReady = true;
+    fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    fbAuth.onAuthStateChanged(u => {
+      if (u) {
+        state.user = {
+          uid: u.uid,
+          name: u.displayName || 'Player',
+          email: (u.email || '').toLowerCase(),
+          photoURL: u.photoURL || '',
+          isOwner: isOwnerEmail(u.email)
+        };
+        loadCoins();
+      } else {
+        state.user = null;
+        state.coins = 0;
+      }
+      if (state.screen === 'home') { subscribeLives(); render(); }
+    });
+  } catch (e) {
+    state.error = 'Firebase init failed: ' + (e.message || e);
+    console.error(e);
+  }
 
   function signIn() {
     if (!fbReady) return;
@@ -709,25 +711,28 @@
     const now = Date.now();
     const hb = typeof data.hb === 'number' ? data.hb : 0;
     const started = typeof data.startedAt === 'number' ? data.startedAt : 0;
-    const created = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : 0;
-    // Any recent signal = still live
+    let created = 0;
+    if (data.createdAt) {
+      if (typeof data.createdAt.toMillis === 'function') created = data.createdAt.toMillis();
+      else if (typeof data.createdAt === 'number') created = data.createdAt;
+    }
+    // Any recent signal = still live (5 min window)
     if (hb && (now - hb) < STALE_MS) return true;
     if (started && (now - started) < STALE_MS) return true;
     if (created && (now - created) < STALE_MS) return true;
-    // Very new doc with no timestamps yet — keep visible briefly
+    // Brand new doc with no timestamps yet
     if (!hb && !started && !created) return true;
     return false;
   }
 
   function subscribeLives() {
-    if (!fbReady) return;
+    if (!fbReady || !fbDb) return;
     if (livesUnsub) livesUnsub();
     livesUnsub = fbDb.collection('lives').where('status', '==', 'live')
       .onSnapshot(snap => {
         const list = [];
         snap.forEach(doc => {
           const data = doc.data();
-          // Only HIDE stale lives — never auto-end from another phone (that killed live early)
           if (!isLiveFresh(data)) return;
           list.push({ id: doc.id, ...data });
         });
@@ -738,21 +743,31 @@
         });
         state.lives = list;
         if (state.screen === 'home') render();
-      }, err => console.warn('lives', err));
+      }, err => {
+        console.warn('lives subscribe error', err);
+        // Common cause: Firestore rules deny list/read
+        if (err && /permission|insufficient/i.test(err.message || '')) {
+          state.error = 'Cannot load lives — update Firebase Rules (see fix notes).';
+          if (state.screen === 'home') render();
+        }
+      });
   }
 
   function startHeartbeat() {
     stopHeartbeat();
-    if (!state.isHost || !state.liveId) return;
+    if (!state.isHost || !state.liveId || !fbDb) return;
     const beat = () => {
       if (!state.isHost || !state.liveId) return;
       fbDb.collection('lives').doc(state.liveId).update({
         hb: Date.now(),
         status: 'live'
-      }).catch(() => {});
+      }).catch(err => {
+        console.warn('heartbeat failed', err);
+      });
     };
     beat();
-    heartbeatTimer = setInterval(beat, 5000);
+    // Every 4s so other phones keep seeing you as live
+    heartbeatTimer = setInterval(beat, 4000);
   }
   function stopHeartbeat() {
     if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
@@ -794,6 +809,7 @@
 
       const ref = fbDb.collection('lives').doc();
       const isOwnerStream = !!state.user.isOwner;
+      const now = Date.now();
       await ref.set({
         hostUid: state.user.uid,
         hostName: state.user.name,
@@ -803,8 +819,8 @@
         isOwnerStream: isOwnerStream,
         viewerCount: 0,
         realViewerCount: 0,
-        hb: Date.now(),
-        startedAt: Date.now(),
+        hb: now,
+        startedAt: now,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
 
@@ -822,7 +838,6 @@
       state.error = null;
       chatLines.length = 0;
 
-      // Camera must be requested from the tap gesture — retry once if needed
       let camOk = await startCamera();
       if (!camOk) {
         await new Promise(r => setTimeout(r, 300));
@@ -840,14 +855,15 @@
         startBotChatEngine();
         burstGreetings();
       }
-      startListening();
+      // Start mic after render so the status element exists; also needs user gesture context
+      setTimeout(() => startListening(), 400);
       window.addEventListener('pagehide', onPageHideEnd);
       window.addEventListener('beforeunload', onPageHideEnd);
     } catch (err) {
       console.error('go live failed', err);
       const msg = (err && err.message) || String(err);
       if (/permission|insufficient|Missing or insufficient/i.test(msg)) {
-        state.error = 'Firestore blocked the write. Update Firebase Rules for collection "lives" (see instructions).';
+        state.error = 'Firestore blocked the write. Paste the Rules from the fix notes into Firebase Console → Firestore → Rules.';
       } else {
         state.error = 'Could not start live: ' + msg;
       }
@@ -898,7 +914,7 @@
       if (state.isOwnerStream) {
         startViewerGrowth();
         startBotChatEngine();
-        startListening();
+        setTimeout(() => startListening(), 400);
       }
     } else if (!state.isHost) {
       setTimeout(() => startViewerWebRTC(liveId), 400);
@@ -907,7 +923,6 @@
 
   function onPageHideEnd() {
     if (state.isHost && state.liveId && fbDb) {
-      // Best-effort end (may not always finish on mobile)
       fbDb.collection('lives').doc(state.liveId).update({
         status: 'ended',
         hb: 0,
@@ -982,7 +997,6 @@
   async function joinPresence(liveId) {
     if (!state.user) return;
     const vRef = fbDb.collection('lives').doc(liveId).collection('viewers').doc(state.user.uid);
-    // Host must never appear as a watcher
     if (state.isHost) {
       try { await vRef.delete(); } catch (e) {}
     } else {
@@ -995,15 +1009,7 @@
     presenceUnsub = fbDb.collection('lives').doc(liveId).collection('viewers')
       .onSnapshot(async snap => {
         let real = 0;
-        snap.forEach(doc => {
-          // Never count the host uid
-          if (doc.id === (state.user && state.user.uid) && state.isHost) return;
-          // Also skip if this doc is the live host
-          real++;
-        });
-        // Host-side: exclude own uid if leftover
         if (state.isHost) {
-          real = 0;
           snap.forEach(doc => {
             if (doc.id !== state.user.uid) real++;
           });
@@ -1029,11 +1035,9 @@
           snap.forEach(doc => {
             if (doc.id !== state.user.uid) {
               active.add(doc.id);
-              // Don't try WebRTC to fake bots
               if (!doc.data().isBot) ensureHostPeer(doc.id);
             }
           });
-          // Viewer left → close their WebRTC so rejoin can reconnect cleanly
           Object.keys(pcs).forEach(uid => {
             if (uid === 'host') return;
             if (!active.has(uid)) {
@@ -1043,7 +1047,6 @@
                 pcs[uid].close();
               } catch (e) {}
               delete pcs[uid];
-              // Clear old signal so next join gets a fresh offer
               signalsRef(liveId, uid).delete().catch(() => {});
             }
           });
@@ -1051,10 +1054,12 @@
       });
   }
 
-  // ===== WebRTC: host camera/mic → viewers =====
-  const pcs = {}; // uid -> RTCPeerConnection
+  const pcs = {};
   let signalUnsub = null;
-  const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+  const iceServers = { iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ]};
 
   function signalsRef(liveId, uid) {
     return fbDb.collection('lives').doc(liveId).collection('signals').doc(uid);
@@ -1082,7 +1087,6 @@
 
   async function ensureHostPeer(viewerUid) {
     if (!state.isHost || !state.stream) return;
-    // Reuse only if still healthy
     if (pcs[viewerUid]) {
       const st = pcs[viewerUid].connectionState;
       if (st === 'connected' || st === 'connecting' || st === 'new') return;
@@ -1094,7 +1098,6 @@
       delete pcs[viewerUid];
     }
     try {
-      // Fresh signal doc for this viewer
       try { await signalsRef(state.liveId, viewerUid).delete(); } catch (e) {}
       const pc = new RTCPeerConnection(iceServers);
       pcs[viewerUid] = pc;
@@ -1121,7 +1124,6 @@
         sdp: offer.sdp,
         t: Date.now()
       });
-      // Listen for answer + ICE from this viewer
       if (!pc._unsub) {
         pc._unsub = signalsRef(state.liveId, viewerUid).onSnapshot(async doc => {
           if (!doc.exists) return;
@@ -1156,12 +1158,11 @@
       const host = liveDoc.exists ? liveDoc.data().hostUid : null;
       if (!host) return;
 
-      // Clear stale signal so host sends a new offer
       try { await signalsRef(liveId, state.user.uid).delete(); } catch (e) {}
 
       const pc = new RTCPeerConnection(iceServers);
       pcs['host'] = pc;
-      wireIce(pc, state.user.uid); // ICE channel is viewer uid (same as host writes to)
+      wireIce(pc, state.user.uid);
 
       pc.ontrack = (ev) => {
         const video = document.getElementById('cam');
@@ -1234,9 +1235,8 @@
       return;
     }
     state.botViewers = 0;
-    state.viewers = state.realViewers; // starts at 0 if alone
+    state.viewers = state.realViewers;
     updateViewerLabel();
-    // Push 0 to list so others see 0 watching
     if (state.liveId) {
       fbDb.collection('lives').doc(state.liveId).update({
         viewerCount: state.viewers,
@@ -1248,7 +1248,6 @@
       if (!(state.isHost && state.isOwnerStream) || state.screen === 'home') return;
       const v = state.botViewers;
       let add = 0;
-      // Very slow ramp from 0 so chat stays quiet at the start
       if (v < 3) add = Math.random() < 0.35 ? 1 : 0;
       else if (v < 10) add = Math.random() < 0.4 ? 1 : 0;
       else if (v < 25) add = Math.random() < 0.5 ? (1 + Math.floor(Math.random() * 2)) : 0;
@@ -1281,7 +1280,6 @@
 
   function subscribeChat(liveId) {
     if (chatUnsub) chatUnsub();
-    // Use numeric `ts` so every client sees messages immediately (serverTimestamp can lag/hide docs)
     chatUnsub = fbDb.collection('lives').doc(liveId).collection('messages')
       .orderBy('ts', 'desc').limit(80)
       .onSnapshot(snap => {
@@ -1293,7 +1291,6 @@
         const seen = new Set();
         rows.forEach(r => {
           const key = ((r.name || '') + '|' + (r.text || '')).toLowerCase();
-          // On owner-host only: skip remote bot if we already have same local bot line (anti-double)
           if (state.isHost && state.isOwnerStream && r.bot) {
             const localHit = chatLines.some(c => c.local && c.bot && (c.user + '|' + c.text).toLowerCase() === key);
             if (localHit) return;
@@ -1310,7 +1307,6 @@
             gift: !!r.gift,
             giftEmoji: r.giftEmoji || ''
           });
-          // Animate gifts for everyone
           if (r.gift && r.giftEmoji && r.ts && (Date.now() - r.ts) < 8000) {
             if (!window._seenGifts) window._seenGifts = new Set();
             if (!window._seenGifts.has(r.id)) {
@@ -1323,7 +1319,6 @@
         const remoteKeys = new Set(remote.map(r => (r.user + '|' + r.text).toLowerCase()));
         const locals = chatLines.filter(c => {
           if (!c.local) return false;
-          // Keep local bots only on owner stream (engine-driven)
           if (c.bot) return !!(state.isHost && state.isOwnerStream);
           if (remoteKeys.has((c.user + '|' + c.text).toLowerCase())) return false;
           return true;
@@ -1362,7 +1357,6 @@
   function pushLocalChat(user, text, color, opts) {
     const o = opts || {};
     const col = color || randColor();
-    // Skip exact consecutive duplicate
     const last = chatLines[chatLines.length - 1];
     if (last && last.user === user && last.text === text) return;
     chatLines.push({
@@ -1371,7 +1365,6 @@
     });
     while (chatLines.length > 90) chatLines.shift();
     schedulePaintChat();
-    // Sync host bot chat to Firebase so other phones see comments
     if (o.bot && state.isHost && state.isOwnerStream && state.liveId) {
       botWriteQueue.push({ user, text, color: col });
       if (!botWriteTimer) botWriteTimer = setTimeout(flushBotWrites, 300);
@@ -1390,7 +1383,6 @@
     if (!list) return;
     const slice = chatLines.slice(-45);
     const lastId = slice.length ? slice[slice.length - 1].id : null;
-    // Full rebuild only when needed; still cheaper with rAF batching
     const html = slice.map((c, i) => {
       const isNew = i >= slice.length - 3;
       return `<div class="chat-line${isNew ? ' new' : ''}"><span class="chat-user" style="color:${c.color}">${escapeHtml(c.user)}</span><span class="chat-text">${escapeHtml(c.text)}</span></div>`;
@@ -1402,7 +1394,6 @@
   }
 
   function burstGreetings() {
-    // Only after first viewer growth tick has some people — wait a bit
     setTimeout(() => {
       if (!(state.isHost && state.isOwnerStream)) return;
       if ((state.botViewers + state.realViewers) < 1) return;
@@ -1423,7 +1414,6 @@
     const text = (input.value || '').trim();
     if (!text) return;
     input.value = '';
-    // Optimistic show once — server echo is deduped in subscribeChat
     pushLocalChat(state.user.name, text, '#fff', { bot: false });
     try {
       await fbDb.collection('lives').doc(state.liveId).collection('messages').add({
@@ -1441,7 +1431,6 @@
     stopBotChatEngine();
     if (!(state.isHost && state.isOwnerStream)) return;
 
-    // Adaptive: 10 calm → 50 alive → 100 faster → keeps ramping
     const tick = () => {
       if (!(state.isHost && state.isOwnerStream)) return;
       const v = Math.max(0, Math.floor(state.viewers || (state.botViewers + state.realViewers)));
@@ -1532,28 +1521,46 @@
     updateViewerLabel();
   }
 
+  function setMicStatus(t, on) {
+    const mic = document.getElementById('micStatus');
+    if (!mic) return;
+    mic.textContent = t;
+    mic.className = on ? 'mic-status on' : 'mic-status';
+  }
+
   function startListening() {
     if (!(state.isHost && state.isOwnerStream)) return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const setMic = (t, on) => {
-      const mic = document.getElementById('micStatus');
-      if (!mic) return;
-      mic.textContent = t;
-      mic.className = on ? 'mic-status on' : 'mic-status';
-    };
-    if (!SR) { setMic('Mic: tap to talk (unsupported)', false); return; }
+    if (!SR) {
+      setMicStatus('Mic: tap to enable (unsupported)', false);
+      return;
+    }
     try {
-      if (recognition) { try { recognition.onend = null; recognition.stop(); } catch (e) {} }
+      if (recognition) {
+        try { recognition.onend = null; recognition.stop(); } catch (e) {}
+        recognition = null;
+      }
       recognition = new SR();
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
-      recognition.onstart = () => setMic('Mic: listening…', true);
-      recognition.onerror = () => setMic('Mic: off (tap page)', false);
+      recognition.onstart = () => setMicStatus('Mic: listening…', true);
+      recognition.onerror = (ev) => {
+        const code = (ev && ev.error) || '';
+        if (code === 'not-allowed' || code === 'service-not-allowed') {
+          setMicStatus('Mic: blocked — allow mic in browser', false);
+        } else if (code === 'no-speech') {
+          setMicStatus('Mic: listening…', true);
+        } else {
+          setMicStatus('Mic: off (tap to retry)', false);
+        }
+      };
       recognition.onend = () => {
-        setMic('Mic: paused', false);
-        if (state.screen === 'live' && state.isHost) {
-          setTimeout(() => { try { recognition.start(); } catch (e) {} }, 600);
+        setMicStatus('Mic: paused (tap to retry)', false);
+        if (state.screen === 'live' && state.isHost && state.isOwnerStream) {
+          setTimeout(() => {
+            try { if (recognition) recognition.start(); } catch (e) {}
+          }, 800);
         }
       };
       recognition.onresult = (ev) => {
@@ -1563,13 +1570,18 @@
         }
         if (finalText) handleVoice(finalText.trim());
       };
+      setMicStatus('Mic: starting…', false);
       recognition.start();
-      // Don't stick on "starting…" forever
+      // Never leave "starting" forever
       setTimeout(() => {
         const mic = document.getElementById('micStatus');
-        if (mic && /starting/i.test(mic.textContent || '')) setMic('Mic: ready', false);
-      }, 2500);
-    } catch (e) { setMic('Mic: blocked', false); }
+        if (mic && /starting/i.test(mic.textContent || '')) {
+          setMicStatus('Mic: ready (tap if silent)', false);
+        }
+      }, 2000);
+    } catch (e) {
+      setMicStatus('Mic: blocked — tap to retry', false);
+    }
   }
   function stopListening() {
     if (recognition) {
@@ -1596,7 +1608,6 @@
     state.facingMode = mode;
     try {
       stopCamera();
-      // Host captures mic too so mute works + future viewers can hear
       const wantAudio = !!state.isHost;
       const audioOpts = wantAudio ? {
         echoCancellation: true,
@@ -1614,7 +1625,6 @@
           audio: audioOpts
         });
       }
-      // Ensure mic track is live (not muted by OS)
       if (state.stream) {
         state.stream.getAudioTracks().forEach(t => {
           t.enabled = !state.muted;
@@ -1641,7 +1651,6 @@
     state.stream.getAudioTracks().forEach(t => {
       t.enabled = !state.muted;
     });
-    // Keep WebRTC senders in sync
     Object.values(pcs).forEach(pc => {
       try {
         pc.getSenders().forEach(sender => {
@@ -1662,7 +1671,7 @@
     const video = document.getElementById('cam');
     if (video && state.stream) {
       video.srcObject = state.stream;
-      video.muted = true; // host preview: no echo
+      video.muted = true;
       video.style.transform = state.facingMode === 'user' ? 'scaleX(-1)' : 'none';
       video.play().catch(() => {});
     }
@@ -1698,7 +1707,6 @@
     const newVideo = newStream.getVideoTracks()[0];
     if (!newVideo) return;
 
-    // Replace on all peers; if no video sender, addTrack
     const jobs = [];
     Object.keys(pcs).forEach(uid => {
       if (uid === 'host') return;
@@ -1724,7 +1732,6 @@
     }
   }
 
-  // Continuous bot chat + leave for bots owner injects into ANY live
   function stopInjectedBotEngine() {
     if (injectedChatTimer) { clearTimeout(injectedChatTimer); injectedChatTimer = null; }
     if (injectedLeaveTimer) { clearTimeout(injectedLeaveTimer); injectedLeaveTimer = null; }
@@ -1740,7 +1747,6 @@
         injectedChatTimer = setTimeout(chatTick, 2000);
         return;
       }
-      // Same scaling idea as owner live, based on injected bot count
       let delay, msgs;
       if (n < 3) { delay = 1800 + Math.random() * 800; msgs = Math.random() < 0.5 ? 1 : 0; }
       else if (n < 8) { delay = 1200 + Math.random() * 500; msgs = Math.random() < 0.65 ? 1 : 0; }
@@ -1773,7 +1779,6 @@
     const leaveTick = () => {
       if (!state.liveId || !state.user || !state.user.isOwner) return;
       const n = (state.injectedBots || []).length;
-      // Sometimes a bot leaves
       if (n > 0 && Math.random() < (n < 5 ? 0.12 : 0.22)) {
         const idx = Math.floor(Math.random() * state.injectedBots.length);
         const bot = state.injectedBots[idx];
@@ -1790,7 +1795,6 @@
           }).catch(() => {});
         }
       }
-      // Chance a new bot joins on its own if some already there (keeps room alive)
       if (n > 0 && n < 80 && Math.random() < 0.18) {
         addBotToCurrentLive(true).catch(() => {});
       }
@@ -1803,7 +1807,9 @@
 
   async function addBotToCurrentLive(silent) {
     if (!state.user || !state.user.isOwner) {
-      if (!silent) alert('Only owner can add bots');
+      if (!silent) {
+        alert('Only the owner account (' + OWNER_EMAIL + ') can add bots.\nYou are signed in as: ' + (state.user ? state.user.email : 'not signed in'));
+      }
       return;
     }
     if (!state.liveId) {
@@ -1835,7 +1841,6 @@
       state.injectedBots.push({ id: botId, name: botName, color: color });
       if (!injectedChatTimer) startInjectedBotEngine();
 
-      // Always bump count for owner host stream
       if (state.isHost && state.isOwnerStream) {
         state.botViewers = (state.botViewers || 0) + 1;
         state.viewers = state.realViewers + state.botViewers;
@@ -1848,7 +1853,14 @@
       }).catch(() => {});
     } catch (e) {
       console.warn('add bot', e);
-      if (!silent) alert('Bot failed: ' + (e.message || e));
+      if (!silent) {
+        const msg = (e && e.message) || String(e);
+        if (/permission|insufficient/i.test(msg)) {
+          alert('Bot failed: Firestore rules blocked the write.\nPaste the Rules from the fix notes into Firebase Console.');
+        } else {
+          alert('Bot failed: ' + msg);
+        }
+      }
     }
   }
 
@@ -1879,7 +1891,7 @@
             <div class="home-title">GO <span>LIVE</span></div>
             <div class="user-row">${
               state.user
-                ? `Signed in as <strong>${escapeHtml(state.user.name)}</strong> · <span style="color:#ffc14a">${state.user.isOwner ? '∞' : formatCoins(state.coins)} 🪙</span>`
+                ? `Signed in as <strong>${escapeHtml(state.user.name)}</strong> · <span style="color:#ffc14a">${state.user.isOwner ? '∞' : formatCoins(state.coins)} 🪙</span>${state.user.isOwner ? ' · <span style="color:var(--green)">owner</span>' : ''}`
                 : 'Sign in to go live or join'
             }</div>
           </div>
@@ -2009,7 +2021,6 @@
         if (ok) {
           render();
           attachCam();
-          // refresh peer tracks
           Object.keys(pcs).forEach(uid => {
             if (uid === 'host') return;
             try { pcs[uid].close(); } catch (e) {}
@@ -2032,6 +2043,11 @@
         }
         soundHint.style.display = 'none';
       };
+    }
+    // Tap mic status to restart speech recognition
+    const micEl = document.getElementById('micStatus');
+    if (micEl) {
+      micEl.onclick = () => startListening();
     }
     document.getElementById('chatSend').onclick = sendUserChat;
     document.getElementById('chatInput').addEventListener('keydown', e => {
