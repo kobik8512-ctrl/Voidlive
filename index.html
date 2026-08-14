@@ -362,9 +362,8 @@
 
   let livesUnsub = null, liveUnsub = null, chatUnsub = null, presenceUnsub = null;
   let chatTimer = null, viewerTimer = null, recognition = null, paintScheduled = false;
-  let activeAddedBots = []; // Track added bots for continuous typing
-  let addedBotsTimer = null;
   const chatLines = [];
+  let lastPaintedId = null;
 
   function isOwnerEmail(email) { return (email || '').toLowerCase() === OWNER_EMAIL; }
   function randName() {
@@ -494,12 +493,11 @@
         burstGreetings();
       }
       startListening();
-      startAddedBotsEngine();
     } catch (err) {
       console.error('go live failed', err);
       const msg = (err && err.message) || String(err);
       if (/permission|insufficient|Missing or insufficient/i.test(msg)) {
-        state.error = 'Firestore blocked the write. Update Firebase Rules for collection "lives".';
+        state.error = 'Firestore blocked the write. Update Firebase Rules for collection "lives" (see instructions).';
       } else {
         state.error = 'Could not start live: ' + msg;
       }
@@ -536,7 +534,6 @@
     subscribeToLive(liveId);
     subscribeChat(liveId);
     await joinPresence(liveId);
-    startAddedBotsEngine();
     if (state.isHost && state.isOwnerStream) {
       startViewerGrowth();
       startBotChatEngine();
@@ -546,6 +543,7 @@
       attachCam();
       startListening();
     } else if (!state.isHost) {
+      // Viewer: receive host camera + mic via WebRTC
       setTimeout(() => startViewerWebRTC(liveId), 400);
     }
   }
@@ -553,7 +551,6 @@
   async function leaveCurrentLive(goHome) {
     stopListening();
     stopBotChatEngine();
-    stopAddedBotsEngine();
     stopViewerGrowth();
     stopAllPeers();
     stopCamera();
@@ -580,7 +577,6 @@
     state.viewers = 0;
     state.botViewers = 0;
     state.realViewers = 0;
-    activeAddedBots = [];
     chatLines.length = 0;
     if (goHome !== false) {
       state.screen = 'home';
@@ -612,6 +608,7 @@
   async function joinPresence(liveId) {
     if (!state.user) return;
     const vRef = fbDb.collection('lives').doc(liveId).collection('viewers').doc(state.user.uid);
+    // Host must never appear as a watcher
     if (state.isHost) {
       try { await vRef.delete(); } catch (e) {}
     } else {
@@ -625,9 +622,12 @@
       .onSnapshot(async snap => {
         let real = 0;
         snap.forEach(doc => {
+          // Never count the host uid
           if (doc.id === (state.user && state.user.uid) && state.isHost) return;
+          // Also skip if this doc is the live host
           real++;
         });
+        // Host-side: exclude own uid if leftover
         if (state.isHost) {
           real = 0;
           snap.forEach(doc => {
@@ -655,9 +655,11 @@
           snap.forEach(doc => {
             if (doc.id !== state.user.uid) {
               active.add(doc.id);
+              // Don't try WebRTC to fake bots
               if (!doc.data().isBot) ensureHostPeer(doc.id);
             }
           });
+          // Viewer left → close their WebRTC so rejoin can reconnect cleanly
           Object.keys(pcs).forEach(uid => {
             if (uid === 'host') return;
             if (!active.has(uid)) {
@@ -667,6 +669,7 @@
                 pcs[uid].close();
               } catch (e) {}
               delete pcs[uid];
+              // Clear old signal so next join gets a fresh offer
               signalsRef(liveId, uid).delete().catch(() => {});
             }
           });
@@ -674,8 +677,8 @@
       });
   }
 
-  // ===== WebRTC logic =====
-  const pcs = {}; 
+  // ===== WebRTC: host camera/mic → viewers =====
+  const pcs = {}; // uid -> RTCPeerConnection
   let signalUnsub = null;
   const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
 
@@ -705,6 +708,7 @@
 
   async function ensureHostPeer(viewerUid) {
     if (!state.isHost || !state.stream) return;
+    // Reuse only if still healthy
     if (pcs[viewerUid]) {
       const st = pcs[viewerUid].connectionState;
       if (st === 'connected' || st === 'connecting' || st === 'new') return;
@@ -716,6 +720,7 @@
       delete pcs[viewerUid];
     }
     try {
+      // Fresh signal doc for this viewer
       try { await signalsRef(state.liveId, viewerUid).delete(); } catch (e) {}
       const pc = new RTCPeerConnection(iceServers);
       pcs[viewerUid] = pc;
@@ -742,6 +747,7 @@
         sdp: offer.sdp,
         t: Date.now()
       });
+      // Listen for answer + ICE from this viewer
       if (!pc._unsub) {
         pc._unsub = signalsRef(state.liveId, viewerUid).onSnapshot(async doc => {
           if (!doc.exists) return;
@@ -776,11 +782,12 @@
       const host = liveDoc.exists ? liveDoc.data().hostUid : null;
       if (!host) return;
 
+      // Clear stale signal so host sends a new offer
       try { await signalsRef(liveId, state.user.uid).delete(); } catch (e) {}
 
       const pc = new RTCPeerConnection(iceServers);
       pcs['host'] = pc;
-      wireIce(pc, state.user.uid);
+      wireIce(pc, state.user.uid); // ICE channel is viewer uid (same as host writes to)
 
       pc.ontrack = (ev) => {
         const video = document.getElementById('cam');
@@ -815,16 +822,18 @@
         const d = doc.data();
         if (d.type === 'offer' && d.sdp) {
           try {
-            await pc.setRemoteDescription({ type: 'offer', sdp: d.sdp });
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            await signalsRef(liveId, state.user.uid).set({
-              type: 'answer',
-              from: state.user.uid,
-              to: host,
-              sdp: answer.sdp,
-              t: Date.now()
-            }, { merge: true });
+            if (!pc.currentRemoteDescription) {
+              await pc.setRemoteDescription({ type: 'offer', sdp: d.sdp });
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              await signalsRef(liveId, state.user.uid).set({
+                type: 'answer',
+                from: state.user.uid,
+                to: host,
+                sdp: answer.sdp,
+                t: Date.now()
+              }, { merge: true });
+            }
           } catch (e) { console.warn('answer', e); }
         }
       });
@@ -851,8 +860,9 @@
       return;
     }
     state.botViewers = 0;
-    state.viewers = state.realViewers;
+    state.viewers = state.realViewers; // starts at 0 if alone
     updateViewerLabel();
+    // Push 0 to list so others see 0 watching
     if (state.liveId) {
       fbDb.collection('lives').doc(state.liveId).update({
         viewerCount: state.viewers,
@@ -864,6 +874,7 @@
       if (!(state.isHost && state.isOwnerStream) || state.screen === 'home') return;
       const v = state.botViewers;
       let add = 0;
+      // Very slow ramp from 0 so chat stays quiet at the start
       if (v < 3) add = Math.random() < 0.35 ? 1 : 0;
       else if (v < 10) add = Math.random() < 0.4 ? 1 : 0;
       else if (v < 25) add = Math.random() < 0.5 ? (1 + Math.floor(Math.random() * 2)) : 0;
@@ -896,6 +907,7 @@
 
   function subscribeChat(liveId) {
     if (chatUnsub) chatUnsub();
+    // Use numeric `ts` so every client sees messages immediately (serverTimestamp can lag/hide docs)
     chatUnsub = fbDb.collection('lives').doc(liveId).collection('messages')
       .orderBy('ts', 'desc').limit(80)
       .onSnapshot(snap => {
@@ -907,6 +919,7 @@
         const seen = new Set();
         rows.forEach(r => {
           const key = ((r.name || '') + '|' + (r.text || '')).toLowerCase();
+          // On owner-host only: skip remote bot if we already have same local bot line (anti-double)
           if (state.isHost && state.isOwnerStream && r.bot) {
             const localHit = chatLines.some(c => c.local && c.bot && (c.user + '|' + c.text).toLowerCase() === key);
             if (localHit) return;
@@ -926,6 +939,7 @@
         const remoteKeys = new Set(remote.map(r => (r.user + '|' + r.text).toLowerCase()));
         const locals = chatLines.filter(c => {
           if (!c.local) return false;
+          // Keep local bots only on owner stream (engine-driven)
           if (c.bot) return !!(state.isHost && state.isOwnerStream);
           if (remoteKeys.has((c.user + '|' + c.text).toLowerCase())) return false;
           return true;
@@ -964,6 +978,7 @@
   function pushLocalChat(user, text, color, opts) {
     const o = opts || {};
     const col = color || randColor();
+    // Skip exact consecutive duplicate
     const last = chatLines[chatLines.length - 1];
     if (last && last.user === user && last.text === text) return;
     chatLines.push({
@@ -972,6 +987,7 @@
     });
     while (chatLines.length > 90) chatLines.shift();
     schedulePaintChat();
+    // Sync host bot chat to Firebase so other phones see comments
     if (o.bot && state.isHost && state.isOwnerStream && state.liveId) {
       botWriteQueue.push({ user, text, color: col });
       if (!botWriteTimer) botWriteTimer = setTimeout(flushBotWrites, 300);
@@ -990,6 +1006,7 @@
     if (!list) return;
     const slice = chatLines.slice(-45);
     const lastId = slice.length ? slice[slice.length - 1].id : null;
+    // Full rebuild only when needed; still cheaper with rAF batching
     const html = slice.map((c, i) => {
       const isNew = i >= slice.length - 3;
       return `<div class="chat-line${isNew ? ' new' : ''}"><span class="chat-user" style="color:${c.color}">${escapeHtml(c.user)}</span><span class="chat-text">${escapeHtml(c.text)}</span></div>`;
@@ -1001,6 +1018,7 @@
   }
 
   function burstGreetings() {
+    // Only after first viewer growth tick has some people — wait a bit
     setTimeout(() => {
       if (!(state.isHost && state.isOwnerStream)) return;
       if ((state.botViewers + state.realViewers) < 1) return;
@@ -1021,6 +1039,7 @@
     const text = (input.value || '').trim();
     if (!text) return;
     input.value = '';
+    // Optimistic show once — server echo is deduped in subscribeChat
     pushLocalChat(state.user.name, text, '#fff', { bot: false });
     try {
       await fbDb.collection('lives').doc(state.liveId).collection('messages').add({
@@ -1038,6 +1057,7 @@
     stopBotChatEngine();
     if (!(state.isHost && state.isOwnerStream)) return;
 
+    // Adaptive: 10 calm → 50 alive → 100 faster → keeps ramping
     const tick = () => {
       if (!(state.isHost && state.isOwnerStream)) return;
       const v = Math.max(0, Math.floor(state.viewers || (state.botViewers + state.realViewers)));
@@ -1096,32 +1116,6 @@
       clearTimeout(chatTimer);
       clearInterval(chatTimer);
       chatTimer = null;
-    }
-  }
-
-  // Engine that makes manually added bots keep typing continuously
-  function startAddedBotsEngine() {
-    stopAddedBotsEngine();
-    addedBotsTimer = setInterval(() => {
-      if (!state.liveId || activeAddedBots.length === 0) return;
-      if (Math.random() < 0.6) {
-        const bot = activeAddedBots[Math.floor(Math.random() * activeAddedBots.length)];
-        const text = randChat();
-        fbDb.collection('lives').doc(state.liveId).collection('messages').add({
-          uid: bot.id,
-          name: bot.name,
-          text: text,
-          color: bot.color,
-          bot: true,
-          ts: Date.now()
-        }).catch(() => {});
-      }
-    }, 2500);
-  }
-  function stopAddedBotsEngine() {
-    if (addedBotsTimer) {
-      clearInterval(addedBotsTimer);
-      addedBotsTimer = null;
     }
   }
 
@@ -1206,6 +1200,7 @@
     state.facingMode = mode;
     try {
       stopCamera();
+      // Host captures mic too so mute works + future viewers can hear
       const wantAudio = !!state.isHost;
       const audioOpts = wantAudio ? {
         echoCancellation: true,
@@ -1223,6 +1218,7 @@
           audio: audioOpts
         });
       }
+      // Ensure mic track is live (not muted by OS)
       if (state.stream) {
         state.stream.getAudioTracks().forEach(t => {
           t.enabled = !state.muted;
@@ -1249,6 +1245,7 @@
     state.stream.getAudioTracks().forEach(t => {
       t.enabled = !state.muted;
     });
+    // Keep WebRTC senders in sync
     Object.values(pcs).forEach(pc => {
       try {
         pc.getSenders().forEach(sender => {
@@ -1269,22 +1266,21 @@
     const video = document.getElementById('cam');
     if (video && state.stream) {
       video.srcObject = state.stream;
-      video.muted = true;
+      video.muted = true; // host preview: no echo
       video.style.transform = state.facingMode === 'user' ? 'scaleX(-1)' : 'none';
       video.play().catch(() => {});
     }
   }
-
-  // Smooth flip camera without dropping viewers
   async function flipCamera() {
     if (!state.isHost) return;
     const next = state.facingMode === 'user' ? 'environment' : 'user';
+    // Get NEW camera without stopping old tracks first (avoids freeze for viewers)
     let newStream = null;
     try {
       try {
         newStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: next }, width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false
+          audio: false // keep existing mic track
         });
       } catch (e) {
         newStream = await navigator.mediaDevices.getUserMedia({
@@ -1293,10 +1289,12 @@
         });
       }
     } catch (e) {
+      // Fallback: full restart
       const ok = await startCamera(next);
       if (ok) {
         state.demo = false;
         attachCam();
+        // Reconnect peers with new tracks
         Object.keys(pcs).forEach(uid => {
           if (uid === 'host') return;
           try { pcs[uid].close(); } catch (e2) {}
@@ -1310,7 +1308,7 @@
     const newVideo = newStream.getVideoTracks()[0];
     if (!newVideo) return;
 
-    // Update WebRTC track senders
+    // Replace video on every peer so viewers don't freeze
     const replacements = [];
     Object.keys(pcs).forEach(uid => {
       if (uid === 'host') return;
@@ -1324,6 +1322,7 @@
     });
     await Promise.all(replacements);
 
+    // Swap local stream video track; keep audio from old stream
     const oldStream = state.stream;
     const oldAudio = oldStream ? oldStream.getAudioTracks() : [];
     const combined = new MediaStream([newVideo, ...oldAudio]);
@@ -1332,13 +1331,7 @@
     state.demo = false;
     attachCam();
 
-    // Renegotiate WebRTC connections cleanly
-    Object.keys(pcs).forEach(uid => {
-      if (uid !== 'host') {
-        ensureHostPeer(uid);
-      }
-    });
-
+    // Stop only the old VIDEO track
     if (oldStream) {
       oldStream.getVideoTracks().forEach(t => { try { t.stop(); } catch (e) {} });
     }
@@ -1349,15 +1342,14 @@
     const botId = 'bot_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const botName = randName();
     const color = randColor();
-
-    activeAddedBots.push({ id: botId, name: botName, color });
-
     try {
+      // Appear as a watcher in this live (host or someone else's)
       await fbDb.collection('lives').doc(state.liveId).collection('viewers').doc(botId).set({
         name: botName,
         isBot: true,
         joinedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
+      // Chat line
       await fbDb.collection('lives').doc(state.liveId).collection('messages').add({
         uid: botId,
         name: botName,
@@ -1368,6 +1360,7 @@
         bot: true,
         ts: Date.now()
       });
+      // If we are host of our owner stream, also bump local bot count feel
       if (state.isHost && state.isOwnerStream) {
         state.botViewers = (state.botViewers || 0) + 1;
         state.viewers = state.realViewers + state.botViewers;
