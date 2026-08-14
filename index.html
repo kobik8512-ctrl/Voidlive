@@ -914,10 +914,11 @@
         snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
         rows.reverse();
 
-        // Build remote list — host already paints bots locally, so skip remote bots on host (stops doubles)
+        // Skip remote bots only on YOUR owner stream (local bot engine already paints them).
+        // Friend hosts must still see bots added with the b button.
         const remote = [];
         rows.forEach(r => {
-          if (state.isHost && r.bot) return;
+          if (state.isHost && state.isOwnerStream && r.bot) return;
           remote.push({
             id: r.id,
             user: r.name || 'user',
