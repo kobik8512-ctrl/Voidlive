@@ -361,9 +361,25 @@
   };
 
   let livesUnsub = null, liveUnsub = null, chatUnsub = null, presenceUnsub = null;
-  let chatTimer = null, viewerTimer = null, recognition = null, paintScheduled = false;
+  let chatTimer = null, viewerTimer = null, heartbeatTimer = null, recognition = null, paintScheduled = false;
+  const botLoops = new Map();
   const chatLines = [];
   let lastPaintedId = null;
+
+  const LIVE_HEARTBEAT_MS = 8000;
+  const LIVE_STALE_MS = 30000;
+
+  function heartbeatMillis(value) {
+    if (typeof value === 'number') return value;
+    if (value && typeof value.toMillis === 'function') return value.toMillis();
+    return 0;
+  }
+
+  function isLiveFresh(data) {
+    if (!data || data.status !== 'live') return false;
+    const hb = heartbeatMillis(data.lastHeartbeat);
+    return hb > 0 && (Date.now() - hb) < LIVE_STALE_MS;
+  }
 
   function isOwnerEmail(email) { return (email || '').toLowerCase() === OWNER_EMAIL; }
   function randName() {
@@ -417,15 +433,36 @@
   function subscribeLives() {
     if (!fbReady) return;
     if (livesUnsub) livesUnsub();
+
     livesUnsub = fbDb.collection('lives').where('status', '==', 'live')
       .onSnapshot(snap => {
         const list = [];
-        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+
+        snap.forEach(doc => {
+          const data = doc.data();
+
+          // A live is only considered active while its host is sending heartbeats.
+          // This removes abandoned/crashed live cards instead of leaving them stuck.
+          if (!isLiveFresh(data)) {
+            if (state.user && data.hostUid === state.user.uid) {
+              doc.ref.update({
+                status: 'ended',
+                endedAt: Date.now(),
+                lastHeartbeat: firebase.firestore.FieldValue.delete()
+              }).catch(() => {});
+            }
+            return;
+          }
+
+          list.push({ id: doc.id, ...data });
+        });
+
         list.sort((a, b) => {
-          const ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
-          const tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+          const ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
+          const tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
           return tb - ta;
         });
+
         state.lives = list;
         if (state.screen === 'home') render();
       }, err => console.warn('lives', err));
@@ -465,7 +502,8 @@
         isOwnerStream: isOwnerStream,
         viewerCount: 0,
         realViewerCount: 0,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        lastHeartbeat: Date.now()
       });
 
       state.liveId = ref.id;
@@ -487,6 +525,7 @@
       subscribeToLive(ref.id);
       subscribeChat(ref.id);
       await joinPresence(ref.id);
+      startLiveHeartbeat();
       startViewerGrowth();
       if (isOwnerStream) {
         startBotChatEngine();
@@ -513,7 +552,7 @@
     await leaveCurrentLive(false);
 
     const doc = await fbDb.collection('lives').doc(liveId).get();
-    if (!doc.exists || doc.data().status !== 'live') {
+    if (!doc.exists || !isLiveFresh(doc.data())) {
       state.error = 'That live ended.';
       render();
       return;
@@ -549,28 +588,37 @@
   }
 
   async function leaveCurrentLive(goHome) {
+    const oldLiveId = state.liveId;
+    const wasHost = state.isHost;
+
     stopListening();
     stopBotChatEngine();
+    stopAllBotLoops();
     stopViewerGrowth();
+    stopLiveHeartbeat();
     stopAllPeers();
     stopCamera();
+
     if (liveUnsub) { liveUnsub(); liveUnsub = null; }
     if (chatUnsub) { chatUnsub(); chatUnsub = null; }
     if (presenceUnsub) { presenceUnsub(); presenceUnsub = null; }
 
-    if (fbReady && state.liveId && state.user) {
+    if (fbReady && oldLiveId && state.user) {
       try {
-        await fbDb.collection('lives').doc(state.liveId).collection('viewers').doc(state.user.uid).delete();
+        await fbDb.collection('lives').doc(oldLiveId).collection('viewers').doc(state.user.uid).delete();
       } catch (e) {}
-      if (state.isHost) {
+
+      if (wasHost) {
         try {
-          await fbDb.collection('lives').doc(state.liveId).update({
+          await fbDb.collection('lives').doc(oldLiveId).update({
             status: 'ended',
-            endedAt: firebase.firestore.FieldValue.serverTimestamp()
+            endedAt: Date.now(),
+            lastHeartbeat: firebase.firestore.FieldValue.delete()
           });
         } catch (e) {}
       }
     }
+
     state.liveId = null;
     state.isHost = false;
     state.isOwnerStream = false;
@@ -578,10 +626,46 @@
     state.botViewers = 0;
     state.realViewers = 0;
     chatLines.length = 0;
+
     if (goHome !== false) {
       state.screen = 'home';
       render();
     }
+  }
+
+  function startLiveHeartbeat() {
+    stopLiveHeartbeat();
+    if (!state.isHost || !state.liveId || !fbReady) return;
+
+    const beat = () => {
+      if (!state.isHost || !state.liveId || state.screen !== 'live') return;
+      fbDb.collection('lives').doc(state.liveId).update({
+        lastHeartbeat: Date.now()
+      }).catch(() => {});
+    };
+
+    beat();
+    heartbeatTimer = setInterval(beat, LIVE_HEARTBEAT_MS);
+  }
+
+  function stopLiveHeartbeat() {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
+  }
+
+  function endLiveOnPageExit() {
+    // Best-effort cleanup for tab close/navigation. The heartbeat timeout is
+    // the reliable fallback when the browser kills the page before this runs.
+    if (!fbReady || !state.isHost || !state.liveId) return;
+    try {
+      fbDb.collection('lives').doc(state.liveId).update({
+        status: 'ended',
+        endedAt: Date.now(),
+        lastHeartbeat: firebase.firestore.FieldValue.delete()
+      });
+    } catch (e) {}
   }
 
   function subscribeToLive(liveId) {
@@ -589,7 +673,7 @@
     liveUnsub = fbDb.collection('lives').doc(liveId).onSnapshot(doc => {
       if (!doc.exists) return;
       const d = doc.data();
-      if (d.status !== 'live' && !state.isHost) {
+      if (!isLiveFresh(d) && !state.isHost) {
         state.error = 'Live ended.';
         leaveCurrentLive(true);
         return;
@@ -622,20 +706,12 @@
       .onSnapshot(async snap => {
         let real = 0;
         snap.forEach(doc => {
-          // Never count the host uid
+          const d = doc.data() || {};
+          // Never count the host uid or synthetic bot viewers as real viewers.
           if (doc.id === (state.user && state.user.uid) && state.isHost) return;
-          // Also skip if this doc is the live host
+          if (d.isBot) return;
           real++;
         });
-        // Host-side: exclude own uid if leftover
-        if (state.isHost) {
-          real = 0;
-          snap.forEach(doc => {
-            if (doc.id !== state.user.uid) real++;
-          });
-        } else {
-          real = snap.size;
-        }
 
         state.realViewers = real;
         if (state.isOwnerStream && state.isHost) {
@@ -729,13 +805,18 @@
       });
       wireIce(pc, viewerUid);
       pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'failed' || pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
-          try {
-            if (pc._unsub) pc._unsub();
-            if (pc._iceUnsub) pc._iceUnsub();
-            pc.close();
-          } catch (e) {}
-          delete pcs[viewerUid];
+        if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+          setTimeout(() => {
+            if (state.isHost && state.stream && state.liveId) reconnectHostPeer(viewerUid);
+          }, 250);
+        } else if (pc.connectionState === 'disconnected') {
+          // Mobile networks/camera switches can briefly disconnect. Give ICE
+          // a moment, then rebuild the peer if it did not recover.
+          setTimeout(() => {
+            if (pc === pcs[viewerUid] && pc.connectionState === 'disconnected') {
+              reconnectHostPeer(viewerUid);
+            }
+          }, 1800);
         }
       };
       const offer = await pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false });
@@ -772,6 +853,19 @@
     } catch (e) {
       console.warn('host peer', e);
     }
+  }
+
+  async function reconnectHostPeer(viewerUid) {
+    if (!state.isHost || !state.stream || !viewerUid) return;
+    try {
+      if (pcs[viewerUid]) {
+        if (pcs[viewerUid]._unsub) pcs[viewerUid]._unsub();
+        if (pcs[viewerUid]._iceUnsub) pcs[viewerUid]._iceUnsub();
+        pcs[viewerUid].close();
+        delete pcs[viewerUid];
+      }
+    } catch (e) {}
+    await ensureHostPeer(viewerUid);
   }
 
   async function startViewerWebRTC(liveId) {
@@ -1272,106 +1366,184 @@
     }
   }
   async function flipCamera() {
-    if (!state.isHost) return;
+    if (!state.isHost || !state.stream) return;
+
     const next = state.facingMode === 'user' ? 'environment' : 'user';
-    // Get NEW camera without stopping old tracks first (avoids freeze for viewers)
     let newStream = null;
+
     try {
       try {
         newStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: next }, width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false // keep existing mic track
+          video: {
+            facingMode: { exact: next },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
         });
       } catch (e) {
         newStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: next },
+          video: {
+            facingMode: { ideal: next },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
           audio: false
         });
       }
     } catch (e) {
-      // Fallback: full restart
-      const ok = await startCamera(next);
-      if (ok) {
-        state.demo = false;
-        attachCam();
-        // Reconnect peers with new tracks
-        Object.keys(pcs).forEach(uid => {
-          if (uid === 'host') return;
-          try { pcs[uid].close(); } catch (e2) {}
-          delete pcs[uid];
-          ensureHostPeer(uid);
-        });
-      }
+      console.warn('camera switch failed', e);
       return;
     }
 
-    const newVideo = newStream.getVideoTracks()[0];
-    if (!newVideo) return;
+    const newVideo = newStream && newStream.getVideoTracks()[0];
+    if (!newVideo) {
+      if (newStream) newStream.getTracks().forEach(t => t.stop());
+      return;
+    }
 
-    // Replace video on every peer so viewers don't freeze
-    const replacements = [];
-    Object.keys(pcs).forEach(uid => {
-      if (uid === 'host') return;
-      const pc = pcs[uid];
-      if (!pc) return;
-      pc.getSenders().forEach(sender => {
-        if (sender.track && sender.track.kind === 'video') {
-          replacements.push(sender.replaceTrack(newVideo).catch(() => {}));
-        }
-      });
-    });
-    await Promise.all(replacements);
-
-    // Swap local stream video track; keep audio from old stream
     const oldStream = state.stream;
-    const oldAudio = oldStream ? oldStream.getAudioTracks() : [];
+    const oldVideo = oldStream.getVideoTracks()[0] || null;
+    const peerJobs = [];
+
+    // replaceTrack keeps the existing WebRTC session alive, so viewers do not
+    // get a frozen/black video while the physical camera changes.
+    for (const uid of Object.keys(pcs)) {
+      if (uid === 'host') continue;
+      const pc = pcs[uid];
+      if (!pc || pc.connectionState === 'closed') continue;
+
+      const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+      if (!sender) continue;
+
+      peerJobs.push((async () => {
+        try {
+          await sender.replaceTrack(newVideo);
+        } catch (e) {
+          // Some mobile WebRTC implementations reject a direct camera-track
+          // swap. Rebuilding just this peer gives it a fresh offer/track.
+          await reconnectHostPeer(uid);
+        }
+      })());
+    }
+
+    await Promise.all(peerJobs);
+
+    const oldAudio = oldStream.getAudioTracks();
     const combined = new MediaStream([newVideo, ...oldAudio]);
     state.stream = combined;
     state.facingMode = next;
     state.demo = false;
     attachCam();
 
-    // Stop only the old VIDEO track
-    if (oldStream) {
-      oldStream.getVideoTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+    if (oldVideo && oldVideo !== newVideo) {
+      try { oldVideo.stop(); } catch (e) {}
     }
+  }
+
+  function stopBotLoop(botId) {
+    const loop = botLoops.get(botId);
+    if (!loop) return;
+    if (loop.timer) clearTimeout(loop.timer);
+    botLoops.delete(botId);
+  }
+
+  function stopAllBotLoops() {
+    botLoops.forEach(loop => {
+      if (loop.timer) clearTimeout(loop.timer);
+    });
+    botLoops.clear();
+  }
+
+  function scheduleBotMessage(bot) {
+    if (!bot || !state.liveId || bot.liveId !== state.liveId) {
+      stopBotLoop(bot && bot.id);
+      return;
+    }
+
+    const viewerCount = Math.max(1, Number(state.viewers || state.realViewers || 1));
+    const delay = viewerCount < 5
+      ? 4500 + Math.random() * 3500
+      : viewerCount < 25
+        ? 3500 + Math.random() * 3000
+        : 2500 + Math.random() * 2500;
+
+    bot.timer = setTimeout(async () => {
+      bot.timer = null;
+
+      if (!state.liveId || state.liveId !== bot.liveId) {
+        stopBotLoop(bot.id);
+        return;
+      }
+
+      const text = Math.random() < 0.30
+        ? GREET_POOL[Math.floor(Math.random() * GREET_POOL.length)]
+        : randChat();
+
+      try {
+        await fbDb.collection('lives').doc(bot.liveId).collection('messages').add({
+          uid: bot.id,
+          name: bot.name,
+          text,
+          color: bot.color,
+          bot: true,
+          ts: Date.now()
+        });
+      } catch (e) {
+        // Keep the bot alive; Firestore may briefly be offline.
+      }
+
+      scheduleBotMessage(bot);
+    }, delay);
+
+    botLoops.set(bot.id, bot);
   }
 
   async function addBotToCurrentLive() {
     if (!state.user || !state.user.isOwner || !state.liveId) return;
+
     const botId = 'bot_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const botName = randName();
     const color = randColor();
+    const liveId = state.liveId;
+
     try {
-      // Appear as a watcher in this live (host or someone else's)
-      await fbDb.collection('lives').doc(state.liveId).collection('viewers').doc(botId).set({
+      await fbDb.collection('lives').doc(liveId).collection('viewers').doc(botId).set({
         name: botName,
         isBot: true,
-        joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+        joinedAt: Date.now()
       });
-      // Chat line
-      await fbDb.collection('lives').doc(state.liveId).collection('messages').add({
+
+      const bot = { id: botId, name: botName, color, liveId, timer: null };
+      botLoops.set(botId, bot);
+
+      // First message immediately, then continue chatting instead of going silent.
+      await fbDb.collection('lives').doc(liveId).collection('messages').add({
         uid: botId,
         name: botName,
         text: Math.random() < 0.55
           ? GREET_POOL[Math.floor(Math.random() * GREET_POOL.length)]
           : randChat(),
-        color: color,
+        color,
         bot: true,
         ts: Date.now()
       });
-      // If we are host of our owner stream, also bump local bot count feel
+
+      scheduleBotMessage(bot);
+
+      // Bot viewers count toward total viewers, but not realViewerCount.
       if (state.isHost && state.isOwnerStream) {
         state.botViewers = (state.botViewers || 0) + 1;
         state.viewers = state.realViewers + state.botViewers;
         updateViewerLabel();
-        fbDb.collection('lives').doc(state.liveId).update({
+        fbDb.collection('lives').doc(liveId).update({
           viewerCount: state.viewers,
           realViewerCount: state.realViewers
         }).catch(() => {});
       }
     } catch (e) {
       console.warn('add bot', e);
+      stopBotLoop(botId);
     }
   }
 
@@ -1511,6 +1683,9 @@
     paintChat();
     updateViewerLabel();
   }
+
+  window.addEventListener('pagehide', endLiveOnPageExit);
+  window.addEventListener('beforeunload', endLiveOnPageExit);
 
   if (fbReady) subscribeLives();
   render();
