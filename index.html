@@ -907,18 +907,25 @@
 
   function subscribeChat(liveId) {
     if (chatUnsub) chatUnsub();
+    // Use numeric `ts` so every client sees messages immediately (serverTimestamp can lag/hide docs)
     chatUnsub = fbDb.collection('lives').doc(liveId).collection('messages')
-      .orderBy('createdAt', 'desc').limit(60)
+      .orderBy('ts', 'desc').limit(80)
       .onSnapshot(snap => {
         const rows = [];
         snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
         rows.reverse();
 
-        // Skip remote bots only on YOUR owner stream (local bot engine already paints them).
-        // Friend hosts must still see bots added with the b button.
         const remote = [];
+        const seen = new Set();
         rows.forEach(r => {
-          if (state.isHost && state.isOwnerStream && r.bot) return;
+          const key = ((r.name || '') + '|' + (r.text || '')).toLowerCase();
+          // On owner-host only: skip remote bot if we already have same local bot line (anti-double)
+          if (state.isHost && state.isOwnerStream && r.bot) {
+            const localHit = chatLines.some(c => c.local && c.bot && (c.user + '|' + c.text).toLowerCase() === key);
+            if (localHit) return;
+          }
+          if (seen.has(key)) return;
+          seen.add(key);
           remote.push({
             id: r.id,
             user: r.name || 'user',
@@ -929,24 +936,22 @@
           });
         });
 
-        // Keep only local bots on host; drop local user msgs that already arrived from server
         const remoteKeys = new Set(remote.map(r => (r.user + '|' + r.text).toLowerCase()));
         const locals = chatLines.filter(c => {
           if (!c.local) return false;
-          if (c.bot) return true; // host bot lines
-          // user optimistic line already on server → drop
+          // Keep local bots only on owner stream (engine-driven)
+          if (c.bot) return !!(state.isHost && state.isOwnerStream);
           if (remoteKeys.has((c.user + '|' + c.text).toLowerCase())) return false;
           return true;
         });
 
         chatLines.length = 0;
         remote.forEach(r => chatLines.push(r));
-        locals.slice(-20).forEach(l => chatLines.push(l));
-        // Final dedupe consecutive identical lines
-        for (let i = chatLines.length - 1; i > 0; i--) {
-          const a = chatLines[i], b = chatLines[i - 1];
-          if (a.user === b.user && a.text === b.text) chatLines.splice(i, 1);
-        }
+        locals.slice(-20).forEach(l => {
+          const key = (l.user + '|' + l.text).toLowerCase();
+          if (remoteKeys.has(key)) return;
+          chatLines.push(l);
+        });
         while (chatLines.length > 90) chatLines.shift();
         schedulePaintChat();
       }, err => console.warn('chat', err));
@@ -965,7 +970,7 @@
         text: m.text,
         color: m.color,
         bot: true,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        ts: Date.now()
       }).catch(() => {});
     });
     if (botWriteQueue.length) botWriteTimer = setTimeout(flushBotWrites, 350);
@@ -1043,7 +1048,7 @@
         text: text,
         color: '#ffffff',
         bot: false,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        ts: Date.now()
       });
     } catch (e) {}
   }
@@ -1353,7 +1358,7 @@
           : randChat(),
         color: color,
         bot: true,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        ts: Date.now()
       });
       // If we are host of our owner stream, also bump local bot count feel
       if (state.isHost && state.isOwnerStream) {
