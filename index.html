@@ -193,6 +193,56 @@
     background: rgba(0,0,0,.5); padding: 3px 8px; border-radius: 6px;
   }
   .mic-status.on { color: var(--green); }
+  .gift-btn {
+    border: none; border-radius: 999px; padding: 0 14px;
+    background: linear-gradient(135deg, #ffc14a, #ff7a18);
+    color: #111; font-weight: 800; font-size: 16px; cursor: pointer;
+  }
+  .coins-pill {
+    font-size: 12px; font-weight: 700; color: #ffc14a;
+    background: rgba(0,0,0,.45); border-radius: 999px; padding: 4px 10px;
+    border: 1px solid rgba(255,193,74,.35);
+  }
+  .gift-panel {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 40;
+    max-height: 55vh; background: #121218; border-radius: 16px 16px 0 0;
+    border-top: 1px solid var(--line); display: flex; flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .gift-panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px; border-bottom: 1px solid var(--line);
+  }
+  .gift-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+    padding: 12px; overflow-y: auto; flex: 1;
+  }
+  .gift-item {
+    background: #1a1a22; border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 6px; text-align: center; cursor: pointer;
+  }
+  .gift-item:active { transform: scale(.96); }
+  .gift-emoji { font-size: 26px; line-height: 1.2; }
+  .gift-name { font-size: 10px; color: var(--muted); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gift-cost { font-size: 11px; color: #ffc14a; font-weight: 700; margin-top: 2px; }
+  .gift-float {
+    position: absolute; left: 50%; bottom: 42%; z-index: 30; pointer-events: none;
+    font-size: 42px; animation: giftPop 2.4s ease-out forwards;
+    text-align: center; transform: translateX(-50%);
+  }
+  .gift-float small {
+    display: block; font-size: 12px; color: #fff; margin-top: 4px;
+    text-shadow: 0 2px 8px #000;
+  }
+  @keyframes giftPop {
+    0% { transform: translateX(-50%) translateY(40px) scale(.4); opacity: 0; }
+    15% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.15); }
+    100% { transform: translateX(-50%) translateY(-120px) scale(1); opacity: 0; }
+  }
+  .retry-cam {
+    margin-top: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.08);
+    color: #fff; border-radius: 999px; padding: 8px 14px; font-size: 13px; cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -358,8 +408,144 @@
     chatBurstUntil: 0,
     facingMode: 'user',
     muted: false,
-    injectedBots: [] // bots owner added to current live (any host)
+    injectedBots: [],
+    coins: 0,
+    showGifts: false,
+    hostUid: null
   };
+
+  // 100+ gifts: name, emoji, cost
+  const GIFTS = [
+    { id:'rose', n:'Rose', e:'🌹', c:1 },
+    { id:'heart', n:'Heart', e:'❤️', c:5 },
+    { id:'thumb', n:'Like', e:'👍', c:10 },
+    { id:'clap', n:'Clap', e:'👏', c:15 },
+    { id:'star', n:'Star', e:'⭐', c:20 },
+    { id:'fire', n:'Fire', e:'🔥', c:25 },
+    { id:'cake', n:'Cake', e:'🎂', c:30 },
+    { id:'coffee', n:'Coffee', e:'☕', c:35 },
+    { id:'icecream', n:'Ice Cream', e:'🍦', c:40 },
+    { id:'donut', n:'Donut', e:'🍩', c:45 },
+    { id:'balloon', n:'Balloon', e:'🎈', c:50 },
+    { id:'giftbox', n:'Gift Box', e:'🎁', c:80 },
+    { id:'bouquet', n:'Bouquet', e:'💐', c:100 },
+    { id:'teddy', n:'Teddy', e:'🧸', c:120 },
+    { id:'kiss', n:'Kiss', e:'💋', c:150 },
+    { id:'ring', n:'Ring', e:'💍', c:200 },
+    { id:'crown_s', n:'Mini Crown', e:'👑', c:300 },
+    { id:'diamond_s', n:'Sparkle', e:'💎', c:400 },
+    { id:'rocket', n:'Rocket', e:'🚀', c:500 },
+    { id:'trophy', n:'Trophy', e:'🏆', c:750 },
+    { id:'medal', n:'Medal', e:'🏅', c:900 },
+    { id:'car', n:'Sports Car', e:'🏎️', c:1200 },
+    { id:'yacht', n:'Yacht', e:'🛥️', c:2500 },
+    { id:'plane', n:'Private Jet', e:'✈️', c:5000 },
+    { id:'castle', n:'Castle', e:'🏰', c:8000 },
+    { id:'unicorn', n:'Unicorn', e:'🦄', c:10000 },
+    { id:'dragon', n:'Dragon', e:'🐉', c:15000 },
+    { id:'phoenix', n:'Phoenix', e:'🔥🐦', c:20000 },
+    { id:'galaxy', n:'Galaxy', e:'🌌', c:25000 },
+    { id:'lion', n:'Lion', e:'🦁', c:49000 },
+    { id:'king', n:'King Crown', e:'👑', c:50000 },
+    { id:'universe', n:'Universe', e:'🪐', c:100000 },
+    { id:'loveu', n:'Love You', e:'💕', c:8 },
+    { id:'wink', n:'Wink', e:'😉', c:12 },
+    { id:'lol', n:'LOL', e:'😂', c:18 },
+    { id:'cool', n:'Cool', e:'😎', c:22 },
+    { id:'party', n:'Party', e:'🥳', c:28 },
+    { id:'confetti', n:'Confetti', e:'🎊', c:55 },
+    { id:'champagne', n:'Champagne', e:'🍾', c:180 },
+    { id:'pizza', n:'Pizza', e:'🍕', c:42 },
+    { id:'burger', n:'Burger', e:'🍔', c:38 },
+    { id:'sushi', n:'Sushi', e:'🍣', c:60 },
+    { id:'taco', n:'Taco', e:'🌮', c:33 },
+    { id:'ramen', n:'Ramen', e:'🍜', c:48 },
+    { id:'cookie', n:'Cookie', e:'🍪', c:16 },
+    { id:'candy', n:'Candy', e:'🍬', c:14 },
+    { id:'lollipop', n:'Lollipop', e:'🍭', c:19 },
+    { id:'chocolate', n:'Chocolate', e:'🍫', c:26 },
+    { id:'strawberry', n:'Strawberry', e:'🍓', c:11 },
+    { id:'peach', n:'Peach', e:'🍑', c:24 },
+    { id:'cherry', n:'Cherry', e:'🍒', c:13 },
+    { id:'sunflower', n:'Sunflower', e:'🌻', c:17 },
+    { id:'tulip', n:'Tulip', e:'🌷', c:21 },
+    { id:'hibiscus', n:'Hibiscus', e:'🌺', c:29 },
+    { id:'maple', n:'Maple', e:'🍁', c:23 },
+    { id:'rainbow', n:'Rainbow', e:'🌈', c:70 },
+    { id:'lightning', n:'Lightning', e:'⚡', c:90 },
+    { id:'wave', n:'Wave', e:'🌊', c:65 },
+    { id:'mountain', n:'Mountain', e:'⛰️', c:85 },
+    { id:'beach', n:'Beach', e:'🏖️', c:95 },
+    { id:'camper', n:'Camper', e:'🏕️', c:110 },
+    { id:'game', n:'Controller', e:'🎮', c:140 },
+    { id:'headphones', n:'Headphones', e:'🎧', c:160 },
+    { id:'mic', n:'Mic', e:'🎤', c:130 },
+    { id:'guitar', n:'Guitar', e:'🎸', c:220 },
+    { id:'drums', n:'Drums', e:'🥁', c:190 },
+    { id:'violin', n:'Violin', e:'🎻', c:210 },
+    { id:'soccer', n:'Soccer', e:'⚽', c:75 },
+    { id:'basketball', n:'Basketball', e:'🏀', c:78 },
+    { id:'football', n:'Football', e:'🏈', c:82 },
+    { id:'tennis', n:'Tennis', e:'🎾', c:68 },
+    { id:'boxing', n:'Boxing', e:'🥊', c:175 },
+    { id:'sword', n:'Sword', e:'⚔️', c:260 },
+    { id:'shield', n:'Shield', e:'🛡️', c:240 },
+    { id:'magic', n:'Magic Wand', e:'🪄', c:320 },
+    { id:'crystal', n:'Crystal Ball', e:'🔮', c:380 },
+    { id:'gem', n:'Ruby', e:'♦️', c:450 },
+    { id:'goldbar', n:'Gold Bar', e:'🪙', c:600 },
+    { id:'money', n:'Money Bag', e:'💰', c:1000 },
+    { id:'bank', n:'Bank', e:'🏦', c:3000 },
+    { id:'bitcoin', n:'Bitcoin', e:'₿', c:7000 },
+    { id:'robot', n:'Robot', e:'🤖', c:1800 },
+    { id:'alien', n:'Alien', e:'👽', c:2200 },
+    { id:'ghost', n:'Ghost', e:'👻', c:350 },
+    { id:'pumpkin', n:'Pumpkin', e:'🎃', c:88 },
+    { id:'santa', n:'Santa', e:'🎅', c:420 },
+    { id:'tree', n:'Xmas Tree', e:'🎄', c:280 },
+    { id:'snowman', n:'Snowman', e:'⛄', c:150 },
+    { id:'fireworks', n:'Fireworks', e:'🎆', c:550 },
+    { id:'sparkler', n:'Sparkler', e:'✨', c:45 },
+    { id:'dove', n:'Dove', e:'🕊️', c:170 },
+    { id:'eagle', n:'Eagle', e:'🦅', c:900 },
+    { id:'wolf', n:'Wolf', e:'🐺', c:1100 },
+    { id:'fox', n:'Fox', e:'🦊', c:480 },
+    { id:'cat', n:'Cat', e:'🐱', c:95 },
+    { id:'dog', n:'Dog', e:'🐶', c:95 },
+    { id:'panda', n:'Panda', e:'🐼', c:700 },
+    { id:'bear', n:'Bear', e:'🐻', c:650 },
+    { id:'tiger', n:'Tiger', e:'🐯', c:20000 },
+    { id:'whale', n:'Whale', e:'🐋', c:12000 },
+    { id:'dolphin', n:'Dolphin', e:'🐬', c:1500 },
+    { id:'octopus', n:'Octopus', e:'🐙', c:800 },
+    { id:'butterfly', n:'Butterfly', e:'🦋', c:120 },
+    { id:'bee', n:'Bee', e:'🐝', c:60 },
+    { id:'moon', n:'Moon', e:'🌙', c:340 },
+    { id:'sun', n:'Sun', e:'☀️', c:360 },
+    { id:'comet', n:'Comet', e:'☄️', c:2800 },
+    { id:'ufo', n:'UFO', e:'🛸', c:4500 },
+    { id:'satellite', n:'Satellite', e:'🛰️', c:3200 },
+    { id:'cinema', n:'Movie', e:'🎬', c:200 },
+    { id:'ticket', n:'Ticket', e:'🎫', c:90 },
+    { id:'popcorn', n:'Popcorn', e:'🍿', c:35 },
+    { id:'camera', n:'Camera', e:'📷', c:250 },
+    { id:'phone', n:'Phone', e:'📱', c:900 },
+    { id:'laptop', n:'Laptop', e:'💻', c:1500 },
+    { id:'watch', n:'Watch', e:'⌚', c:2000 },
+    { id:'shoes', n:'Sneakers', e:'👟', c:400 },
+    { id:'dress', n:'Dress', e:'👗', c:350 },
+    { id:'lipstick', n:'Lipstick', e:'💄', c:80 },
+    { id:'perfume', n:'Perfume', e:'🧴', c:300 },
+    { id:'handshake', n:'Handshake', e:'🤝', c:40 },
+    { id:'pray', n:'Pray', e:'🙏', c:50 },
+    { id:'muscle', n:'Strong', e:'💪', c:70 },
+    { id:'brain', n:'Brain', e:'🧠', c:120 },
+    { id:'eyes', n:'Eyes', e:'👀', c:25 },
+    { id:'100', n:'100', e:'💯', c:100 },
+    { id:'vip', n:'VIP', e:'🎫', c:5000 },
+    { id:'legend', n:'Legend', e:'🏆', c:75000 },
+    { id:'immortal', n:'Immortal', e:'♾️', c:200000 }
+  ];
 
   let livesUnsub = null, liveUnsub = null, chatUnsub = null, presenceUnsub = null;
   let chatTimer = null, viewerTimer = null, recognition = null, paintScheduled = false;
@@ -400,9 +586,110 @@
           photoURL: u.photoURL || '',
           isOwner: isOwnerEmail(u.email)
         };
-      } else state.user = null;
+        loadCoins();
+      } else {
+        state.user = null;
+        state.coins = 0;
+      }
       if (state.screen === 'home') { subscribeLives(); render(); }
     });
+
+  async function loadCoins() {
+    if (!state.user || !fbDb) return;
+    if (state.user.isOwner) {
+      state.coins = Infinity;
+      return;
+    }
+    try {
+      const ref = fbDb.collection('userCoins').doc(state.user.uid);
+      const doc = await ref.get();
+      if (!doc.exists) {
+        await ref.set({ coins: 0, name: state.user.name, updatedAt: Date.now() });
+        state.coins = 0;
+      } else {
+        state.coins = doc.data().coins || 0;
+      }
+    } catch (e) {
+      state.coins = 0;
+    }
+  }
+
+  function formatCoins(n) {
+    if (n === Infinity || n > 1e15) return '∞';
+    if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return String(Math.floor(n));
+  }
+
+  function showGiftAnim(emoji, label) {
+    const wrap = document.querySelector('.video-wrap') || document.getElementById('app');
+    if (!wrap) return;
+    const el = document.createElement('div');
+    el.className = 'gift-float';
+    el.innerHTML = emoji + (label ? '<small>' + escapeHtml(label) + '</small>' : '');
+    wrap.appendChild(el);
+    setTimeout(() => el.remove(), 2500);
+  }
+
+  async function sendGift(gift) {
+    if (!state.user || !state.liveId || !gift) return;
+    if (!state.hostUid && state.isHost) state.hostUid = state.user.uid;
+    if (!state.hostUid) return;
+
+    const cost = gift.c || 0;
+    const isInf = state.user.isOwner;
+    if (!isInf && state.coins < cost) {
+      state.error = 'Not enough coins';
+      setTimeout(() => { state.error = null; }, 2000);
+      render();
+      return;
+    }
+
+    const credit = Math.floor(cost * 0.7);
+    try {
+      if (!isInf) {
+        const ref = fbDb.collection('userCoins').doc(state.user.uid);
+        await fbDb.runTransaction(async tx => {
+          const snap = await tx.get(ref);
+          const cur = snap.exists ? (snap.data().coins || 0) : 0;
+          if (cur < cost) throw new Error('Not enough coins');
+          tx.set(ref, { coins: cur - cost, name: state.user.name, updatedAt: Date.now() }, { merge: true });
+        });
+        state.coins = Math.max(0, state.coins - cost);
+      }
+      // Credit host 70% (skip if self-gift to owner infinite)
+      if (state.hostUid && state.hostUid !== state.user.uid) {
+        const href = fbDb.collection('userCoins').doc(state.hostUid);
+        await fbDb.runTransaction(async tx => {
+          const snap = await tx.get(href);
+          const cur = snap.exists ? (snap.data().coins || 0) : 0;
+          tx.set(href, { coins: cur + credit, updatedAt: Date.now() }, { merge: true });
+        }).catch(() => {});
+      }
+
+      await fbDb.collection('lives').doc(state.liveId).collection('messages').add({
+        uid: state.user.uid,
+        name: state.user.name,
+        text: 'sent ' + gift.e + ' ' + gift.n + (cost ? ' (' + formatCoins(cost) + '🪙)' : ''),
+        color: '#ffc14a',
+        bot: false,
+        gift: true,
+        giftEmoji: gift.e,
+        giftName: gift.n,
+        giftCost: cost,
+        ts: Date.now()
+      });
+
+      showGiftAnim(gift.e, state.user.name + ' → ' + gift.n);
+      state.showGifts = false;
+      render();
+      // re-show anim after render
+      setTimeout(() => showGiftAnim(gift.e, state.user.name + ' sent ' + gift.n), 50);
+    } catch (e) {
+      state.error = e.message || 'Gift failed';
+      render();
+    }
+  }
   } catch (e) { state.error = 'Firebase init failed'; }
 
   function signIn() {
@@ -528,6 +815,7 @@
       state.isHost = true;
       state.isOwnerStream = isOwnerStream;
       state.hostName = state.user.name;
+      state.hostUid = state.user.uid;
       state.title = title;
       state.viewers = 0;
       state.realViewers = 0;
@@ -537,7 +825,12 @@
       state.error = null;
       chatLines.length = 0;
 
-      const camOk = await startCamera();
+      // Camera must be requested from the tap gesture — retry once if needed
+      let camOk = await startCamera();
+      if (!camOk) {
+        await new Promise(r => setTimeout(r, 300));
+        camOk = await startCamera();
+      }
       state.demo = !camOk;
       render();
       attachCam();
@@ -551,7 +844,6 @@
         burstGreetings();
       }
       startListening();
-      // End live if tab closes
       window.addEventListener('pagehide', onPageHideEnd);
       window.addEventListener('beforeunload', onPageHideEnd);
     } catch (err) {
@@ -584,6 +876,7 @@
     state.isHost = data.hostUid === state.user.uid;
     state.isOwnerStream = !!data.isOwnerStream;
     state.hostName = data.hostName || 'Host';
+    state.hostUid = data.hostUid || null;
     state.title = data.title || 'Live';
     state.viewers = data.viewerCount || 0;
     state.realViewers = data.realViewerCount || 0;
@@ -591,6 +884,7 @@
     state.injectedBots = [];
     state.screen = state.isHost ? 'live' : 'watch';
     state.demo = true;
+    state.showGifts = false;
     chatLines.length = 0;
     render();
     subscribeToLive(liveId);
@@ -1015,8 +1309,18 @@
             color: r.color || randColor(),
             text: r.text || '',
             local: false,
-            bot: !!r.bot
+            bot: !!r.bot,
+            gift: !!r.gift,
+            giftEmoji: r.giftEmoji || ''
           });
+          // Animate gifts for everyone
+          if (r.gift && r.giftEmoji && r.ts && (Date.now() - r.ts) < 8000) {
+            if (!window._seenGifts) window._seenGifts = new Set();
+            if (!window._seenGifts.has(r.id)) {
+              window._seenGifts.add(r.id);
+              showGiftAnim(r.giftEmoji, (r.name || '') + ' sent ' + (r.giftName || 'gift'));
+            }
+          }
         });
 
         const remoteKeys = new Set(remote.map(r => (r.user + '|' + r.text).toLowerCase()));
@@ -1557,7 +1861,7 @@
             <div class="home-title">GO <span>LIVE</span></div>
             <div class="user-row">${
               state.user
-                ? `Signed in as <strong>${escapeHtml(state.user.name)}</strong>`
+                ? `Signed in as <strong>${escapeHtml(state.user.name)}</strong> · <span style="color:#ffc14a">${state.user.isOwner ? '∞' : formatCoins(state.coins)} 🪙</span>`
                 : 'Sign in to go live or join'
             }</div>
           </div>
@@ -1611,15 +1915,22 @@
     }
 
     const isWatch = state.screen === 'watch';
+    const coinLabel = state.user
+      ? (state.user.isOwner ? '∞ 🪙' : formatCoins(state.coins) + ' 🪙')
+      : '';
     app.innerHTML = `
       <div class="stage">
         <div class="video-wrap">
           <video id="cam" playsinline autoplay muted></video>
-          ${(state.demo || isWatch) ? `<div class="cam-fallback">${
-            isWatch
-              ? `<div><strong>${escapeHtml(state.hostName)}</strong> is live</div><div style="opacity:.7;margin-top:8px;max-width:260px">Connecting video… Tap screen if you see picture but no sound.</div>`
-              : `<div>No camera — demo mode</div><div style="opacity:.7;margin-top:8px">Chat & viewers still work</div>`
-          }</div>` : ''}
+          ${(state.demo && state.isHost) ? `<div class="cam-fallback">
+            <div>Camera not on</div>
+            <div style="opacity:.7;margin-top:8px;max-width:260px">Allow camera permission, then tap retry.</div>
+            <button class="retry-cam" id="retryCam">Enable camera</button>
+          </div>` : ''}
+          ${(isWatch && state.demo) ? `<div class="cam-fallback">
+            <div><strong>${escapeHtml(state.hostName)}</strong> is live</div>
+            <div style="opacity:.7;margin-top:8px;max-width:260px">Connecting video… Tap for sound if needed.</div>
+          </div>` : ''}
           <button id="soundHint" style="display:none;position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:25;border:none;border-radius:999px;padding:10px 16px;background:rgba(0,0,0,.7);color:#fff;font-weight:700;font-size:13px;">Tap for sound 🔊</button>
           <div class="topbar">
             <div class="live-pill">
@@ -1629,6 +1940,7 @@
               <div class="viewers"><span id="viewerCount">${formatViewers(state.viewers)}</span> watching</div>
             </div>
             <div class="top-actions">
+              ${coinLabel ? `<div class="coins-pill">${coinLabel}</div>` : ''}
               ${state.user && state.user.isOwner ? `<button class="b-btn" id="bBtn" title="Add 1 bot">b</button>` : ''}
               ${state.isHost ? `<button class="flip-btn" id="muteBtn" title="Mute mic">${state.muted ? '🔇' : '🎤'}</button>` : ''}
               ${state.isHost ? `<button class="flip-btn" id="flipBtn" title="Flip camera">⟲</button>` : ''}
@@ -1642,18 +1954,55 @@
           <div class="chat-list" id="chatList"></div>
           <div class="chat-input-row">
             <input class="chat-input" id="chatInput" placeholder="Say something…" maxlength="120" />
+            <button class="gift-btn" id="giftBtn" title="Gifts">🎁</button>
             <button class="chat-send" id="chatSend">Send</button>
           </div>
+          ${state.showGifts ? `
+            <div class="gift-panel">
+              <div class="gift-panel-head">
+                <strong>Gifts</strong>
+                <span class="coins-pill">${coinLabel}</span>
+                <button class="ghost-btn" id="closeGifts" style="width:auto;padding:6px 12px;">Close</button>
+              </div>
+              <div class="gift-grid">
+                ${GIFTS.map(g => `
+                  <div class="gift-item" data-gift="${g.id}">
+                    <div class="gift-emoji">${g.e}</div>
+                    <div class="gift-name">${escapeHtml(g.n)}</div>
+                    <div class="gift-cost">${formatCoins(g.c)} 🪙</div>
+                  </div>`).join('')}
+              </div>
+            </div>` : ''}
         </div>
       </div>`;
 
     document.getElementById('endBtn').onclick = () => leaveCurrentLive(true);
     const bBtn = document.getElementById('bBtn');
-    if (bBtn) bBtn.onclick = addBotToCurrentLive;
+    if (bBtn) bBtn.onclick = () => addBotToCurrentLive(false);
     const flip = document.getElementById('flipBtn');
     if (flip) flip.onclick = flipCamera;
     const mute = document.getElementById('muteBtn');
     if (mute) mute.onclick = toggleMute;
+    const retryCam = document.getElementById('retryCam');
+    if (retryCam) {
+      retryCam.onclick = async () => {
+        const ok = await startCamera(state.facingMode || 'user');
+        state.demo = !ok;
+        if (ok) {
+          render();
+          attachCam();
+          // refresh peer tracks
+          Object.keys(pcs).forEach(uid => {
+            if (uid === 'host') return;
+            try { pcs[uid].close(); } catch (e) {}
+            delete pcs[uid];
+            ensureHostPeer(uid);
+          });
+        } else {
+          alert('Camera still blocked. Check browser site settings → allow Camera.');
+        }
+      };
+    }
     const soundHint = document.getElementById('soundHint');
     if (soundHint) {
       soundHint.onclick = () => {
@@ -1669,6 +2018,16 @@
     document.getElementById('chatSend').onclick = sendUserChat;
     document.getElementById('chatInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') sendUserChat();
+    });
+    const giftBtn = document.getElementById('giftBtn');
+    if (giftBtn) giftBtn.onclick = () => { state.showGifts = !state.showGifts; render(); };
+    const closeGifts = document.getElementById('closeGifts');
+    if (closeGifts) closeGifts.onclick = () => { state.showGifts = false; render(); };
+    document.querySelectorAll('[data-gift]').forEach(el => {
+      el.onclick = () => {
+        const g = GIFTS.find(x => x.id === el.getAttribute('data-gift'));
+        if (g) sendGift(g);
+      };
     });
     attachCam();
     paintChat();
