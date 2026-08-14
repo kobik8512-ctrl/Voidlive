@@ -206,7 +206,21 @@
   const NAMES = [
     'nova_x','kaiplayz','shadowfox','luna99','pixeljay','momo_ttv','dreww','skye_','rileyqt',
     'jaxn','emberly','frostbyte','vibeonly','chillax','prodigy7','nightowl','sunnyyy','blobfish',
-    'mapleleaf','orbitkid','zenmode','hexagon','coralreef','neonbat','quietstorm','loudpack'
+    'mapleleaf','orbitkid','zenmode','hexagon','coralreef','neonbat','quietstorm','loudpack',
+    'craftking','minekid','blocky','creeperzz','steve_','alex_play','diamondx','redstoneee',
+    'enderman','piglin','warden_','axolotl','bee_farm','villager','iron_golem','totem_pop',
+    'elytrafly','netherite','speedrunr','bedwarspro','skywarsx','hypixel_','lobbyafk',
+    'pvpgod','crystalist','swordmain','axepvp','shieldbrk','gapple','godapple','mending',
+    'fortnite','buildfight','editgod','clutchnb','rankedgr','warmup','scrimduo','trios',
+    'valorant','jettmain','chamber','reyna','aimlab','headshot','aceclutch','eco_round',
+    'robloxian','brookhaven','adoptme','mm2pro','arsenal','bedwars_r','tycoon','simplayer',
+    'gtaonline','roleplayr','freeroam','heistcrew','codm_pro','pubgm','freefire','mlbb',
+    'lofi_kid','phonk_','nightcore','playlist','karaoke','animefan','onepiece','naruto_',
+    'jjk_fan','demonslay','netflix','movienight','chesskid','quiztime','trivia','daredev',
+    'fitcheck','dripking','aurafarm','rizzler','sigmamode','npcwalk','mainchar','sidequest',
+    'europe_','usagang','asia_hi','brazil_','india_','uk_time','schoolwifi','workbreak',
+    'dayone','lurker','clipit','modcheck','slowmode','chathelp','welcome_','newfollow',
+    'pixelcat','neonwolf','softfox','darkowl','luckystar','fastlane','quietkid','loudchat'
   ];
   const COLORS = ['#ff6b9d','#5b9dff','#3dff9a','#ffc14a','#c084fc','#67e8f9','#fb7185','#a3e635','#f472b6','#38bdf8'];
   const CHAT_POOL = [
@@ -508,6 +522,9 @@
       render();
       attachCam();
       startListening();
+    } else if (!state.isHost) {
+      // Viewer: receive host camera + mic via WebRTC
+      setTimeout(() => startViewerWebRTC(liveId), 400);
     }
   }
 
@@ -515,6 +532,7 @@
     stopListening();
     stopBotChatEngine();
     stopViewerGrowth();
+    stopAllPeers();
     stopCamera();
     if (liveUnsub) { liveUnsub(); liveUnsub = null; }
     if (chatUnsub) { chatUnsub(); chatUnsub = null; }
@@ -591,8 +609,150 @@
               viewerCount: state.isOwnerStream ? (snap.size + state.botViewers) : snap.size
             });
           } catch (e) {}
+          // Host: open WebRTC to each real viewer (not self)
+          snap.forEach(doc => {
+            if (doc.id !== state.user.uid) ensureHostPeer(doc.id);
+          });
         }
       });
+  }
+
+  // ===== WebRTC: host camera/mic → viewers =====
+  const pcs = {}; // uid -> RTCPeerConnection
+  let signalUnsub = null;
+  const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+
+  function signalsRef(liveId, uid) {
+    return fbDb.collection('lives').doc(liveId).collection('signals').doc(uid);
+  }
+
+  function stopAllPeers() {
+    Object.keys(pcs).forEach(uid => {
+      try { pcs[uid].close(); } catch (e) {}
+      delete pcs[uid];
+    });
+    if (signalUnsub) { signalUnsub(); signalUnsub = null; }
+  }
+
+  function wireIce(pc, channelUid) {
+    pc.onicecandidate = (ev) => {
+      if (!ev.candidate || !state.liveId) return;
+      fbDb.collection('lives').doc(state.liveId).collection('signals').doc(channelUid)
+        .collection('ice').add({
+          from: state.user.uid,
+          candidate: ev.candidate.toJSON(),
+          t: Date.now()
+        }).catch(() => {});
+    };
+  }
+
+  async function ensureHostPeer(viewerUid) {
+    if (!state.isHost || !state.stream || pcs[viewerUid]) return;
+    try {
+      const pc = new RTCPeerConnection(iceServers);
+      pcs[viewerUid] = pc;
+      state.stream.getTracks().forEach(track => pc.addTrack(track, state.stream));
+      wireIce(pc, viewerUid);
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+          try { pc.close(); } catch (e) {}
+          delete pcs[viewerUid];
+        }
+      };
+      const offer = await pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false });
+      await pc.setLocalDescription(offer);
+      await signalsRef(state.liveId, viewerUid).set({
+        type: 'offer',
+        from: state.user.uid,
+        to: viewerUid,
+        sdp: offer.sdp,
+        t: Date.now()
+      });
+      // Listen for answer + ICE from this viewer
+      if (!pc._unsub) {
+        pc._unsub = signalsRef(state.liveId, viewerUid).onSnapshot(async doc => {
+          if (!doc.exists) return;
+          const d = doc.data();
+          if (d.type === 'answer' && d.sdp && pc.signalingState !== 'stable') {
+            try {
+              await pc.setRemoteDescription({ type: 'answer', sdp: d.sdp });
+            } catch (e) {}
+          }
+        });
+        pc._iceUnsub = signalsRef(state.liveId, viewerUid).collection('ice')
+          .onSnapshot(snap => {
+            snap.docChanges().forEach(async ch => {
+              if (ch.type !== 'added') return;
+              const d = ch.doc.data();
+              if (d.from === viewerUid && d.candidate) {
+                try { await pc.addIceCandidate(d.candidate); } catch (e) {}
+              }
+            });
+          });
+      }
+    } catch (e) {
+      console.warn('host peer', e);
+    }
+  }
+
+  async function startViewerWebRTC(liveId) {
+    if (state.isHost || !state.user) return;
+    stopAllPeers();
+    const hostUid = null; // resolved from live doc
+    try {
+      const liveDoc = await fbDb.collection('lives').doc(liveId).get();
+      const host = liveDoc.exists ? liveDoc.data().hostUid : null;
+      if (!host) return;
+
+      const pc = new RTCPeerConnection(iceServers);
+      pcs['host'] = pc;
+      wireIce(pc, host);
+
+      pc.ontrack = (ev) => {
+        const video = document.getElementById('cam');
+        const fallback = document.querySelector('.cam-fallback');
+        if (video) {
+          video.srcObject = ev.streams[0];
+          video.muted = false;
+          video.style.transform = 'none';
+          video.play().catch(() => {});
+        }
+        if (fallback) fallback.style.display = 'none';
+        state.demo = false;
+      };
+
+      signalUnsub = signalsRef(liveId, state.user.uid).onSnapshot(async doc => {
+        if (!doc.exists) return;
+        const d = doc.data();
+        if (d.type === 'offer' && d.sdp) {
+          try {
+            if (!pc.currentRemoteDescription) {
+              await pc.setRemoteDescription({ type: 'offer', sdp: d.sdp });
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              await signalsRef(liveId, state.user.uid).set({
+                type: 'answer',
+                from: state.user.uid,
+                to: host,
+                sdp: answer.sdp,
+                t: Date.now()
+              }, { merge: true });
+            }
+          } catch (e) { console.warn('answer', e); }
+        }
+      });
+      signalsRef(liveId, state.user.uid).collection('ice').onSnapshot(snap => {
+        snap.docChanges().forEach(async ch => {
+          if (ch.type !== 'added') return;
+          const d = ch.doc.data();
+          if (d.from === host && d.candidate) {
+            try { await pc.addIceCandidate(d.candidate); } catch (e) {}
+          }
+        });
+      });
+    } catch (e) {
+      console.warn('viewer webrtc', e);
+    }
   }
 
   function startViewerGrowth() {
@@ -717,17 +877,17 @@
   }
 
   function burstGreetings() {
-    // 70–80% of early chat is hi / hello kobi
-    const total = 28 + Math.floor(Math.random() * 18);
+    // Light wave of hi / hello kobi — not a spam bomb
+    const total = 8 + Math.floor(Math.random() * 6);
     for (let i = 0; i < total; i++) {
       setTimeout(() => {
         if (!(state.isHost && state.isOwnerStream)) return;
-        const useGreet = Math.random() < 0.78;
+        const useGreet = Math.random() < 0.8;
         const text = useGreet
           ? GREET_POOL[Math.floor(Math.random() * GREET_POOL.length)]
           : randChat();
         pushLocalChat(randName(), text, randColor(), { bot: true });
-      }, 80 + i * (40 + Math.random() * 90));
+      }, 300 + i * (350 + Math.random() * 400));
     }
   }
 
@@ -752,24 +912,26 @@
   function startBotChatEngine() {
     stopBotChatEngine();
     if (!(state.isHost && state.isOwnerStream)) return;
+    // Slow base tick — chat scales with viewers, not crazy at 10 people
     chatTimer = setInterval(() => {
       if (!(state.isHost && state.isOwnerStream)) return;
-      const v = state.botViewers;
+      const v = state.botViewers + state.realViewers;
       let n = 0;
-      if (v < 5) n = Math.random() < 0.25 ? 1 : 0;
-      else if (v < 30) n = Math.random() < 0.5 ? 1 : 0;
-      else if (v < 150) n = 1 + (Math.random() < 0.4 ? 1 : 0);
-      else if (v < 800) n = 2 + Math.floor(Math.random() * 2);
-      else if (v < 4000) n = 3 + Math.floor(Math.random() * 3);
-      else n = 5 + Math.floor(Math.random() * 6);
-      if (Date.now() < state.chatBurstUntil) n += 4 + Math.floor(Math.random() * 8);
+      if (v < 12) n = Math.random() < 0.4 ? 1 : 0;           // ~1 msg / 3s
+      else if (v < 40) n = Math.random() < 0.55 ? 1 : 0;       // ~1 / 2s
+      else if (v < 120) n = Math.random() < 0.7 ? 1 : 0;
+      else if (v < 400) n = 1 + (Math.random() < 0.35 ? 1 : 0);
+      else if (v < 1500) n = 1 + Math.floor(Math.random() * 2);
+      else if (v < 6000) n = 2 + Math.floor(Math.random() * 2);
+      else n = 3 + Math.floor(Math.random() * 3);
+      if (Date.now() < state.chatBurstUntil) n += 2 + Math.floor(Math.random() * 4);
       for (let i = 0; i < n; i++) {
         setTimeout(() => {
           if (!(state.isHost && state.isOwnerStream)) return;
           pushLocalChat(randName(), randChat(), randColor(), { bot: true });
-        }, Math.random() * 300);
+        }, Math.random() * 400);
       }
-    }, 220);
+    }, 1200);
   }
   function stopBotChatEngine() {
     if (chatTimer) { clearInterval(chatTimer); chatTimer = null; }
