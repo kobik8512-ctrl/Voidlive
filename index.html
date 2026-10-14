@@ -117,7 +117,27 @@ input{font-family:inherit}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 #superchat-banner{position:absolute;top:58px;left:12px;right:70px;z-index:50;pointer-events:none;display:flex;flex-direction:column;gap:8px}
 
-#gift-feed{position:absolute;bottom:38%;left:12px;z-index:45;pointer-events:none;display:flex;flex-direction:column-reverse;gap:8px;max-width:75%}
+#gift-feed{position:absolute;bottom:38%;left:12px;z-index:45;pointer-events:none;display:flex;flex-direction:column-reverse;gap:8px;max-width:75%;transition:bottom .3s ease}
+
+#poll-box{position:absolute;bottom:38%;left:12px;z-index:46;max-width:82%;pointer-events:none;display:none}
+#poll-box.show{display:block;animation:gfIn .28s ease}
+#gift-feed.poll-up{bottom:calc(38% + 118px)}
+.poll-card{background:rgba(18,18,24,.92);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.4);min-width:200px}
+.poll-q{font-size:.82rem;font-weight:700;margin-bottom:8px;line-height:1.25}
+.poll-opt{margin:5px 0;position:relative}
+.poll-bar-bg{background:rgba(255,255,255,.08);border-radius:8px;overflow:hidden;height:28px;position:relative}
+.poll-bar-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(255,45,85,.55),rgba(255,45,85,.25));width:0;transition:width .35s ease}
+.poll-bar-fill.win{background:linear-gradient(90deg,rgba(48,209,88,.7),rgba(48,209,88,.3))}
+.poll-bar-label{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;height:28px;padding:0 10px;font-size:.75rem;font-weight:600}
+.poll-timer{font-size:.68rem;color:var(--muted);margin-top:6px;font-weight:600}
+.poll-timer.done{color:var(--green)}
+.opt-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.opt-chip{background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:.78rem}
+.time-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.time-chip{background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:8px 12px;font-size:.8rem;font-weight:600;cursor:pointer}
+.time-chip.on{border-color:var(--accent);background:rgba(255,45,85,.15);color:#fff}
+#poll-opt-input,#poll-custom-time{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:#fff;font-size:.95rem;margin-bottom:10px;outline:none}
+
 .gf-card{display:flex;align-items:center;gap:8px;background:rgba(20,20,28,.88);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:8px 14px 8px 10px;animation:gfIn .28s ease;box-shadow:0 4px 16px rgba(0,0,0,.35)}
 .gf-emoji{font-size:1.35rem;line-height:1}
 .gf-meta{display:flex;flex-direction:column;min-width:0}
@@ -174,6 +194,7 @@ input{font-family:inherit}
     </div>
   </div>
   <div id="superchat-banner"></div>
+  <div id="poll-box"></div>
   <div id="gift-feed"></div>
   <div class="mic-status" id="mic-status">🎤 Mic: offline mode</div>
   <div class="stats-row">
@@ -194,7 +215,7 @@ input{font-family:inherit}
 <div id="more-menu">
   <div class="more-label">Tools</div>
   <div class="more-row" id="more-flip">🔄 Flip camera</div>
-  <div class="more-row" id="more-ask">💬 Ask chat</div>
+  <div class="more-row" id="more-ask">📊 Poll chat</div>
   <div class="more-row" id="more-bots">B · Add bots</div>
   <div class="more-row" id="more-speed">S · Chat speed</div>
 </div>
@@ -219,7 +240,24 @@ input{font-family:inherit}
   <div class="modal-actions"><button class="btn-cancel" id="region-cancel">Cancel</button><button class="btn-confirm" id="region-next">Next →</button></div>
   </div></div>
 <div id="title-modal"><div class="modal-card"><h3>Name your live</h3><input type="text" id="title-input" placeholder="e.g. ranked grind" maxlength="40"/><div class="modal-actions"><button class="btn-cancel" id="btn-cancel">Cancel</button><button class="btn-confirm" id="btn-start">🔴 Start Live</button></div></div></div>
-<div id="ask-modal"><div class="modal-card"><h3>💬 Ask the chat</h3><input type="text" id="ask-input" placeholder="e.g. should I push?" maxlength="140" autocomplete="off"/><div class="modal-actions"><button class="btn-cancel" id="ask-cancel">Cancel</button><button class="btn-confirm" id="ask-send">Send ➤</button></div></div></div>
+<div id="ask-modal"><div class="modal-card" style="max-width:360px">
+  <h3>📊 Poll chat</h3>
+  <input type="text" id="ask-input" placeholder="Question (e.g. Messi or Ronaldo?)" maxlength="120" autocomplete="off"/>
+  <input type="text" id="poll-opt-a" placeholder="Option 1 (e.g. Messi)" maxlength="40" autocomplete="off" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:#fff;font-size:.95rem;margin-bottom:8px;outline:none"/>
+  <input type="text" id="poll-opt-b" placeholder="Option 2 (e.g. Ronaldo)" maxlength="40" autocomplete="off" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:#fff;font-size:.95rem;margin-bottom:8px;outline:none"/>
+  <input type="text" id="poll-opt-c" placeholder="Option 3 (optional)" maxlength="40" autocomplete="off" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:#fff;font-size:.95rem;margin-bottom:8px;outline:none"/>
+  <input type="text" id="poll-opt-d" placeholder="Option 4 (optional)" maxlength="40" autocomplete="off" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:#fff;font-size:.95rem;margin-bottom:10px;outline:none"/>
+  <div style="font-size:.75rem;color:var(--muted);margin:0 0 8px">Timer</div>
+  <div class="time-row" id="time-row">
+    <button type="button" class="time-chip" data-sec="10">10s</button>
+    <button type="button" class="time-chip on" data-sec="30">30s</button>
+    <button type="button" class="time-chip" data-sec="60">1 min</button>
+    <button type="button" class="time-chip" data-sec="300">5 min</button>
+    <button type="button" class="time-chip" data-sec="600">10 min</button>
+  </div>
+  <input type="number" id="poll-custom-time" placeholder="Custom seconds (optional)" min="5" max="3600" inputmode="numeric"/>
+  <div class="modal-actions"><button class="btn-cancel" id="ask-cancel">Cancel</button><button class="btn-confirm" id="ask-send">Start poll ➤</button></div>
+</div></div>
 <div id="toast"></div>
 
 <script>
@@ -503,17 +541,32 @@ function liveAgeMs(){
 function nextMsg(){
   const age = liveAgeMs();
   const firstMin = age < 60000;
-  // First minute: ~80% hellos — GE server in Georgian, EN server in English
+  // While poll is live: ~40% of chat is voting in text
+  if (pollState && !pollState.done && Math.random() < 0.40) {
+    const labels = pollState.opts.map(function(o){ return o.label; });
+    // weight chat the same as vote weights when available
+    let pick;
+    if (pollState.opts[0].w != null) {
+      let r = Math.random(), acc = 0;
+      pick = labels[labels.length - 1];
+      for (let j = 0; j < pollState.opts.length; j++) {
+        acc += pollState.opts[j].w;
+        if (r <= acc) { pick = labels[j]; break; }
+      }
+    } else {
+      pick = rand(labels);
+    }
+    const styles = [pick, pick + "!", pick.toUpperCase(), "I pick " + pick, pick + " all day", "easy " + pick, pick + " 🔥", "team " + pick];
+    return uniq(function(){ return dress(rand(styles)); });
+  }
   if (firstMin && Math.random() < 0.80) {
     if (liveRegion === "ge") {
-      // almost all Georgian (script + translit), tiny English bleed
       if (Math.random() < 0.95) return uniq(function(){ return dress(rand(T_GE_GREET)); });
       return uniq(function(){ return dress(rand(T_GREET.concat(GREETINGS))); });
     }
     if (Math.random() < 0.93) return uniq(function(){ return dress(rand(T_GREET.concat(GREETINGS))); });
     return uniq(function(){ return dress(rand(T_GE_GREET)); });
   }
-  // After greet: 93% local + occasional love/hate spice
   let m;
   if (liveRegion === "ge") {
     m = Math.random() < 0.93 ? geMsg() : genericMsg();
@@ -682,19 +735,155 @@ document.getElementById("btn-cam").onclick = function(){
   document.getElementById("cam-off").style.display = camOn ? "none" : "block";
 };
 
-/* ---------- ASK / HEAR ---------- */
+/* ---------- POLL / HEAR ---------- */
 const askModal = document.getElementById("ask-modal");
+let pollSec = 30;
+let pollTimer = null, pollTick = null, pollState = null;
 document.getElementById("ask-cancel").onclick = function(){ askModal.classList.remove("show"); };
+document.querySelectorAll("#time-row .time-chip").forEach(function(btn){
+  btn.onclick = function(){
+    document.querySelectorAll("#time-row .time-chip").forEach(function(b){ b.classList.remove("on"); });
+    btn.classList.add("on");
+    pollSec = Number(btn.getAttribute("data-sec")) || 30;
+    document.getElementById("poll-custom-time").value = "";
+  };
+});
 function submitAsk(){
-  const t = document.getElementById("ask-input").value.trim();
-  if (!t) return;
+  const q = document.getElementById("ask-input").value.trim();
+  const custom = Number(document.getElementById("poll-custom-time").value);
+  if (!q) { toast("Type a question"); return; }
+  const opts = [
+    document.getElementById("poll-opt-a").value.trim(),
+    document.getElementById("poll-opt-b").value.trim(),
+    document.getElementById("poll-opt-c").value.trim(),
+    document.getElementById("poll-opt-d").value.trim()
+  ].filter(Boolean);
+  if (opts.length < 2) { toast("Type at least 2 options"); return; }
+  let dur = (custom >= 5 && custom <= 3600) ? custom : pollSec;
   askModal.classList.remove("show");
-  addMsg(user ? user.name : "You", t, true);
-  hear(t, true);
-  if (botCount <= 0) toast("Add bots with B so they can answer");
+  document.getElementById("ask-input").value = "";
+  ["poll-opt-a","poll-opt-b","poll-opt-c","poll-opt-d"].forEach(function(id){ document.getElementById(id).value = ""; });
+  startPoll(q, opts, dur);
 }
 document.getElementById("ask-send").onclick = submitAsk;
-document.getElementById("ask-input").onkeydown = function(e){ if (e.key === "Enter") submitAsk(); };
+document.getElementById("ask-input").onkeydown = function(e){ if (e.key === "Enter") document.getElementById("poll-opt-a").focus(); };
+document.getElementById("poll-opt-a").onkeydown = function(e){ if (e.key === "Enter") document.getElementById("poll-opt-b").focus(); };
+document.getElementById("poll-opt-b").onkeydown = function(e){ if (e.key === "Enter") submitAsk(); };
+
+function startPoll(question, options, seconds){
+  clearTimeout(pollTimer); clearInterval(pollTick);
+  // random preference weights so one option can lead (not stuck 50/50)
+  let weights = options.map(function(){ return 0.35 + Math.random() * 0.9; });
+  const wsum = weights.reduce(function(a,b){ return a+b; }, 0);
+  weights = weights.map(function(w){ return w / wsum; });
+  pollState = {
+    q: question,
+    opts: options.map(function(o, i){ return { label: o, votes: 0, w: weights[i] }; }),
+    ends: Date.now() + seconds * 1000,
+    seconds: seconds,
+    done: false
+  };
+  const box = document.getElementById("poll-box");
+  const feed = document.getElementById("gift-feed");
+  if (feed) feed.classList.add("poll-up");
+  renderPoll();
+  box.classList.add("show");
+  addMsg(user ? user.name : "You", "📊 Poll: " + question + " [" + options.join(" / ") + "]", true);
+  // bot voting — more bots → faster votes
+  schedulePollVotes();
+  pollTick = setInterval(function(){
+    if (!pollState || pollState.done) return;
+    renderPoll();
+    if (Date.now() >= pollState.ends) endPoll();
+  }, 400);
+  pollTimer = setTimeout(endPoll, seconds * 1000 + 50);
+}
+function schedulePollVotes(){
+  if (!pollState || pollState.done) return;
+  const b = Math.max(0, botCount);
+  if (b <= 0) return;
+  // vote interval shrinks with audience size
+  let gap;
+  if (b < 20) gap = 900 + Math.random()*800;
+  else if (b < 200) gap = 400 + Math.random()*400;
+  else if (b < 2000) gap = 180 + Math.random()*180;
+  else if (b < 20000) gap = 80 + Math.random()*80;
+  else if (b < 200000) gap = 40 + Math.random()*40;
+  else gap = 18 + Math.random()*22;
+  setTimeout(function(){
+    if (!pollState || pollState.done) return;
+    // batch votes
+    let batch = 1;
+    if (b > 50) batch = 1 + Math.floor(Math.random()*3);
+    if (b > 500) batch = 2 + Math.floor(Math.random()*6);
+    if (b > 5000) batch = 5 + Math.floor(Math.random()*12);
+    if (b > 50000) batch = 15 + Math.floor(Math.random()*40);
+    if (b > 500000) batch = 40 + Math.floor(Math.random()*120);
+    if (b > 5000000) batch = 100 + Math.floor(Math.random()*400);
+    for (let i = 0; i < batch; i++) {
+      // weighted pick + noise so one side can pull ahead
+      let r = Math.random();
+      let acc = 0, idx = 0;
+      for (let j = 0; j < pollState.opts.length; j++) {
+        acc += pollState.opts[j].w;
+        if (r <= acc) { idx = j; break; }
+        idx = j;
+      }
+      // 12% pure random noise
+      if (Math.random() < 0.12) idx = Math.floor(Math.random() * pollState.opts.length);
+      pollState.opts[idx].votes += 1;
+    }
+    renderPoll();
+    schedulePollVotes();
+  }, gap);
+}
+function renderPoll(){
+  if (!pollState) return;
+  const box = document.getElementById("poll-box");
+  const total = pollState.opts.reduce(function(s,o){ return s + o.votes; }, 0) || 1;
+  let maxV = 0;
+  pollState.opts.forEach(function(o){ if (o.votes > maxV) maxV = o.votes; });
+  const left = Math.max(0, Math.ceil((pollState.ends - Date.now()) / 1000));
+  let html = '<div class="poll-card"><div class="poll-q">📊 '+esc(pollState.q)+'</div>';
+  pollState.opts.forEach(function(o){
+    const pct = Math.round((o.votes / total) * 100);
+    const win = pollState.done && o.votes === maxV && maxV > 0;
+    html += '<div class="poll-opt"><div class="poll-bar-bg">'
+      + '<div class="poll-bar-fill'+(win?' win':'')+'" style="width:'+pct+'%"></div>'
+      + '<div class="poll-bar-label"><span>'+esc(o.label)+'</span><span>'+pct+'% · '+format(o.votes)+'</span></div>'
+      + '</div></div>';
+  });
+  if (pollState.done) {
+    const winners = pollState.opts.filter(function(o){ return o.votes === maxV; }).map(function(o){ return o.label; });
+    html += '<div class="poll-timer done">🏆 ' + esc(winners.join(" & ")) + ' wins · ' + format(total) + ' votes</div>';
+  } else {
+    html += '<div class="poll-timer">⏱ ' + left + 's · ' + format(total) + ' votes</div>';
+  }
+  html += '</div>';
+  box.innerHTML = html;
+}
+function endPoll(){
+  if (!pollState || pollState.done) return;
+  pollState.done = true;
+  clearTimeout(pollTimer); clearInterval(pollTick);
+  renderPoll();
+  const total = pollState.opts.reduce(function(s,o){ return s + o.votes; }, 0);
+  let maxV = 0;
+  pollState.opts.forEach(function(o){ if (o.votes > maxV) maxV = o.votes; });
+  const winners = pollState.opts.filter(function(o){ return o.votes === maxV; });
+  const wtxt = winners.map(function(o){ return o.label + " (" + Math.round(o.votes/Math.max(1,total)*100) + "%)"; }).join(", ");
+  addMsg("Poll", "🏆 Result: " + wtxt + " · " + format(total) + " votes", false, true);
+  // show result 4s then clear — gifts drop back
+  setTimeout(function(){
+    const box = document.getElementById("poll-box");
+    box.classList.remove("show");
+    box.innerHTML = "";
+    const feed = document.getElementById("gift-feed");
+    if (feed) feed.classList.remove("poll-up");
+    pollState = null;
+  }, 4500);
+}
+
 
 function hear(text, typed){
   const u = { text: String(text||"").trim(), typed: !!typed };
@@ -876,17 +1065,24 @@ function speakSuperChat(name, amount, text){
   try {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const line = name + " donated " + formatUSD(amount) + ". " + text;
+    // IShowSpeed-style readout
+    const line = name + " donated " + formatUSD(amount) + " through super chat. " + (text || "");
     const u = new SpeechSynthesisUtterance(line);
-    u.rate = 1.05;
-    u.pitch = 1.0;
+    u.rate = 1.0;
+    u.pitch = 1.15;
     u.volume = 1;
-    // prefer English voice for amounts; GE region still reads name+text clearly
-    u.lang = liveRegion === "ge" ? "en-US" : "en-US";
+    u.lang = "en-US";
     const voices = window.speechSynthesis.getVoices() || [];
-    const en = voices.find(function(v){ return /en(-|_)US/i.test(v.lang) && /Google|Samantha|Daniel|Male/i.test(v.name); })
+    // Prefer female English voices (Speed-style TTS)
+    const femaleHints = /female|samantha|victoria|karen|moira|tessa|fiona|karen|susan|zira|siri|google us english|microsoft zira|samantha|jenny|aria|natasha|sarah|emily/i;
+    const enFemale = voices.find(function(v){ return /en(-|_)/i.test(v.lang) && femaleHints.test(v.name); })
+      || voices.find(function(v){ return /en(-|_)US/i.test(v.lang) && /female/i.test(v.name); })
+      || voices.find(function(v){ return /en(-|_)GB/i.test(v.lang) && femaleHints.test(v.name); })
+      || voices.find(function(v){ return /en(-|_)US/i.test(v.lang) && !/male|david|daniel|mark|george|fred/i.test(v.name); })
       || voices.find(function(v){ return /^en/i.test(v.lang); });
-    if (en) u.voice = en;
+    if (enFemale) u.voice = enFemale;
+    // slight pitch bump helps "female" on platforms with only neutral voices
+    if (!enFemale || !femaleHints.test(enFemale.name || "")) u.pitch = 1.25;
     window.speechSynthesis.speak(u);
   } catch(e){}
 }
@@ -913,16 +1109,18 @@ function showSuperChat(name, amount, text, tone){
 }
 function scAvgMs(b){
   b = Math.max(1, b);
-  // more viewers → more superchats
+  // user rates: 500k 5–6m · 1–2M 2–3m · 5–10M 30s–1m · 10M+ ~20s
   if (b < 100) return 12 * 60000;
   if (b < 1000) return 9 * 60000;
   if (b < 10000) return 7 * 60000;
   if (b < 50000) return 6 * 60000;
-  if (b < 200000) return 5 * 60000;
-  if (b < 500000) return 4.5 * 60000;  // ~400k → ~4–6 min with jitter
-  if (b < 2000000) return 2 * 60000;
-  if (b < 10000000) return 55 * 1000;
-  return 28 * 1000; // 10M+ → ~17–40s
+  if (b < 200000) return 5.5 * 60000;
+  if (b < 500000) return 5.5 * 60000;   // ~500k band → 5–6 min with jitter
+  if (b < 1000000) return 5 * 60000;
+  if (b < 2000000) return 2.5 * 60000;  // 1–2M → 2–3 min
+  if (b < 5000000) return 90 * 1000;
+  if (b < 10000000) return 45 * 1000;   // 5–10M → ~30s–1 min
+  return 20 * 1000;                     // 10M+ → ~20s
 }
 function scheduleSuperChat(){
   clearTimeout(scTimer); scTimer = null;
