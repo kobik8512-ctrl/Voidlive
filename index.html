@@ -717,39 +717,49 @@ function genGeChat(){
   return gCaps(s.trim());
 }
 function genScText(tone){
+  const n = Math.floor(Math.random()*9000+100);
   const t = Math.random();
-  if (tone === "hate" || t < 0.12) {
+  // hate
+  if (tone === "hate" || (tone === "any" && t < 0.12)) {
     return gPick([
       "skill issue donation","L stream tax","get better","mid content fund","touch grass",
       "you peaked already","chat is better","ratio in money form","wake up","uninstall",
-      "this is charity","boring tax","stop yelling","refund my time"
+      "this is charity","boring tax","stop yelling","refund my time","worst "+gPick(GEN.enNoun)+" ever",
+      gPick(GEN.enSubj)+" "+gPick(["hates","is done with","can't stand"])+" this "+gPick(GEN.enNoun)
     ]);
   }
-  if (tone === "bug" || t < 0.22) {
-    const bugs = ["asdfghjkl","??????","!!!!!!!","aaaaaaa","TEST 123","null null","undefined",
-      "404 donation","kkkkkkk",".....","HELP","mic check","is this on","spam spam","0_0"];
+  // bug
+  if (tone === "bug" || (tone === "any" && t < 0.22)) {
+    const bugs = ["asdfghjkl","??????","!!!!!!!","aaaaaaa","TEST "+n,"null null","undefined",
+      "404 donation","kkkkkkk",".....","HELP","mic check","is this on","spam spam","0_0",
+      "ERR_"+n,"console.log("+n+")","NaN donation","[object Object]"];
     return gPick(bugs);
   }
-  if (tone === "funny" || t < 0.45) {
+  // funny — combine parts so not the same line twice
+  if (tone === "funny" || (tone === "any" && t < 0.48)) {
+    const a = gPick(["my mom","my boss","my cat","my grandma","my fridge","the IRS","a bot","NPC me","wrong stream"]);
+    const b = gPick(["thinks this is a job","is watching","paid for this","said hi","sold itself","wrote this","donated by mistake"]);
+    const c = gPick(["say pineapple","bark like a dog","read my name","clip this","don't tell anyone","speed who","marry me",""]);
+    if (Math.random() < 0.45) return (a + " " + b + (c ? " — " + c : "")).trim();
     return gPick([
-      "my mom thinks this is a job","I sold my fridge for this","don't tell my wife",
-      "this is lunch money","boss is watching","say pineapple","bark like a dog",
-      "marry me for 2 dollars","I am the IRS","accidentally donated","wrong stream sorry",
-      "grandma said hi","my cat paid","I'm a bot beeping","sudo pay streamer",
-      "git commit donation","ping 999 but rich","NPC energy","speed who"
+      "I sold my fridge for this","this is lunch money #"+n,"accidentally donated",
+      "sudo pay streamer","git commit -m donation","ping 999 but rich","I'm a bot beeping "+n
     ]);
   }
-  if (tone === "love" || t < 0.70) {
+  // love
+  if (tone === "love" || (tone === "any" && t < 0.72)) {
+    const g = gMaybe(" " + gPick(GEN.enGame), 0.25);
     return gPick([
       "keep going king","love the content","you deserve this","buy some food","W donation",
       "from a real fan","goat status","rent money","coffee on me","for the grind",
-      "best streamer","don't give up","support","you made my day"
-    ]) + gMaybe(" " + gPick(GEN.enGame), 0.2);
+      "best streamer","don't give up","support","you made my day","from "+gPick(GEN.enPlace)
+    ]) + g;
   }
-  // any / generated
+  // freeform generated
   if (Math.random() < 0.5) {
     return gPick(["hello from superchat","say my name","read this out loud","first superchat",
-      "clip this","family","let's go","can you hear me","from " + gPick(GEN.enPlace)]);
+      "clip this","family","let's go","can you hear me","from " + gPick(GEN.enPlace),
+      "donation #"+n,"superchat test "+n]);
   }
   return genEnChat();
 }
@@ -1024,11 +1034,31 @@ function startPoll(question, options, seconds){
   }, 400);
   pollTimer = setTimeout(endPoll, seconds * 1000 + 50);
 }
+function swingPollWeights(){
+  if (!pollState || pollState.done || !pollState.opts.length) return;
+  // Sometimes momentum flips — realistic live polls
+  if (Math.random() < 0.55) {
+    // boost a random option (often the underdog)
+    let sorted = pollState.opts.slice().sort(function(a,b){ return a.votes - b.votes; });
+    const underdog = sorted[0];
+    const leader = sorted[sorted.length - 1];
+    // 60% boost underdog, 40% boost random
+    const target = Math.random() < 0.6 ? underdog : gPick(pollState.opts);
+    target.w = Math.min(0.85, (target.w || 0.25) + 0.12 + Math.random() * 0.25);
+    // renorm
+    let sum = pollState.opts.reduce(function(s,o){ return s + (o.w || 0.2); }, 0);
+    pollState.opts.forEach(function(o){ o.w = (o.w || 0.2) / sum; });
+  } else {
+    // full reshuffle of weights
+    let weights = pollState.opts.map(function(){ return 0.2 + Math.random() * 1.1; });
+    const wsum = weights.reduce(function(a,b){ return a+b; }, 0);
+    pollState.opts.forEach(function(o,i){ o.w = weights[i] / wsum; });
+  }
+}
 function schedulePollVotes(){
   if (!pollState || pollState.done) return;
   const b = Math.max(0, botCount);
   if (b <= 0) return;
-  // vote interval shrinks with audience size
   let gap;
   if (b < 20) gap = 900 + Math.random()*800;
   else if (b < 200) gap = 400 + Math.random()*400;
@@ -1038,7 +1068,9 @@ function schedulePollVotes(){
   else gap = 18 + Math.random()*22;
   setTimeout(function(){
     if (!pollState || pollState.done) return;
-    // batch votes
+    // swing momentum every ~8–15 vote ticks
+    pollState._tick = (pollState._tick || 0) + 1;
+    if (pollState._tick % (8 + Math.floor(Math.random()*8)) === 0) swingPollWeights();
     let batch = 1;
     if (b > 50) batch = 1 + Math.floor(Math.random()*3);
     if (b > 500) batch = 2 + Math.floor(Math.random()*6);
@@ -1047,16 +1079,13 @@ function schedulePollVotes(){
     if (b > 500000) batch = 40 + Math.floor(Math.random()*120);
     if (b > 5000000) batch = 100 + Math.floor(Math.random()*400);
     for (let i = 0; i < batch; i++) {
-      // weighted pick + noise so one side can pull ahead
-      let r = Math.random();
-      let acc = 0, idx = 0;
+      let r = Math.random(), acc = 0, idx = 0;
       for (let j = 0; j < pollState.opts.length; j++) {
-        acc += pollState.opts[j].w;
+        acc += (pollState.opts[j].w || (1/pollState.opts.length));
         if (r <= acc) { idx = j; break; }
         idx = j;
       }
-      // 12% pure random noise
-      if (Math.random() < 0.12) idx = Math.floor(Math.random() * pollState.opts.length);
+      if (Math.random() < 0.15) idx = Math.floor(Math.random() * pollState.opts.length);
       pollState.opts[idx].votes += 1;
     }
     renderPoll();
@@ -1284,18 +1313,16 @@ function pickScAmount(){
   return [999.99, 1999.99, 4999.99, 9999.99][Math.floor(Math.random()*4)];
 }
 function pickScText(tone){
-  // 65% infinite generator, 35% static pools
-  if (Math.random() < 0.80) return genScText(tone);
-  if (tone === "hate") return rand(T_SC_NEG.concat(T_HATE));
-  if (tone === "love") return rand(T_SC_POS.concat(T_LOVE));
-  if (tone === "funny") return rand(T_SC_FUNNY);
-  if (tone === "bug") return rand(T_SC_BUG);
-  const r = Math.random();
-  if (r < 0.28) return rand(T_SC_FUNNY);
-  if (r < 0.40) return rand(T_SC_BUG);
-  if (r < 0.55) return rand(T_SC_NEG.concat(T_HATE));
-  if (r < 0.80) return rand(T_SC_POS.concat(T_LOVE));
-  return rand(T_SC_ANY);
+  // Always generate fresh — append tiny unique tag so TTS/lines never feel copy-pasted
+  let base = genScText(tone);
+  // 20% chance blend with a second generated fragment for longer unique lines
+  if (Math.random() < 0.22) {
+    const extra = genScText("any");
+    if (extra && extra !== base) base = base + " — " + extra;
+  }
+  // micro-variation so even same template != same string
+  const salt = gPick(["", "", "", " fr", " ong", " no cap", " chat", "!", "!!", "...", " 🔥", " 💀"]);
+  return (base + salt).trim();
 }
 const KA_MAP = {
   "ა":"a","ბ":"b","გ":"g","დ":"d","ე":"e","ვ":"v","ზ":"z","თ":"t","ი":"i","კ":"k",
