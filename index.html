@@ -573,17 +573,39 @@ const T_HATE = [
 const T_SC_POS = [
   "keep going king","love the content","for the grind","you deserve this","buy some food",
   "best streamer","from a real fan","don't give up","W donation","support",
-  "გააგრძელე","საუკეთესო","საჭმელი იყიდე","რეალური ფანი","არ დანებდე"
+  "you made my day","goat status","rent money","coffee on me","for the algorithm",
+  "გააგრძელე","საუკეთესო","საჭმელი იყიდე","რეალური ფანი","არ დანებდე","ჩემი ფავორიტი"
 ];
 const T_SC_NEG = [
   "L take","get better","skill issue donation","wake up","this is charity for bad gameplay",
-  "ratio in money form","do better","mid content tax","touch grass fund",
-  "გაიუმჯობესე","ცუდი თამაში","გაიღვიძე","უკეთესი იყავი"
+  "ratio in money form","do better","mid content tax","touch grass fund","uninstall please",
+  "worst stream today","refund my attention","you peaked last year","chat is better than you",
+  "stop yelling","boring as hell","L + ratio + donation","I'm only here to hate",
+  "გაიუმჯობესე","ცუდი თამაში","გაიღვიძე","უკეთესი იყავი","მოსაწყენია","წაშალე თამაში"
+];
+const T_SC_FUNNY = [
+  "my mom thinks this is a job","I sold my fridge for this","boss is watching me donate",
+  "don't tell my wife","this is my lunch money","I dropped school for this stream",
+  "say pineapple if you read this","do the worm","scream my name","bark like a dog",
+  "marry me for 2 dollars","I am the IRS","this donation is a tax write-off",
+  "NPC energy detected","touch grass but buy wifi first","speed who","mrbeast second account",
+  "I accidentally donated","wrong stream sorry","help I'm stuck in the superchat",
+  "send this to my ex","grandma said hi","my cat donated this","I'm a bot beeping",
+  "404 brain not found","null null null","undefined donation","console.log money",
+  "sudo pay streamer","git commit -m donation","lag is free content","ping 999 but rich",
+  "დედაჩემმა არ იცის","სკოლის ფულია","ვცდი სუპერჩატს","თქვი ანანასი","მე ბოტი ვარ"
+];
+const T_SC_BUG = [
+  "asdfghjkl","......","???????","!!!!!!!!","aaaaaaa","HELP HELP HELP","can you hear me",
+  "TEST TEST 123","is this on","mic check donation","spam spam spam","lorem ipsum dolor",
+  "ERROR 500","null pointer exception","why is my name like this","ignore previous donation",
+  "this text is broken asd","kkkkkkkk","w w w w w","0_0","xX_donation_Xx","...",
+  "ბგბგბგბგ","??????","ტესტი","ისმის?"
 ];
 const T_SC_ANY = [
   "hello from superchat","can you say my name","read this out loud","first superchat ever",
   "mrbeast who","speed run the chat","clip this","family","let's gooo","???","....",
-  "ჩემი სახელი თქვი","პირველი სუპერჩატი","წაიკითხე","წავედით"
+  "ჩემი სახელი თქვი","პირველი სუპერჩატი","წაიკითხე","წავედით","გამარჯობა სუპერჩატიდან"
 ];
 
 function liveAgeMs(){
@@ -1116,7 +1138,15 @@ function pickScAmount(){
 function pickScText(tone){
   if (tone === "hate") return rand(T_SC_NEG.concat(T_HATE));
   if (tone === "love") return rand(T_SC_POS.concat(T_LOVE));
-  return rand(T_SC_ANY.concat(T_SC_POS));
+  if (tone === "funny") return rand(T_SC_FUNNY);
+  if (tone === "bug") return rand(T_SC_BUG);
+  // mix
+  const r = Math.random();
+  if (r < 0.28) return rand(T_SC_FUNNY);
+  if (r < 0.40) return rand(T_SC_BUG);
+  if (r < 0.55) return rand(T_SC_NEG.concat(T_HATE));
+  if (r < 0.80) return rand(T_SC_POS.concat(T_LOVE));
+  return rand(T_SC_ANY);
 }
 const KA_MAP = {
   "ა":"a","ბ":"b","გ":"g","დ":"d","ე":"e","ვ":"v","ზ":"z","თ":"t","ი":"i","კ":"k",
@@ -1139,27 +1169,47 @@ function speakable(s){
   if (/[\u10A0-\u10FF]/.test(s)) return translitKa(s);
   return String(s||"");
 }
-function speakSuperChat(name, amount, text){
+const scVoiceQueue = [];
+let scVoiceBusy = false;
+function pickFemaleVoice(){
+  const voices = window.speechSynthesis.getVoices() || [];
+  const femaleHints = /female|samantha|victoria|karen|moira|tessa|fiona|susan|zira|jenny|aria|natasha|sarah|emily|google us english/i;
+  return voices.find(function(v){ return /en(-|_)/i.test(v.lang) && femaleHints.test(v.name); })
+    || voices.find(function(v){ return /en(-|_)US/i.test(v.lang) && !/male|david|daniel|mark|george|fred|james/i.test(v.name); })
+    || voices.find(function(v){ return /^en/i.test(v.lang); })
+    || null;
+}
+function pumpScVoice(){
+  if (scVoiceBusy) return;
+  if (!scVoiceQueue.length) return;
+  if (!window.speechSynthesis) { scVoiceQueue.length = 0; return; }
+  scVoiceBusy = true;
+  const line = scVoiceQueue.shift();
   try {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const who = speakable(name);
-    const msg = speakable(text || "");
-    // IShowSpeed-style readout (English TTS + translit for Georgian)
-    const line = who + " donated " + formatUSD(amount) + " through super chat. " + msg;
     const u = new SpeechSynthesisUtterance(line);
     u.rate = 0.95;
     u.pitch = 1.15;
     u.volume = 1;
     u.lang = "en-US";
-    const voices = window.speechSynthesis.getVoices() || [];
-    const femaleHints = /female|samantha|victoria|karen|moira|tessa|fiona|susan|zira|jenny|aria|natasha|sarah|emily|google us english/i;
-    const enFemale = voices.find(function(v){ return /en(-|_)/i.test(v.lang) && femaleHints.test(v.name); })
-      || voices.find(function(v){ return /en(-|_)US/i.test(v.lang) && !/male|david|daniel|mark|george|fred|james/i.test(v.name); })
-      || voices.find(function(v){ return /^en/i.test(v.lang); });
+    const enFemale = pickFemaleVoice();
     if (enFemale) u.voice = enFemale;
-    if (!enFemale || !femaleHints.test(enFemale.name || "")) u.pitch = 1.25;
+    if (!enFemale || !/female|samantha|victoria|zira|jenny|aria|sarah|emily/i.test(enFemale.name || "")) u.pitch = 1.25;
+    u.onend = function(){ scVoiceBusy = false; pumpScVoice(); };
+    u.onerror = function(){ scVoiceBusy = false; pumpScVoice(); };
     window.speechSynthesis.speak(u);
+  } catch(e){ scVoiceBusy = false; setTimeout(pumpScVoice, 300); }
+}
+function speakSuperChat(name, amount, text){
+  try {
+    if (!window.speechSynthesis) return;
+    // DO NOT cancel — queue so previous SC finishes reading
+    const who = speakable(name);
+    const msg = speakable(text || "");
+    const line = who + " donated " + formatUSD(amount) + " through super chat. " + msg;
+    scVoiceQueue.push(line);
+    // hard cap queue so it doesn't backlog forever
+    while (scVoiceQueue.length > 6) scVoiceQueue.shift();
+    pumpScVoice();
   } catch(e){}
 }
 function showSuperChat(name, amount, text, tone){
@@ -1204,7 +1254,11 @@ function fireOneSuperChat(){
   const name = nextName();
   const amount = pickScAmount();
   const r = Math.random();
-  const tone = r < 0.12 ? "hate" : r < 0.55 ? "love" : "any";
+  let tone = "any";
+  if (r < 0.14) tone = "hate";
+  else if (r < 0.40) tone = "love";
+  else if (r < 0.62) tone = "funny";
+  else if (r < 0.75) tone = "bug";
   showSuperChat(name, amount, pickScText(tone), tone);
 }
 function scheduleSuperChat(forceReschedule){
@@ -1235,7 +1289,7 @@ function scheduleSuperChat(forceReschedule){
     scheduleSuperChat(false);
   }, delay);
 }
-function stopSuperChat(){ clearTimeout(scTimer); scTimer = null; try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e){} }
+function stopSuperChat(){ clearTimeout(scTimer); scTimer = null; scVoiceQueue.length = 0; scVoiceBusy = false; try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e){} }
 
 /* ---------- BOT SIM ---------- */
 function startBots(){
