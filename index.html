@@ -441,8 +441,9 @@ function dress(m){
 function genericMsg(){
   const r = Math.random();
   if (chatPhase === "greet" || r < 0.10) return rand(T_GREET.concat(GREETINGS));
-  if (r < 0.28) return rand(T_COUNTRY);
-  if (r < 0.50) return rand(T_GAME);
+  if (r < 0.22) return rand(T_COUNTRY);
+  if (r < 0.38) return rand(T_EXTRA_EN);
+  if (r < 0.55) return rand(T_GAME);
   if (r < 0.68) return rand(T_HYPE);
   if (r < 0.80) return rand(T_REACT);
   if (r < 0.88) return rand(T_QUESTION);
@@ -490,8 +491,9 @@ const T_GE_NEW = ["პირველად აქ","უკვე ვუყუ�
 function geMsg(){
   const r = Math.random();
   if (chatPhase === "greet" || r < 0.12) return rand(T_GE_GREET);
-  if (r < 0.30) return rand(T_GE_COUNTRY);
-  if (r < 0.52) return rand(T_GE_GAME);
+  if (r < 0.24) return rand(T_GE_COUNTRY);
+  if (r < 0.42) return rand(T_EXTRA_GE);
+  if (r < 0.58) return rand(T_GE_GAME);
   if (r < 0.70) return rand(T_GE_HYPE);
   if (r < 0.82) return rand(T_GE_REACT);
   if (r < 0.90) return rand(T_GE_Q);
@@ -499,6 +501,60 @@ function geMsg(){
   return rand(T_GE_SPAM);
 }
 
+
+
+
+const T_EXTRA_GE = [
+  // countries
+  "საიდან ხარ","თბილისი","ბათუმი","ქუთაისი","რუსთავი","გორი","ზუგდიდი","თელავი",
+  "საქართველო","ევროპა","ამერიკა","გერმანია","თურქეთი","რუსეთი","სომხეთი","აზერბაიჯანი",
+  "sadidan xar","tbilisi","batumi","kutaisi","saqartvelo","europa","amerika",
+  "come to tbilisi","batumi beach","georgia best","visiting georgia",
+  // phones
+  "აიფონი თუ ანდროიდი","სამსუნგი","აიფონი 16","ტელეფონი რა გაქვს","ბატარეა ცოტაა",
+  "iphone tu android","samsung","ra telefoni gaqvs","battery low","ახალი ტელეფონი",
+  // games
+  "რა თამაშია","ფორტნაიტი","გტა","მაინკრაფტი","ვალორანტი","CS2","ფიფა","ფრიფაიერი",
+  "ra tamashia","fortnite","gta","minecraft","valorant","fifa","free fire","pubg",
+  "რანკი რა გაქვს","1ვ1","პარტი","კლუჩი","თიმი","სტრიმი კარგია",
+  "ranki ra gaqvs","1v1","party up","clutch","team",
+  // PC
+  "კომპი რა გაქვს","ვიდეო ბარათი","რამდენი FPS","მონიტორი","კლავიატურა","მიკროფონი",
+  "kompi ra gaqvs","GPU","FPS","monitori","klaviatura","mikrophoni","setup",
+  "RTX","ინტელი","ამდი","ლეპტოპი","PC master race",
+  // daily
+  "როგორ ხარ","რას შვრები","სად ხარ","სკოლა","სამსახური","კაფე","მეტრო","ავტობუსი",
+  "rogor xar","ras shvreb","sad xar","skola","samsaxuri","kafe","metro",
+  "გამარჯობა ყველას","რა ხდება","ვინ არის აქ","ჩატი ცოცხალია","სტრიმი კარგია"
+];
+
+const T_EXTRA_EN = [
+  // countries / travel
+  "where are you from","I'm from USA","Canada here","UK chat","Germany in the chat","France W",
+  "Brazil represent","India watching","Japan viewer","Korea hi","Australia time","Africa in chat",
+  "come to Georgia","visit Tbilisi","Batumi summer","from Europe","Latin America here","middle east watching",
+  "what country is best","passport stamps","flight delayed","timezone pain","3am stream hits",
+  // phones
+  "iPhone or Android","iPhone 16 pro","Samsung S24","Pixel gang","my phone is lagging","charge your phone",
+  "battery 1%","who still has iPhone 11","screen cracked","new case","AirPods in","Android forever",
+  "what phone do you use","camera quality","120hz display","storage full","need a new phone",
+  // games / consoles
+  "PC or console","PlayStation 5","Xbox Series X","Nintendo Switch","Steam Deck","what game is this",
+  "Fortnite","GTA 6 when","Minecraft","Roblox kids","Valorant","CS2","League of Legends","Warzone",
+  "FIFA or FC","eFootball","Call of Duty","Apex Legends","Rust","Roblox","Among Us still?",
+  "rank?","what rank are you","diamond hardstuck","radiant when","global elite","unranked soldier",
+  "drop your ID","party up","1v1 me","clutch or kick","ace clutch","team diff","throwing hard",
+  // PCs / setup
+  "what GPU","RTX 4090","RTX 3060","RX 7800","how many FPS","144hz or 240","monitor size",
+  "keyboard mechanical","RGB setup","desk setup goals","mic arm","webcam 1080p","ring light",
+  "CPU bottleneck","RAM 16 or 32","SSD full","overheating","fan noise","cable management",
+  "build a PC","prebuilt is fine","laptop gaming","MacBook for school","Linux user",
+  // random modern
+  "TikTok algorithm","Instagram reels","YouTube shorts","Discord server","WhatsApp group",
+  "Spotify playlist","Netflix show","AI is wild","ChatGPT wrote this","elon tweet","crypto crash",
+  "coffee or tea","gym day","touch grass","go outside","school tomorrow","work in the morning",
+  "salary talk","rent is crazy","gas prices","food delivery","Uber eats","cooking stream?"
+];
 
 const T_LOVE = [
   "love this stream","youre the best","goat host","keep going","we love you","legend","king","queen",
@@ -967,9 +1023,10 @@ async function addBotsBatch(n){
   scheduleBotDonation();
   clearTimeout(chatTimer); chatTimer = null;
   scheduleChat();
-  // reschedule SC with new viewer count (don't stick on old long delay)
+  // reschedule SC immediately with new viewer count
   clearTimeout(scTimer); scTimer = null;
-  scheduleSuperChat();
+  scFirst = true;
+  scheduleSuperChat(true);
   toast("+" + format(n) + " bots");
 }
 
@@ -1061,27 +1118,46 @@ function pickScText(tone){
   if (tone === "love") return rand(T_SC_POS.concat(T_LOVE));
   return rand(T_SC_ANY.concat(T_SC_POS));
 }
+const KA_MAP = {
+  "ა":"a","ბ":"b","გ":"g","დ":"d","ე":"e","ვ":"v","ზ":"z","თ":"t","ი":"i","კ":"k",
+  "ლ":"l","მ":"m","ნ":"n","ო":"o","პ":"p","ჟ":"zh","რ":"r","ს":"s","ტ":"t","უ":"u",
+  "ფ":"p","ქ":"k","ღ":"gh","ყ":"q","შ":"sh","ჩ":"ch","ც":"ts","ძ":"dz","წ":"ts","ჭ":"ch",
+  "ხ":"kh","ჯ":"j","ჰ":"h"
+};
+function translitKa(s){
+  s = String(s||"");
+  let out = "";
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (KA_MAP[ch]) out += KA_MAP[ch];
+    else out += ch;
+  }
+  return out.replace(/_+/g," ").replace(/\s+/g," ").trim();
+}
+function speakable(s){
+  // If string has Georgian letters, transliterate so English TTS can say it
+  if (/[\u10A0-\u10FF]/.test(s)) return translitKa(s);
+  return String(s||"");
+}
 function speakSuperChat(name, amount, text){
   try {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    // IShowSpeed-style readout
-    const line = name + " donated " + formatUSD(amount) + " through super chat. " + (text || "");
+    const who = speakable(name);
+    const msg = speakable(text || "");
+    // IShowSpeed-style readout (English TTS + translit for Georgian)
+    const line = who + " donated " + formatUSD(amount) + " through super chat. " + msg;
     const u = new SpeechSynthesisUtterance(line);
-    u.rate = 1.0;
+    u.rate = 0.95;
     u.pitch = 1.15;
     u.volume = 1;
     u.lang = "en-US";
     const voices = window.speechSynthesis.getVoices() || [];
-    // Prefer female English voices (Speed-style TTS)
-    const femaleHints = /female|samantha|victoria|karen|moira|tessa|fiona|karen|susan|zira|siri|google us english|microsoft zira|samantha|jenny|aria|natasha|sarah|emily/i;
+    const femaleHints = /female|samantha|victoria|karen|moira|tessa|fiona|susan|zira|jenny|aria|natasha|sarah|emily|google us english/i;
     const enFemale = voices.find(function(v){ return /en(-|_)/i.test(v.lang) && femaleHints.test(v.name); })
-      || voices.find(function(v){ return /en(-|_)US/i.test(v.lang) && /female/i.test(v.name); })
-      || voices.find(function(v){ return /en(-|_)GB/i.test(v.lang) && femaleHints.test(v.name); })
-      || voices.find(function(v){ return /en(-|_)US/i.test(v.lang) && !/male|david|daniel|mark|george|fred/i.test(v.name); })
+      || voices.find(function(v){ return /en(-|_)US/i.test(v.lang) && !/male|david|daniel|mark|george|fred|james/i.test(v.name); })
       || voices.find(function(v){ return /^en/i.test(v.lang); });
     if (enFemale) u.voice = enFemale;
-    // slight pitch bump helps "female" on platforms with only neutral voices
     if (!enFemale || !femaleHints.test(enFemale.name || "")) u.pitch = 1.25;
     window.speechSynthesis.speak(u);
   } catch(e){}
@@ -1122,35 +1198,51 @@ function scAvgMs(b){
   if (b < 10000000) return 45 * 1000;   // 5–10M → ~30s–1 min
   return 20 * 1000;                     // 10M+ → ~20s
 }
-function scheduleSuperChat(){
+let scFirst = true;
+function fireOneSuperChat(){
+  if (!isHost || !currentLiveId || botCount <= 0) return;
+  const name = nextName();
+  const amount = pickScAmount();
+  const r = Math.random();
+  const tone = r < 0.12 ? "hate" : r < 0.55 ? "love" : "any";
+  showSuperChat(name, amount, pickScText(tone), tone);
+}
+function scheduleSuperChat(forceReschedule){
   clearTimeout(scTimer); scTimer = null;
   if (!isHost || !currentLiveId) return;
   if (botCount <= 0) {
-    scTimer = setTimeout(scheduleSuperChat, 3000);
+    scTimer = setTimeout(function(){ scheduleSuperChat(); }, 2000);
     return;
   }
   const avgMs = scAvgMs(botCount);
-  const delay = Math.max(5000, avgMs * (0.6 + Math.random() * 0.8));
+  let delay;
+  // Instant only when room is already huge (millions) — not for 100 bots
+  if (forceReschedule && botCount >= 1000000) {
+    scFirst = false;
+    delay = 500 + Math.random() * 1000;
+  } else if (scFirst) {
+    scFirst = false;
+    // first SC of the stream still uses normal scaled wait
+    delay = Math.max(8000, avgMs * (0.7 + Math.random() * 0.6));
+  } else {
+    delay = Math.max(5000, avgMs * (0.6 + Math.random() * 0.8));
+  }
   scTimer = setTimeout(function(){
     scTimer = null;
     if (!isHost || !currentLiveId) return;
     if (botCount <= 0) { scheduleSuperChat(); return; }
-    const name = nextName();
-    const amount = pickScAmount();
-    const r = Math.random();
-    const tone = r < 0.12 ? "hate" : r < 0.55 ? "love" : "any";
-    showSuperChat(name, amount, pickScText(tone), tone);
-    scheduleSuperChat();
+    fireOneSuperChat();
+    scheduleSuperChat(false);
   }, delay);
 }
 function stopSuperChat(){ clearTimeout(scTimer); scTimer = null; try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e){} }
 
 /* ---------- BOT SIM ---------- */
 function startBots(){
-  stopBots(); chatPhase = "greet";
+  stopBots(); chatPhase = "greet"; scFirst = true;
   phaseTimer = setTimeout(function(){ chatPhase = "normal"; }, 22000);
   botTimer = setTimeout(scheduleJoin, 3500);
-  scheduleChat(); scheduleLeave(); scheduleBotDonation(); scheduleSuperChat();
+  scheduleChat(); scheduleLeave(); scheduleBotDonation(); scheduleSuperChat(false);
 }
 function stopBots(){
   clearTimeout(botTimer); botTimer=null;
@@ -1452,6 +1544,15 @@ try {
     window.speechSynthesis.onvoiceschanged = function(){ window.speechSynthesis.getVoices(); };
   }
 } catch(e){}
+
+// more name variety each load
+(function(){
+  const moreEn = ["Tokyo","Seoul","Paris","Berlin","Madrid","Rome","Cairo","Dubai","Lagos","Nairobi","Sydney","Melbourne","Toronto","Chicago","Miami","Boston","Seattle","Denver","Austin","Phoenix","Lisbon","Athens","Oslo","Stockholm","Helsinki","Warsaw","Prague","Vienna","Budapest","Bucharest","Sofia","Belgrade","Zagreb","Sarajevo","Skopje","Tirana","Chisinau","Kyiv","Minsk","Riga","Tallinn","Vilnius","PixelForge","NoScope","Headshot","ClutchGod","FrameRate","LowPing","HighDPI","TouchBar","NightOwl","DayOne","PatchNotes","MetaSlave","LobbyKing","RankedGrinder","UnrankedHero","CasualTryhard","ProAm","SemiPro","LocalHost","CloudLag","FiberOptic","5GOnly","WifiDown","Bluetooth","USB_C","TypeC","MagSafe","OLEDGang","IPSPanel","VA_Panel","Ultrawide","DualMonitor","TripleScreen","StreamingPC","BudgetBuild","RGBOnly","NoRGB","SilentCase","AIOCooler","AirCool","Overclock","StockClock","VRAM","ShaderCache"];
+  moreEn.forEach(function(n){ if (NAMES.indexOf(n) < 0) NAMES.push(n + Math.floor(Math.random()*9000+100)); });
+  const moreGe = ["TbilisiKid","BatumiBoy","KutaisiPro","RustaviGG","GoriLive","ZugdidiFC","TelaviWine","Svaneti","Kakheti","Adjara","Samegrelo","Imereti","Kartli","Mtskheta","Kazbegi","Borjomi","Bakuriani","Gudauri","Sioni","Dinamo","Torpedo","Saburtalo","Locomotive","Witri","Chito","Buki","ZuraX","GioPro","NikaLive","LukaYT","SabaTT","MariamLive","NinoStream","AniChat","SalomeX","Tamari","Khatia","LiziPro","VakoGG","RezoLive","DatoYT","GegaPro","OtoStream","BekaLive","IrakliX","ShotaPro","LevanGG","Tornike","Guram","Mamuka"];
+  moreGe.forEach(function(n){ if (typeof GE_NAMES !== "undefined") GE_NAMES.push(n + (Math.random()<0.5?Math.floor(Math.random()*900):"")); });
+})();
+
 console.log("[Go Live Offline] EN names=", NAMES.length, "GE names=", GE_NAMES.length);
 })();
 </script>
