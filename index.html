@@ -778,6 +778,9 @@ async function addBotsBatch(n){
   scheduleBotDonation();
   clearTimeout(chatTimer); chatTimer = null;
   scheduleChat();
+  // reschedule SC with new viewer count (don't stick on old long delay)
+  clearTimeout(scTimer); scTimer = null;
+  scheduleSuperChat();
   toast("+" + format(n) + " bots");
 }
 
@@ -908,39 +911,37 @@ function showSuperChat(name, amount, text, tone){
   saveCoins(); updateCoinsUI();
   // banner + voice only — no top toast
 }
+function scAvgMs(b){
+  b = Math.max(1, b);
+  // more viewers → more superchats
+  if (b < 100) return 12 * 60000;
+  if (b < 1000) return 9 * 60000;
+  if (b < 10000) return 7 * 60000;
+  if (b < 50000) return 6 * 60000;
+  if (b < 200000) return 5 * 60000;
+  if (b < 500000) return 4.5 * 60000;  // ~400k → ~4–6 min with jitter
+  if (b < 2000000) return 2 * 60000;
+  if (b < 10000000) return 55 * 1000;
+  return 28 * 1000; // 10M+ → ~17–40s
+}
 function scheduleSuperChat(){
   clearTimeout(scTimer); scTimer = null;
   if (!isHost || !currentLiveId) return;
-  const b = Math.max(1, botCount);
-  // Target avg gap scales with viewers (random jitter ±40%):
-  //   ~1k  → ~8–12 min
-  //   ~50k → ~6–9 min
-  //   ~400k → ~4–6 min
-  //   ~2M  → ~90–150s
-  //   ~18M → ~25–50s
-  let avgMs;
-  if (b < 100) avgMs = 15 * 60000;
-  else if (b < 1000) avgMs = 10 * 60000;
-  else if (b < 10000) avgMs = 8 * 60000;
-  else if (b < 50000) avgMs = 7 * 60000;
-  else if (b < 200000) avgMs = 6 * 60000;
-  else if (b < 500000) avgMs = 5 * 60000;       // ~400k band
-  else if (b < 2000000) avgMs = 2.5 * 60000;
-  else if (b < 10000000) avgMs = 70 * 1000;
-  else avgMs = 35 * 1000;                       // 10M+
-  const delay = Math.max(8000, avgMs * (0.6 + Math.random() * 0.8));
+  if (botCount <= 0) {
+    scTimer = setTimeout(scheduleSuperChat, 3000);
+    return;
+  }
+  const avgMs = scAvgMs(botCount);
+  const delay = Math.max(5000, avgMs * (0.6 + Math.random() * 0.8));
   scTimer = setTimeout(function(){
     scTimer = null;
-    if (!isHost || botCount <= 0) { scheduleSuperChat(); return; }
-    // Almost always fire after waiting the scaled gap (random already in delay)
-    if (Math.random() < 0.92) {
-      const name = nextName();
-      const amount = pickScAmount();
-      const r = Math.random();
-      const tone = r < 0.12 ? "hate" : r < 0.55 ? "love" : "any";
-      const text = pickScText(tone);
-      showSuperChat(name, amount, text, tone);
-    }
+    if (!isHost || !currentLiveId) return;
+    if (botCount <= 0) { scheduleSuperChat(); return; }
+    const name = nextName();
+    const amount = pickScAmount();
+    const r = Math.random();
+    const tone = r < 0.12 ? "hate" : r < 0.55 ? "love" : "any";
+    showSuperChat(name, amount, pickScText(tone), tone);
     scheduleSuperChat();
   }, delay);
 }
@@ -1125,7 +1126,7 @@ function flushChatQueue(){
   while (list.children.length > MAX_CHAT) list.firstElementChild && list.firstElementChild.remove();
   list.scrollTop = list.scrollHeight;
   setTimeout(function(){ list.querySelectorAll(".msg-new").forEach(function(el){ el.classList.remove("msg-new"); }); }, 150);
-  if (lastGift) playGiftAnim(lastGift.giftEmoji, lastGift.giftName, lastGift.giftCost);
+  // gifts already shown via playGiftAnim on donate — don't re-show as "Viewer"
   if (chatQueue.length) scheduleChatRender();
 }
 function addMsg(name, text, host, isGift, extra){
