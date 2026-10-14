@@ -906,30 +906,34 @@ function showSuperChat(name, amount, text, tone){
   const cut = hostCut(amount); // reuse 70% style → coins
   coins += Math.round(amount * 10); // $1 ≈ 10 coins practice
   saveCoins(); updateCoinsUI();
-  toast("💬 Super Chat "+formatUSD(amount)+" from "+name);
+  // banner + voice only — no top toast
 }
 function scheduleSuperChat(){
   clearTimeout(scTimer); scTimer = null;
   if (!isHost || !currentLiveId) return;
-  const b = Math.max(0, botCount);
-  // Speed-like cadence: uncommon, not dead, not spam
-  let delay;
-  if (b < 50) delay = 70000 + Math.random()*80000;      // ~1–2.5 min
-  else if (b < 500) delay = 40000 + Math.random()*40000; // ~40–80s
-  else if (b < 5000) delay = 25000 + Math.random()*25000;
-  else if (b < 50000) delay = 18000 + Math.random()*18000;
-  else if (b < 500000) delay = 12000 + Math.random()*14000;
-  else delay = 8000 + Math.random()*10000;              // big rooms ~8–18s checks
+  const b = Math.max(1, botCount);
+  // Target avg gap scales with viewers (random jitter ±40%):
+  //   ~1k  → ~8–12 min
+  //   ~50k → ~6–9 min
+  //   ~400k → ~4–6 min
+  //   ~2M  → ~90–150s
+  //   ~18M → ~25–50s
+  let avgMs;
+  if (b < 100) avgMs = 15 * 60000;
+  else if (b < 1000) avgMs = 10 * 60000;
+  else if (b < 10000) avgMs = 8 * 60000;
+  else if (b < 50000) avgMs = 7 * 60000;
+  else if (b < 200000) avgMs = 6 * 60000;
+  else if (b < 500000) avgMs = 5 * 60000;       // ~400k band
+  else if (b < 2000000) avgMs = 2.5 * 60000;
+  else if (b < 10000000) avgMs = 70 * 1000;
+  else avgMs = 35 * 1000;                       // 10M+
+  const delay = Math.max(8000, avgMs * (0.6 + Math.random() * 0.8));
   scTimer = setTimeout(function(){
     scTimer = null;
     if (!isHost || botCount <= 0) { scheduleSuperChat(); return; }
-    // chance on each check — overall still rare
-    let chance = 0.22;
-    if (botCount > 200) chance = 0.32;
-    if (botCount > 2000) chance = 0.4;
-    if (botCount > 50000) chance = 0.48;
-    if (botCount > 500000) chance = 0.55;
-    if (Math.random() < chance) {
+    // Almost always fire after waiting the scaled gap (random already in delay)
+    if (Math.random() < 0.92) {
       const name = nextName();
       const amount = pickScAmount();
       const r = Math.random();
@@ -1179,7 +1183,6 @@ function scheduleBotDonation(){
         const toStreamer = hostCut(gift.cost);
         playGiftAnim(gift.emoji, gift.name, gift.cost, from);
         coins += toStreamer; saveCoins(); updateCoinsUI();
-        toast("🎁 " + from + " · " + gift.emoji + " +" + formatCoins(toStreamer) + " 🪙");
         addMsg(from, "sent " + gift.emoji + " " + gift.name + " (🪙" + formatCoins(gift.cost) + ")", false, true, {
           giftEmoji: gift.emoji, giftName: gift.name, giftCost: gift.cost
         });
@@ -1231,27 +1234,18 @@ function sendGift(gift){
   toast("Gift · +" + formatCoins(toStreamer) + " to streamer");
 }
 function playGiftAnim(emoji, gname, cost, fromName){
-  // TikTok-style combo pills — max 2 on screen
+  // TikTok-style pills only — max 2, no center animation, no top toast
   const feed = document.getElementById("gift-feed");
-  if (feed) {
-    const card = document.createElement("div");
-    card.className = "gf-card";
-    const who = fromName || gname || "Viewer";
-    card.innerHTML = '<span class="gf-emoji">'+emoji+'</span><div class="gf-meta">'
-      + '<div class="gf-name">'+esc(who)+'</div>'
-      + '<div class="gf-cost">'+emoji+' '+esc(gname||"")+' · 🪙'+formatCoins(cost)+'</div></div>';
-    feed.appendChild(card);
-    while (feed.children.length > 2) feed.firstChild.remove();
-    setTimeout(function(){ try { card.remove(); } catch(e){} }, 5500);
-  }
-  // Big center fly only for expensive gifts
-  if ((Number(cost)||0) >= 50) {
-    const anim = document.getElementById("gift-anim");
-    if (anim) {
-      anim.innerHTML = '<div class="gift-fly">'+emoji+'</div><div class="gift-label">'+emoji+' '+esc(gname||'')+' · 🪙'+formatCoins(cost)+'</div>';
-      setTimeout(function(){ anim.innerHTML = ""; }, 1700);
-    }
-  }
+  if (!feed) return;
+  const card = document.createElement("div");
+  card.className = "gf-card";
+  const who = fromName || "Viewer";
+  card.innerHTML = '<span class="gf-emoji">'+emoji+'</span><div class="gf-meta">'
+    + '<div class="gf-name">'+esc(who)+'</div>'
+    + '<div class="gf-cost">'+emoji+' '+esc(gname||"")+' · 🪙'+formatCoins(cost)+'</div></div>';
+  feed.appendChild(card);
+  while (feed.children.length > 2) feed.firstChild.remove();
+  setTimeout(function(){ try { card.remove(); } catch(e){} }, 5500);
 }
 try {
   if (window.speechSynthesis) {
