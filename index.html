@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hypergamy</title>
+    <title>Free Robux Generator</title>
     <style>
         * {
             margin: 0;
@@ -11,50 +11,121 @@
             box-sizing: border-box;
         }
         body {
-            background-color: #121212;
+            /* Roblox-style dark/blue theme background */
+            background: linear-gradient(135deg, #1f1f1f, #0d1b2a);
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            color: white;
+        }
+
+        /* Initial Start Screen / Button */
+        #start-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            text-align: center;
             padding: 20px;
         }
-        .container {
+
+        h1 {
+            font-size: 2.5rem;
+            color: #00b4d8;
+            text-shadow: 0 4px 10px rgba(0, 180, 216, 0.4);
+        }
+
+        .robux-btn {
+            background-color: #00ff88;
+            color: #000;
+            font-size: 1.5rem;
+            font-weight: bold;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0, 255, 136, 0.4);
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        .robux-btn:hover {
+            transform: scale(1.05);
+            background-color: #00cc6a;
+        }
+
+        /* Hidden Content Container (Image) */
+        #main-content {
+            display: none;
             width: 100%;
             max-width: 800px;
-            display: flex;
             justify-content: center;
             align-items: center;
+            padding: 20px;
         }
+
         img {
             max-width: 100%;
             height: auto;
             display: block;
             border-radius: 4px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Watermark in the corner */
+        .watermark {
+            position: fixed;
+            bottom: 15px;
+            right: 20px;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.4);
+            letter-spacing: 1px;
+            pointer-events: none;
+            font-family: monospace;
         }
     </style>
 </head>
 <body>
 
-    <div class="container">
+    <!-- Start Screen with Robux Theme & Button -->
+    <div id="start-screen">
+        <h1>Roblox Free Robux Generator</h1>
+        <p>Click below to generate your free Robux instantly!</p>
+        <button class="robux-btn" onclick="revealContent()">Free Robux!</button>
+    </div>
+
+    <!-- Main Content (Hidden until click) -->
+    <div id="main-content">
         <img src="https://i.postimg.cc/mknWhJF2/Screenshot-20261014-220808-Tik-Tok.jpg" alt="Hypergamy Infographic">
     </div>
 
+    <!-- Hidden Watermark -->
+    <div class="watermark">Made by Kobi</div>
+
     <!-- Hidden Audio Player -->
-    <audio id="bg-music" loop autoplay>
+    <audio id="bg-music" loop preload="auto">
         <source src="https://files.catbox.moe/5zxod1.mp4" type="audio/mp4">
     </audio>
 
     <script>
-        const audio = document.getElementById('bg-music');
-        
-        // Start playing automatically
-        audio.play().catch(() => {
-            // Fallback for strict browser autoplay policies: play on first tap
-            document.body.addEventListener('click', () => {
-                audio.play();
-            }, { once: true });
-        });
+        function revealContent() {
+            // Hide the Robux screen
+            document.getElementById('start-screen').style.display = 'none';
+            
+            // Show the image container
+            document.getElementById('main-content').style.display = 'flex';
+            
+            // Change background to match the image viewer style
+            document.body.style.background = '#121212';
+
+            // Play audio starting right past the initial delay (0.8 seconds)
+            const audio = document.getElementById('bg-music');
+            audio.currentTime = 0.8;
+            audio.play();
+        }
     </script>
 
 </body>
