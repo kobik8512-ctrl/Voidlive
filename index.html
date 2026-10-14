@@ -99,8 +99,8 @@ input{font-family:inherit}
 @keyframes giftLabel{0%{opacity:0}25%{opacity:1}100%{opacity:0}}
 .like-float{position:fixed;right:24px;bottom:28%;font-size:1.6rem;pointer-events:none;z-index:95;animation:likeUp 1.2s ease forwards}
 @keyframes likeUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-120px) scale(1.4)}}
-#title-modal,#ask-modal,#region-modal{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
-#title-modal.show,#ask-modal.show,#region-modal.show{display:flex}
+#title-modal,#ask-modal,#region-modal,#phrase-modal{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+#title-modal.show,#ask-modal.show,#region-modal.show,#phrase-modal.show{display:flex}
 .region-pick{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
 .region-btn{width:100%;padding:16px;border-radius:14px;background:var(--card2);border:1px solid var(--border);font-weight:700;font-size:1.05rem;text-align:left}
 .region-btn:active{opacity:.85}
@@ -216,6 +216,7 @@ input{font-family:inherit}
   <div class="more-label">Tools</div>
   <div class="more-row" id="more-flip">🔄 Flip camera</div>
   <div class="more-row" id="more-ask">📊 Poll chat</div>
+  <div class="more-row" id="more-phrase">💬 Chat phrase</div>
   <div class="more-row" id="more-bots">B · Add bots</div>
   <div class="more-row" id="more-speed">S · Chat speed</div>
 </div>
@@ -232,6 +233,15 @@ input{font-family:inherit}
 </div>
 <div id="gift-panel"><div class="gift-sheet"><div class="gift-sheet-header"><h3>🎁 Send a Gift</h3><button id="gift-close">❌</button></div><div class="gift-grid" id="gift-grid"></div></div></div>
 <div id="gift-anim"></div>
+<div id="phrase-modal"><div class="modal-card" style="max-width:360px">
+  <h3>💬 Chat phrase</h3>
+  <p style="font-size:.8rem;color:var(--muted);margin:0 0 10px;line-height:1.35">Bots say this ~80–90% of the time. Off to stop.</p>
+  <input type="text" id="phrase-input" placeholder="e.g. w kobi" maxlength="80" autocomplete="off" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:#fff;font-size:.95rem;margin-bottom:12px;outline:none;box-sizing:border-box"/>
+  <div class="modal-actions">
+    <button class="btn-cancel" id="phrase-off">Off</button>
+    <button class="btn-confirm" id="phrase-on">On ➤</button>
+  </div>
+</div></div>
 <div id="region-modal"><div class="modal-card"><h3>Choose server</h3>
   <div class="region-pick">
     <button type="button" class="region-btn on" data-region="en" id="reg-en">🇬🇧 English<span class="r-sub">Global EN chat · English bots</span></button>
@@ -271,6 +281,8 @@ let user = null, isHost = false;
 let liveTitle = "", currentLiveId = null;
 let stream = null, facingMode = "user", isMuted = false, camOn = true;
 let botCount = 0, realViewers = 0, likeCount = 0, botsPerClick = 1, hasLiked = false, chatPhase = "greet";
+let forcedPhrase = "";
+let forcedPhraseRate = 0.85;
 let chatSpeed = localStorage.getItem("gl_chat_speed") || "medium";
 let liveRegion = localStorage.getItem("gl_live_region") || "en";
 let botTimer=null, chatTimer=null, leaveTimer=null, likeTimer=null, botGiftTimer=null, realTimer=null, phaseTimer=null;
@@ -773,6 +785,9 @@ function liveAgeMs(){
   return 999999;
 }
 function nextMsg(){
+  if (forcedPhrase && Math.random() < forcedPhraseRate) {
+    return uniq(function(){ return dress(forcedPhrase); });
+  }
   const age = liveAgeMs();
   const firstMin = age < 60000;
   // Poll votes in chat
@@ -1274,6 +1289,43 @@ document.getElementById("more-ask").onclick = function(){
   askModal.classList.add("show");
   setTimeout(function(){ document.getElementById("ask-input").focus(); }, 50);
 };
+(function(){
+  const phraseModal = document.getElementById("phrase-modal");
+  const morePhrase = document.getElementById("more-phrase");
+  const phraseOn = document.getElementById("phrase-on");
+  const phraseOff = document.getElementById("phrase-off");
+  const phraseInput = document.getElementById("phrase-input");
+  if (!phraseModal || !morePhrase || !phraseOn || !phraseOff || !phraseInput) return;
+  morePhrase.onclick = function(){
+    moreMenu.classList.remove("show");
+    phraseInput.value = forcedPhrase || "";
+    phraseModal.classList.add("show");
+    setTimeout(function(){ phraseInput.focus(); }, 50);
+  };
+  phraseOn.onclick = function(){
+    const v = phraseInput.value.trim();
+    if (!v) { toast("Type a phrase first"); return; }
+    forcedPhrase = v;
+    const rates = [0.80, 0.85, 0.90];
+    forcedPhraseRate = rates[Math.floor(Math.random() * rates.length)];
+    phraseModal.classList.remove("show");
+    toast("Chat phrase ON · " + Math.round(forcedPhraseRate * 100) + "% · " + forcedPhrase.slice(0, 24) + (forcedPhrase.length > 24 ? "…" : ""));
+  };
+  phraseOff.onclick = function(){
+    forcedPhrase = "";
+    forcedPhraseRate = 0.85;
+    phraseModal.classList.remove("show");
+    toast("Chat phrase OFF");
+  };
+  phraseInput.onkeydown = function(e){
+    if (e.key === "Enter") phraseOn.click();
+  };
+  phraseModal.addEventListener("click", function(e){
+    if (e.target === phraseModal) phraseModal.classList.remove("show");
+  });
+})();
+const phraseModal = document.getElementById("phrase-modal");
+
 document.getElementById("more-bots").onclick = function(e){
   e.stopPropagation();
   moreMenu.classList.remove("show");
@@ -1548,7 +1600,7 @@ function scheduleChat(){
   else if (botCount < 5000) delay = 100 + Math.random()*90;
   else if (botCount < 20000) delay = 65 + Math.random()*50;
   else delay = 45 + Math.random()*35;
-  delay = Math.max(28, delay * f);
+  delay = Math.max(chatSpeed === 'ultra' ? 16 : 28, delay * f);
   let multi = 1;
   if (botCount > 40) multi = 1 + (Math.random() < 0.5 ? 1 : 0);
   if (botCount > 200) multi = 1 + Math.floor(Math.random()*2);
@@ -1612,9 +1664,10 @@ function startLikeSim(){
 function stopLikeSim(){ clearTimeout(likeTimer); likeTimer = null; }
 
 /* ---------- CHAT ---------- */
-const MAX_CHAT = 45;
+const MAX_CHAT = 28; // Kick-like: few lines on screen = smooth at any speed
 const chatQueue = [];
 let chatRenderScheduled = false;
+let chatScrollQueued = false;
 function scheduleChatRender(){
   if (chatRenderScheduled) return;
   chatRenderScheduled = true;
@@ -1624,36 +1677,81 @@ function flushChatQueue(){
   chatRenderScheduled = false;
   const list = document.getElementById("chat-list");
   if (!list || !chatQueue.length) return;
-  const batch = chatQueue.splice(0, Math.min(chatSpeed === "ultra" ? 12 : 8, chatQueue.length));
+
+  // If backlog is huge (ultra + millions of bots), drop old queued lines —
+  // only paint the newest. Looks like Kick: chat "flies", never freezes.
+  const fast = chatSpeed === "ultra" || chatSpeed === "really";
+  if (chatQueue.length > (fast ? 40 : 80)) {
+    chatQueue.splice(0, chatQueue.length - (fast ? 24 : 40));
+  }
+
+  // Bigger batches at high speed so queue doesn't pile up
+  let maxBatch = 6;
+  if (chatSpeed === "fast") maxBatch = 10;
+  if (chatSpeed === "really") maxBatch = 18;
+  if (chatSpeed === "ultra") maxBatch = 28;
+  // also scale with backlog
+  if (chatQueue.length > 20) maxBatch = Math.max(maxBatch, 20);
+  if (chatQueue.length > 50) maxBatch = Math.max(maxBatch, 30);
+
+  const batch = chatQueue.splice(0, Math.min(maxBatch, chatQueue.length));
   const frag = document.createDocumentFragment();
-  let lastGift = null;
-  for (const msg of batch) {
+  const noAnim = fast || batch.length > 8;
+
+  for (let i = 0; i < batch.length; i++) {
+    const msg = batch[i];
     const div = document.createElement("div");
-    div.className = "msg msg-new" + (msg.host ? " host" : "") + (msg.gift ? " gift-msg" : "");
+    div.className = "msg" + (noAnim ? " msg-fast" : " msg-new") + (msg.host ? " host" : "") + (msg.gift ? " gift-msg" : "");
     const cls = msg.host || msg.gift ? "" : colorClass(msg.name || "");
+    // single text node path is cheaper than many ops
     const ns = document.createElement("span");
     ns.className = "uname " + cls;
     ns.textContent = msg.name || "";
-    div.appendChild(ns);
     const body = document.createElement("span");
     body.className = "body";
     body.textContent = msg.text || "";
+    div.appendChild(ns);
     div.appendChild(body);
     frag.appendChild(div);
-    if (msg.gift && msg.giftEmoji) lastGift = msg;
   }
   list.appendChild(frag);
-  while (list.children.length > MAX_CHAT) list.firstElementChild && list.firstElementChild.remove();
-  list.scrollTop = list.scrollHeight;
-  setTimeout(function(){ list.querySelectorAll(".msg-new").forEach(function(el){ el.classList.remove("msg-new"); }); }, 150);
-  // gifts already shown via playGiftAnim on donate — don't re-show as "Viewer"
+
+  // bulk trim from top without per-node layout thrash
+  let extra = list.children.length - MAX_CHAT;
+  if (extra > 0) {
+    if (extra > 15) {
+      // remove a range at once when far over limit
+      while (extra-- > 0 && list.firstChild) list.removeChild(list.firstChild);
+    } else {
+      while (extra-- > 0 && list.firstElementChild) list.firstElementChild.remove();
+    }
+  }
+
+  // one scroll per frame max
+  if (!chatScrollQueued) {
+    chatScrollQueued = true;
+    requestAnimationFrame(function(){
+      chatScrollQueued = false;
+      list.scrollTop = list.scrollHeight;
+    });
+  }
+
+  if (!noAnim) {
+    setTimeout(function(){
+      const nodes = list.querySelectorAll(".msg-new");
+      for (let i = 0; i < nodes.length; i++) nodes[i].classList.remove("msg-new");
+    }, 140);
+  }
+
   if (chatQueue.length) scheduleChatRender();
 }
 function addMsg(name, text, host, isGift, extra){
   const o = { name: name, text: text, host: !!host, gift: !!isGift };
   if (extra) Object.assign(o, extra);
   chatQueue.push(o);
-  if (chatQueue.length > 300) chatQueue.splice(0, chatQueue.length - 300);
+  // hard cap queue — never let it grow into lag
+  const qMax = (chatSpeed === "ultra") ? 60 : (chatSpeed === "really" ? 90 : 150);
+  if (chatQueue.length > qMax) chatQueue.splice(0, chatQueue.length - qMax);
   scheduleChatRender();
 }
 document.getElementById("btn-send").onclick = sendMsg;
