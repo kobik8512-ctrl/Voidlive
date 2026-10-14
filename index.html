@@ -68,7 +68,7 @@ input{font-family:inherit}
 .btn-gift{background:linear-gradient(135deg,#ffd60a,#ff9f0a);color:#1a1a1a;font-weight:800;font-size:.95rem;padding:10px 12px;border-radius:999px;flex-shrink:0}
 .btn-like{background:rgba(255,255,255,.12);color:#fff;font-weight:700;font-size:.95rem;padding:10px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.15);flex-shrink:0}
 .btn-like.liked{background:rgba(255,45,85,.35);border-color:var(--accent);color:#ff8fa3}
-.mic-status{position:absolute;bottom:36%;left:12px;font-size:.78rem;color:var(--green);z-index:25;pointer-events:none;opacity:.85}
+.mic-status{position:absolute;bottom:36%;left:12px;font-size:.78rem;color:var(--green);z-index:25;pointer-events:none;opacity:.85;max-width:45%}
 .stats-row{position:absolute;bottom:36%;right:12px;z-index:25;display:flex;gap:8px;pointer-events:none}
 .coins-badge,.likes-badge{background:rgba(0,0,0,.65);backdrop-filter:blur(8px);border-radius:999px;padding:6px 12px;font-size:.82rem;font-weight:700;display:flex;align-items:center;gap:5px;border:1px solid rgba(255,215,0,.3)}
 .likes-badge{border-color:rgba(255,45,85,.4)}
@@ -99,8 +99,13 @@ input{font-family:inherit}
 @keyframes giftLabel{0%{opacity:0}25%{opacity:1}100%{opacity:0}}
 .like-float{position:fixed;right:24px;bottom:28%;font-size:1.6rem;pointer-events:none;z-index:95;animation:likeUp 1.2s ease forwards}
 @keyframes likeUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-120px) scale(1.4)}}
-#title-modal,#ask-modal{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
-#title-modal.show,#ask-modal.show{display:flex}
+#title-modal,#ask-modal,#region-modal{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+#title-modal.show,#ask-modal.show,#region-modal.show{display:flex}
+.region-pick{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
+.region-btn{width:100%;padding:16px;border-radius:14px;background:var(--card2);border:1px solid var(--border);font-weight:700;font-size:1.05rem;text-align:left}
+.region-btn:active{opacity:.85}
+.region-btn .r-sub{display:block;font-size:.78rem;color:var(--muted);font-weight:500;margin-top:4px}
+.region-btn.on{border-color:var(--accent);background:rgba(255,45,85,.12)}
 .modal-card{background:var(--card);border-radius:20px;padding:28px 22px;width:100%;max-width:340px;border:1px solid var(--border)}
 .modal-card h3{text-align:center;font-size:1.2rem;margin-bottom:18px}
 #title-input,#ask-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px 16px;color:#fff;font-size:1rem;margin-bottom:16px;outline:none}
@@ -110,6 +115,24 @@ input{font-family:inherit}
 .btn-confirm{background:var(--accent);color:#fff}
 #toast{position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-12px);background:rgba(20,20,24,.92);color:#fff;padding:10px 18px;border-radius:999px;font-size:.88rem;opacity:0;transition:all .28s;z-index:200;pointer-events:none;border:1px solid var(--border)}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#superchat-banner{position:absolute;top:58px;left:12px;right:70px;z-index:50;pointer-events:none;display:flex;flex-direction:column;gap:8px}
+
+#gift-feed{position:absolute;bottom:38%;left:12px;z-index:45;pointer-events:none;display:flex;flex-direction:column-reverse;gap:8px;max-width:75%}
+.gf-card{display:flex;align-items:center;gap:8px;background:rgba(20,20,28,.88);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:8px 14px 8px 10px;animation:gfIn .28s ease;box-shadow:0 4px 16px rgba(0,0,0,.35)}
+.gf-emoji{font-size:1.35rem;line-height:1}
+.gf-meta{display:flex;flex-direction:column;min-width:0}
+.gf-name{font-size:.78rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+.gf-cost{font-size:.72rem;font-weight:700;color:var(--gold)}
+@keyframes gfIn{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:none}}
+
+.sc-card{background:linear-gradient(135deg,#ffd60a,#ff9f0a);color:#1a1a1a;border-radius:12px;padding:10px 12px;box-shadow:0 8px 28px rgba(255,158,0,.45);animation:scIn .35s ease;max-width:100%}
+.sc-card.hate{background:linear-gradient(135deg,#ff453a,#ff2d55);color:#fff}
+.sc-card.big{background:linear-gradient(135deg,#bf5af2,#5e5ce6);color:#fff}
+.sc-top{display:flex;align-items:center;gap:8px;font-weight:800;font-size:.88rem}
+.sc-amt{background:rgba(0,0,0,.15);padding:2px 8px;border-radius:999px;font-size:.8rem}
+.sc-msg{margin-top:4px;font-size:.9rem;font-weight:600;line-height:1.3;word-break:break-word}
+@keyframes scIn{from{opacity:0;transform:translateY(-12px) scale(.96)}to{opacity:1;transform:none}}
+
 </style>
 </head>
 <body>
@@ -150,6 +173,8 @@ input{font-family:inherit}
       <button class="icon-btn" id="btn-more" title="More">⋯</button>
     </div>
   </div>
+  <div id="superchat-banner"></div>
+  <div id="gift-feed"></div>
   <div class="mic-status" id="mic-status">🎤 Mic: offline mode</div>
   <div class="stats-row">
     <div class="likes-badge">❤️ <span id="likes-count">0</span></div>
@@ -186,6 +211,13 @@ input{font-family:inherit}
 </div>
 <div id="gift-panel"><div class="gift-sheet"><div class="gift-sheet-header"><h3>🎁 Send a Gift</h3><button id="gift-close">❌</button></div><div class="gift-grid" id="gift-grid"></div></div></div>
 <div id="gift-anim"></div>
+<div id="region-modal"><div class="modal-card"><h3>Choose server</h3>
+  <div class="region-pick">
+    <button type="button" class="region-btn on" data-region="en" id="reg-en">🇬🇧 English<span class="r-sub">Global EN chat · English bots</span></button>
+    <button type="button" class="region-btn" data-region="ge" id="reg-ge">🇬🇪 Georgia<span class="r-sub">ქართული ჩატი · 90–95% Georgian bots</span></button>
+  </div>
+  <div class="modal-actions"><button class="btn-cancel" id="region-cancel">Cancel</button><button class="btn-confirm" id="region-next">Next →</button></div>
+  </div></div>
 <div id="title-modal"><div class="modal-card"><h3>Name your live</h3><input type="text" id="title-input" placeholder="e.g. ranked grind" maxlength="40"/><div class="modal-actions"><button class="btn-cancel" id="btn-cancel">Cancel</button><button class="btn-confirm" id="btn-start">🔴 Start Live</button></div></div></div>
 <div id="ask-modal"><div class="modal-card"><h3>💬 Ask the chat</h3><input type="text" id="ask-input" placeholder="e.g. should I push?" maxlength="140" autocomplete="off"/><div class="modal-actions"><button class="btn-cancel" id="ask-cancel">Cancel</button><button class="btn-confirm" id="ask-send">Send ➤</button></div></div></div>
 <div id="toast"></div>
@@ -202,6 +234,7 @@ let liveTitle = "", currentLiveId = null;
 let stream = null, facingMode = "user", isMuted = false, camOn = true;
 let botCount = 0, realViewers = 0, likeCount = 0, botsPerClick = 1, hasLiked = false, chatPhase = "greet";
 let chatSpeed = localStorage.getItem("gl_chat_speed") || "medium";
+let liveRegion = localStorage.getItem("gl_live_region") || "en";
 let botTimer=null, chatTimer=null, leaveTimer=null, likeTimer=null, botGiftTimer=null, realTimer=null, phaseTimer=null;
 let coins = 0;
 let recog = null, recogWanted = false;
@@ -233,7 +266,50 @@ function makeName(){
 }
 const NAMES = [...new Set(Array.from({length:14000}, makeName))];
 let ni = Math.floor(Math.random()*NAMES.length);
+
+/* ---------- GEORGIAN NAMES (sensible + translit + script) ---------- */
+const GE_FIRST_LAT = ["Lasha","Giorgi","Gio","Nika","Nikoloz","Davit","Dato","Giga","Gigi","Irakli","Tornike","Torni","Luka","Sandro","Andria","Andro","Mikheil","Misho","Zura","Zurab","Vakho","Vakhtang","Beka","Shota","Shalva","Temo","Temur","Kakha","Kakhaber","Gocha","Revaz","Rezo","Paata","Mamuka","Jaba","Kote","Konstantine","Grigol","Aleksi","Aleko","Soso","Ioseb","Avtandil","Avto","Ramaz","Elguja","Nodar","Nodo","Gela","Tengiz","Tengo","Levan","Merab","Archil","Dimitri","Dima","Ivane","Vano","Petre","Sergo","Tamaz","Guram","Jemal","Otar","Badri","Kakhi","Lado","Vladimeri","Nugzar","Nukri","Zviad","Gia","Roma","Roman","Eduard","Ediko","Valeri","Amiran","Teimuraz","Teimo","Mindia","Goga","Gogi","Koba","Kobi","Nino","Mariam","Mari","Ana","Anuki","Tamar","Tamta","Ketevan","Keti","Natia","Nati","Sopo","Sofio","Elene","Ele","Maia","Maiko","Khatia","Khato","Salome","Salo","Gvantsa","Teona","Teo","Irine","Ira","Eka","Ekaterine","Lika","Nana","Tsira","Maka","Darejan","Daro","Medea","Medi","Kristine","Kristi","Lizi","Elizabed","Vera","Veriko","Tina","Tinatin","Natela","Zeinab","Fati","Fatima","Guliko","Guli","Rusudan","Ruso","Tamriko","Tamri","Mzia","Tsiala","Lela","Ia","Maro","Data","Saba","Rati","Tsotne","Barbare","Barbare","Nutsa","Nutsa","Tatia","Tatia","Mariami","Nini","Nini","Saba","Rezi","Lasha","Goga"];
+const GE_LAST_LAT = ["Beridze","Kapanadze","Maisuradze","Gelashvili","Kavtaradze","Khutsishvili","Javakhishvili","Mchedlishvili","Abashidze","Gogoladze","Tsintsadze","Shengelia","Lomidze","Putkaradze","Kvaratskhelia","Kvirikashvili","Gvenetadze","Chkhaidze","Chkhetiani","Kharaishvili","Gabunia","Gogiberishvili","Tabidze","Nizharadze","Kobakhidze","Gurgenidze","Metreveli","Okruashvili","Samkharadze","Devdariani","Kakhidze","Gogolauri","Gogishvili","Baratashvili","Orbeliani","Bagrationi","Dadiani","Gurieli","Eristavi","Amilakhvari","Tsitsishvili","Makharadze","Khomasuridze","Geladze","Kiknadze","Lomtadze","Papashvili","Robakidze","Sarishvili","Topuria","Phakadze","Chelidze","Chanturia","Janelidze","Jikia","Khachidze","Khachaturyan","Murghulia","Bolkvadze","Dolidze","Kalandadze","Kopaliani","Lazarashvili","Meladze","Nadiradze","Oniani","Rekhviashvili","Sulamanidze","Tkeshelashvili","Ugrekhelidze","Paghava","Kobalia","Ghambashidze","Sharashidze","Chagunava","Tsertsvadze","Dzadzamia","Tsereteli","Chiladze","Kharebava","Jajanidze","Jikhadze"];
+const GE_FIRST_KA = ["ლაშა","გიორგი","გიო","ნიკა","ნიკოლოზ","დავით","დათო","გიგა","გიგი","ირაკლი","თორნიკე","ლუკა","სანდრო","ანდრია","მიხეილ","მიშო","ზურა","ზურაბ","ვახო","ბექა","შოთა","შალვა","თემო","კახა","გოჩა","რევაზ","რეზო","პაატა","მამუკა","ჯაბა","კოტე","ალექსი","სოსო","ავთანდილ","რამაზ","ნოდარ","გელა","თენგიზი","ლევანი","მერაბ","არჩილი","დიმიტრი","ივანე","ვანო","სერგო","თამაზ","გურამ","ოთარ","ბადრი","ნუგზარ","ზვიად","გია","რომა","ამირანი","მინდია","გოგა","კობა","ნინო","მარიამ","ანა","თამარ","ქეთევან","ნათია","სოფო","ელენე","მაია","ხატია","სალომე","გვანცა","თეონა","ირინე","ეკა","ლიკა","ნანა","მაკა","ქრისტინე","ლიზი","თინა","ნუცა","თათია","საბა","რატი","ცოტნე","ბარბარე","ნინი","დათა"];
+const GE_LAST_KA = ["ბერიძე","კაპანაძე","მაისურაძე","გელაშვილი","ქავთარაძე","ხუციშვილი","ჯავახიშვილი","მჭედლიშვილი","აბაშიძე","გოგოლაძე","ცინცაძე","შენგელია","ლომიძე","კვარაცხელია","კვირიკაშვილი","გვენეტაძე","ჩხაიძე","ხარაიშვილი","გაბუნია","კობახიძე","მეტრეველი","სამხარაძე","კახიძე","გოგიშვილი","მახარაძე","თოფურია","ჭელიძე","ჯანელიძე","ჯიქია","ბოლქვაძე","დოლიძე","კალანდაძე","მელაძე","ონიანი","სულამანიძე","ფაღავა","ქობალია","წერეთელი","ჭილაძე"];
+const GE_TAGS = ["","_","x","xx","07","99","23","24","25","_GE","_TB","_TBS","_Batumi","_Kutaisi","_Pro","_GG","_Live","YT","TT","_PC","_Mob","_Gamer","Gaming"];
+function makeGeName(){
+  // ~70% Latin transliteration (how many real Georgians write online), ~30% Mkhedruli script
+  const useKa = Math.random() < 0.30;
+  let f, l;
+  if (useKa) {
+    f = GE_FIRST_KA[Math.floor(Math.random()*GE_FIRST_KA.length)];
+    l = GE_LAST_KA[Math.floor(Math.random()*GE_LAST_KA.length)];
+  } else {
+    f = GE_FIRST_LAT[Math.floor(Math.random()*GE_FIRST_LAT.length)];
+    l = GE_LAST_LAT[Math.floor(Math.random()*GE_LAST_LAT.length)];
+  }
+  const tag = GE_TAGS[Math.floor(Math.random()*GE_TAGS.length)];
+  const num = Math.random() < 0.42 ? String(Math.floor(Math.random()*9999)) : "";
+  // sensible patterns only
+  const styles = useKa ? [
+    f, f+num, f+"_"+num, f+tag, f+"_"+l.slice(0, Math.min(6,l.length))
+  ] : [
+    f, f+num, f+"_"+num, f+tag, f+"_"+l, f+l.slice(0,4),
+    f+"_"+l+num, "x"+f+"x", f+".ge", f+"_ge", l+num,
+    f+"Gaming", f+"_Live", f+"TT", f+"YT"
+  ];
+  let n = styles[Math.floor(Math.random()*styles.length)];
+  if (n.length > 22) n = n.slice(0, 22);
+  return n;
+}
+const GE_NAMES = [...new Set(Array.from({length:9500}, makeGeName))];
+let gni = Math.floor(Math.random()*GE_NAMES.length);
+
 function nextName(){
+  // GE server: 93% Georgian users; EN server: 93% English, 7% Georgian
+  const wantGe = liveRegion === "ge" ? (Math.random() < 0.93) : (Math.random() < 0.07);
+  if (wantGe) {
+    const n = GE_NAMES[gni % GE_NAMES.length];
+    gni++;
+    if (gni > GE_NAMES.length * 2) return n + Math.floor(Math.random()*50);
+    return n;
+  }
   const n = NAMES[ni % NAMES.length];
   ni++;
   if (ni > NAMES.length * 2) return n + Math.floor(Math.random()*99);
@@ -241,8 +317,8 @@ function nextName(){
 }
 
 /* ---------- CHAT LINES ---------- */
-const GREETINGS = ["hi","hello","hii","hiii","hi!","hey","yo","sup","hi bro","helloo","hey host","hi everyone","first","im early","hello chat","hi hi","heyyy","wassup","hi there","hola","yo yo","gm","hi stream","joined","hey hey","heyo","lets gooo","we early","first viewer","hi hi hi","yoo","whatup","heya","hola host","shalom","bonjour","ciao"];
-const T_GREET = ["hi!","hello!","hey 👋","hi host","hii","yo!","hey hey","hello 👋","hi 👋","sup","heyyy","hiii 👋","yo host","hey stream","hi chat"];
+const GREETINGS = ["hi","hello","hii","hiii","hi!","hey","yo","sup","hi bro","helloo","hey host","hi everyone","first","im early","hello chat","hi hi","heyyy","wassup","hi there","hola","yo yo","gm","hi stream","joined","hey hey","heyo","lets gooo","we early","first viewer","hi hi hi","yoo","whatup","heya","hola host","shalom","bonjour","ciao","hey hey hey","hiya","howdy","good morning","evening","just joined","hellooo","hiii host","yo host","sup chat","hi guys","hello people","present","here","checking in","early gang"];
+const T_GREET = ["hi!","hello!","hey 👋","hi host","hii","yo!","hey hey","hello 👋","hi 👋","sup","heyyy","hiii 👋","yo host","hey stream","hi chat","hello everyone","good to be here","first!","early","just got here","hi hi","heyyy host","whats up","wassup host"];
 const T_HYPE = ["lets gooo","LETS GO","LFG","W stream","fire 🔥","this is good","locked in","cooking","he cooking","W","W host","goated","insane","no way","CLIP IT","sheeesh","brooo","AYO","ohhh","dead","im dead 💀","LMAO","HAHA","funny","cracked","too good","aimbot?","how","skill issue","diff","ez","ggez","next","one more","again","run it back","comeback","unreal","cinema","peak","aura","rizz","sigma","based","real","facts","true","respect","goat","no wayyy","sheeeesh","bro cooked","actually cracked","server diff","host is different","chat is cooked","I cant","pause","we in","lock in chat","this goes hard","lowkey fire","highkey W","mid stream? nah","premium content","free entertainment","better than netflix","im invested","plot twist","cinema moment","director cut","main character","side character energy","NPC chat","real ones only","day one fan","sub when","mod when","timeout the haters","ratio","L + ratio","based take","unbased","touch grass","hydrate","blink if youre real"];
 const T_GAME = [
   "what game is this","what are you playing","rank?","what rank are you","elo?","mmr?","is this ranked","casual or ranked",
@@ -278,7 +354,7 @@ const T_QUESTION = [
   "favorite game","main game","what rank peak","highest kill game","best clutch","funniest fail"
 ];
 const T_NEW_UPDATE = [
-  "first time here","been watching for a bit","lurking","just joined","from fyp","algorithm brought me","friend sent this","randomly found you","quality content","underrated streamer","why so few viewers","this deserves more views","engage chat","type 1 if you agree","spam W","only real ones left","who is still here","late night stream hits different","early stream rare","consistency is key","post notifs","turn on bell","clip that","someone clip","I clipped it","send the clip","vod when","will this be uploaded","short form content","long form better","storytime?","Q and A","ask me anything energy","donate goals","sub goal progress","member when","mods asleep","chat moving slow","chat moving fast","scroll up","what did I miss","context?","starting from the beginning","caught the whole thing","missed the start","rewinding in my head","buffering on my end","your stream is smooth","quality looks good","lighting is clean","mic is clear","background fire","setup goals","room tour?","pet when","cat tax","dog tax"
+  "first time here","been watching for a bit","lurking","just joined","from fyp","algorithm brought me","friend sent this","randomly found you","quality content","underrated streamer","why so few viewers","this deserves more views","engage chat","type 1 if you agree","spam W","only real ones left","who is still here","late night stream hits different","early stream rare","consistency is key","post notifs","turn on bell","clip that","someone clip","I clipped it","send the clip","vod when","will this be uploaded","short form content","long form better","storytime?","Q and A","ask me anything energy","donate goals","sub goal progress","member when","mods asleep","chat moving slow","chat moving fast","scroll up","what did I miss","context?","starting from the beginning","caught the whole thing","missed the start","rewinding in my head","buffering on my end","your stream is smooth","quality looks good","lighting is clean","mic is clear","background fire","setup goals","room tour?","pet when","cat tax","dog tax","whats the plan","lock in","we cooking","chat waking up","morning stream","night stream","audio good","video clean","rate the setup","1 to 10","drop a follow","new here","been a fan","missed you","welcome back host","long time","daily stream?","schedule drop","ping check","fps good?","settings?","crosshair","volume up","can barely hear","loud and clear"
 ];
 const T_SPAM = ["W","L","F","GG","EZ","WP","NT","NS","TY","NP","GLHF","HF","GL","o7","ggwp","ggez","nt","ns","wp","ty"];
 const T_GIFT = ["nice gift","big spender","whale alert","rich chat","gift gang","coins flying","streamer eating good","pay the bills"];
@@ -355,8 +431,98 @@ function contextMsg(u){
   if (/\?/.test(t)) return rand(T_REACT.concat(["good question","idk honestly","chat answer","maybe","depends"]));
   return rand(T_REACT.concat(T_HYPE));
 }
+
+/* ---------- GEORGIAN CHAT ---------- */
+const T_GE_GREET = [
+  "გამარჯობა","გამარჯობათ","სალამი","ჰეი","ჰაი","როგორ ხარ","როგორ ხართ","ბარო","ბარო რა","ჰაიიი",
+  "გამარჯობა ჩატი","გამარჯობა ჰოსტ","შემოვედი","პირველი ვარ","ახლა შემოვედი","გამარჯობა ყველას",
+  "gamarjoba","gamarjobat","salami","hai","heyi","hiiii",
+  "gamarjoba host","gamarjoba chat","shemovedi","pirveli var","axla shemovedi",
+  "გამარჯობა = gamarjoba","სალამი","ჰაი ჰოსტ","გამარჯობა გამარჯობა",
+  "baro","baro ra","rogor xar","rogor xart","kaia ra","shesvla","miwvdi","ak var"
+];
+const T_GE_HYPE = ["კაიია","კაი რა","ცეცხლია 🔥","ჯგუფი","W","LFG","წავედით","დავწეროთ","კლიპი გააკეთე","შეიში","ბროო","ვააა","მკვდარი ვარ 💀","სიცილი","კარგია","ძალიან კარგი","პრო","თაღლითობა?","როგორ","სკილ იშუ","იზი","გგ","კიდევ","კიდევ ერთი","რან ით ბექ","კინო","პიკი","აურა","რიზი","სიგმა","ფაქტი","პატივი","გოუთი","არანაირად","შეეშ","მოხარშა","ლოქიდ ფაირი","ჩატი მოძრაობს","რეალური","ბაზედ","თაჩ გრასი","კაი სტრიმი","გააგრძელე","ძალიან კარგი კონტენტი","მომწონს","სუპერ","მაგარია","ცეცხლი","წავედით ბრო","ჩატი გააცოცხლე","ლაიქი","გაზიარება","საბი გააკეთე","მოდი აქ","კიდევ ერთხელ","რან ით","კლიპი","შოუთი","აი ეს","ვა შენ","ბრავო","კარგი თამაში","ნაის","ოლრაით","დეფინიტლი","რეალი","ფრ","ნოუ ქეფი"];
+const T_GE_GAME = ["რა თამაშია","რას თამაშობ","რანგი?","რა რანგი გაქვს","ელო?","რანკედია?","კასუალია თუ რანკედი","ფუში თუ არა","ფუში გავაკეთოთ","მარცხნივ","მარჯვნივ","კემპი?","რაშ B","რაშ A","თითქმის","ძალიან ახლოს","კლატჩი","ეისი","კარგი პიკი","ცუდი ანგლი","კონტროლერი თუ კლავიატურა","სენსი?","რა სენსი გაქვს","ფოვ?","მაინკრაფტი?","ფორთნაიტი?","ვალორანტი?","CS2?","ვარზონი?","GTA?","რობლოქსი?","ლიგა?","აპექსი?","FIFA?","ბროლ სტარსი?","კლეში?","PUBG?","ახალი სეზონი?","ბათლ ფასი?","სკინი კაიია","ლოდაუთი","მეტა","ბოს ფაითი","რეიდი","არენა","პლეისმენტი","ლაგია?","პინგი?","სერვერი","ფათჩი","ნერფი","ბაფი","სპიდრანი?","თიმი აგდებს","დუო?","თრიო?","სკვადი","ლფგ","ჰილერი გვჭირდება","ტანკი","ალთიმეიტი","ექო რაუნდი","ფორს ბაი","რუკა","კოლაუთები","კომები","ეს თამაში ძნელია","იზი მოდი","სთორი მოდი","მალთიფლეიერი","გრაინდი","იქსპი","ივენთი"];
+const T_GE_COUNTRY = ["საიდან ხარ","რომელი ქალაქიდან","თბილისი?","ბათუმი?","ქუთაისი?","რუსთავი?","გორი?","ზუგდიდი?","თელავი?","ქობულეთი?","ბორჯომი?","საქართველოდან ვარ","თბილისიდან","ბათუმიდან","ქუთაისიდან","მოდი საქართველოში","მოდი თბილისში","გიყვარს საქართველო?","ყოფილხარ საქართველოში?","ქართული საჭმელი საუკეთესოა","ხინკალი","ხაჭაპური","მწვადი","საფერავი","ჭაჭა","რა დროა იქ","დილაა აქ","ღამეა აქ","გამარჯობა თბილისიდან","საღამო მშვიდობისა","დროშა ჩააგდე","ქართველები ჩატში","კავკასია","მთები","ზღვა","სეზონი ზაფხული","ცივა აქ","ცხელა აქ","წვიმს","თოვს","ვიზა","ფრენები","ტურიზმი","ბათუმის ბულვარი","თბილისის ძველი ქალაქი","ნარიყალა","მთაწმინდა"];
+const T_GE_REACT = ["რა","ჰა","დაიცადე","გაიმეორე","მოვისმინე","ნამდვილად","არა","კი","შეიძლება","არ ვიცი","დამოკიდებულია","ალბათ","ეჭვი მაქვს","ოკ","კარგი","მაგარი","ო","აჰ","მმ","დიახ","არაა","იგივე","მეც","გასაგებია","ასახსნელი","რატომ","როგორ","როდის","სად","ვინ","რას გულისხმობ","ბრო რა","ჩატი ეს რეალურია"];
+const T_GE_Q = ["რამდენი ხანია სტრიმავ","რამდენი წლის ხარ","საიდან ხარ","პკ თუ კონსოლი","რა ყურსასმენი გაქვს","მიკი კარგია","იუთუბიც გაქვს?","ტიკტოკი?","დისქორდი?","როდის სტრიმავ","განრიგი?","ღამის სტრიმები?","რამდენი ვიუერი გყავს ჩვეულებრივ","საყვარელი თამაში","მეინ თამაში","პიკ რანგი","საუკეთესო კლატჩი"];
+const T_GE_SPAM = ["W","L","F","GG","EZ","WP","NT","NS","TY","NP","GLHF","გგ","იზი","კაი","წავედით","ო7"];
+const T_GE_NEW = ["პირველად აქ","უკვე ვუყურებ","ლურკავ","ახლა შემოვედი","ალგორითმმა მომიყვანა","მეგობარმა გამოგზავნა","ხარისხიანი კონტენტი","მეტი ვიუერი გჭირდება","ჩატი იმუშავე","დაწერე 1 თუ ეთანხმები","W ჩაწერე","რეალური ხალხი","ვინ არის ჯერ კიდევ","გვიანი სტრიმი","ადრეული სტრიმი","კლიპი გააკეთე","ვიღაცამ კლიპი გააკეთოს","ვოდი როდის","ატვირთავ?","ქეფი და კითხვა","დონაცია","საბი","მოდები სძინავთ","ჩატი ნელა მოძრაობს","ჩატი სწრაფად","რა გამომრჩა","კონტექსტი?","დასაწყისიდან","მთელი დავიჭირე","ბაფერინგი","სტრიმი სმუზია","ხარისხი კარგია","განათება კარგია","მიკი სუფთაა","სეტაპი","ოთახის ტური?","კატა","ძაღლი"];
+
+function geMsg(){
+  const r = Math.random();
+  if (chatPhase === "greet" || r < 0.12) return rand(T_GE_GREET);
+  if (r < 0.30) return rand(T_GE_COUNTRY);
+  if (r < 0.52) return rand(T_GE_GAME);
+  if (r < 0.70) return rand(T_GE_HYPE);
+  if (r < 0.82) return rand(T_GE_REACT);
+  if (r < 0.90) return rand(T_GE_Q);
+  if (r < 0.96) return rand(T_GE_NEW);
+  return rand(T_GE_SPAM);
+}
+
+
+const T_LOVE = [
+  "love this stream","youre the best","goat host","keep going","we love you","legend","king","queen",
+  "best streamer","so wholesome","wholesome chat","support this man","deserves more views","underrated",
+  "my favorite stream","daily viewer","been here since day 1","proud of you","you inspire me",
+  "მიყვარხარ სტრიმი","საუკეთესო ჰოსტი","გააგრძელე","ჩვენ გვიყვარხარ","ლეგენდა","მეფე",
+  "საუკეთესო სტრიმერი","მეტი ვიუერი გჭირდება","ყოველდღე ვუყურებ"
+];
+const T_HATE = [
+  "this is mid","boring","L stream","touch grass","skill issue","delete the game","ratio","L + ratio",
+  "chat is better than the stream","cringe","stop talking","mute yourself","bad gameplay","throwing",
+  "uninstall","why am I watching this","next streamer","overrated","fake energy","NPC host",
+  "მოსაწყენია","ცუდი სტრიმი","წაშალე თამაში","რაციო","კრინჯი","არალაპარაკო","ცუდი თამაში",
+  "რატომ ვუყურებ","შემდეგი სტრიმერი","გადაჭარბებული"
+];
+const T_SC_POS = [
+  "keep going king","love the content","for the grind","you deserve this","buy some food",
+  "best streamer","from a real fan","don't give up","W donation","support",
+  "გააგრძელე","საუკეთესო","საჭმელი იყიდე","რეალური ფანი","არ დანებდე"
+];
+const T_SC_NEG = [
+  "L take","get better","skill issue donation","wake up","this is charity for bad gameplay",
+  "ratio in money form","do better","mid content tax","touch grass fund",
+  "გაიუმჯობესე","ცუდი თამაში","გაიღვიძე","უკეთესი იყავი"
+];
+const T_SC_ANY = [
+  "hello from superchat","can you say my name","read this out loud","first superchat ever",
+  "mrbeast who","speed run the chat","clip this","family","let's gooo","???","....",
+  "ჩემი სახელი თქვი","პირველი სუპერჩატი","წაიკითხე","წავედით"
+];
+
+function liveAgeMs(){
+  try {
+    const id = currentLiveId || "";
+    const m = String(id).match(/offline-(\d+)/);
+    if (m) return Date.now() - Number(m[1]);
+  } catch(e){}
+  return 999999;
+}
 function nextMsg(){
-  return uniq(() => dress(genericMsg()));
+  const age = liveAgeMs();
+  const firstMin = age < 60000;
+  // First minute: ~80% hellos — GE server in Georgian, EN server in English
+  if (firstMin && Math.random() < 0.80) {
+    if (liveRegion === "ge") {
+      // almost all Georgian (script + translit), tiny English bleed
+      if (Math.random() < 0.95) return uniq(function(){ return dress(rand(T_GE_GREET)); });
+      return uniq(function(){ return dress(rand(T_GREET.concat(GREETINGS))); });
+    }
+    if (Math.random() < 0.93) return uniq(function(){ return dress(rand(T_GREET.concat(GREETINGS))); });
+    return uniq(function(){ return dress(rand(T_GE_GREET)); });
+  }
+  // After greet: 93% local + occasional love/hate spice
+  let m;
+  if (liveRegion === "ge") {
+    m = Math.random() < 0.93 ? geMsg() : genericMsg();
+  } else {
+    m = Math.random() < 0.93 ? genericMsg() : geMsg();
+  }
+  if (Math.random() < 0.08) m = rand(T_LOVE);
+  else if (Math.random() < 0.06) m = rand(T_HATE);
+  return uniq(function(){ return dress(m); });
 }
 
 /* ---------- HELPERS ---------- */
@@ -394,17 +560,37 @@ document.getElementById("btn-signout").onclick = function(){
 
 /* ---------- GO LIVE ---------- */
 const titleModal = document.getElementById("title-modal");
+const regionModal = document.getElementById("region-modal");
+function syncRegionUI(){
+  document.querySelectorAll(".region-btn").forEach(function(b){
+    b.classList.toggle("on", b.getAttribute("data-region") === liveRegion);
+  });
+}
+document.querySelectorAll(".region-btn").forEach(function(b){
+  b.onclick = function(){
+    liveRegion = b.getAttribute("data-region") || "en";
+    try { localStorage.setItem("gl_live_region", liveRegion); } catch(e){}
+    syncRegionUI();
+  };
+});
 document.getElementById("btn-go-live").onclick = function(){
   if (!user) return;
+  syncRegionUI();
+  regionModal.classList.add("show");
+};
+document.getElementById("region-cancel").onclick = function(){ regionModal.classList.remove("show"); };
+document.getElementById("region-next").onclick = function(){
+  regionModal.classList.remove("show");
   document.getElementById("title-input").value = "";
+  document.getElementById("title-input").placeholder = liveRegion === "ge" ? "მაგ: რანკედი გრაინდი" : "e.g. ranked grind";
   titleModal.classList.add("show");
-  setTimeout(()=>document.getElementById("title-input").focus(), 50);
+  setTimeout(function(){ document.getElementById("title-input").focus(); }, 50);
 };
 document.getElementById("btn-cancel").onclick = function(){ titleModal.classList.remove("show"); };
 document.getElementById("btn-start").onclick = async function(){
-  const t = (document.getElementById("title-input").value || "").trim() || (user.name + "'s live");
+  const title = (document.getElementById("title-input").value || "").trim() || (user.name + (liveRegion==="ge" ? " — ლაივი" : "'s live"));
   titleModal.classList.remove("show");
-  await startHost(t);
+  await startHost(title);
 };
 
 async function startHost(title){
@@ -422,7 +608,19 @@ async function startHost(title){
   startLikeSim();
   startRealSim();
   startListening();
-  toast("You're live (offline)");
+  toast(liveRegion === "ge" ? "ლაივი · Georgia server 🇬🇪" : "You're live · English server");
+  try {
+    const pill = document.querySelector(".live-pill");
+    if (pill && !document.getElementById("region-badge")) {
+      const b = document.createElement("span");
+      b.id = "region-badge";
+      b.style.cssText = "margin-left:6px;opacity:.85;font-size:.75rem";
+      b.textContent = liveRegion === "ge" ? "🇬🇪 GE" : "🇬🇧 EN";
+      pill.appendChild(b);
+    } else if (document.getElementById("region-badge")) {
+      document.getElementById("region-badge").textContent = liveRegion === "ge" ? "🇬🇪 GE" : "🇬🇧 EN";
+    }
+  } catch(e){}
 }
 
 async function startCam(){
@@ -512,8 +710,17 @@ function reactToSpeech(u){
     setTimeout(function(){
       if (!isHost || !currentLiveId) return;
       let m;
-      if (Math.random() < rate) m = uniq(function(){ return dress(contextMsg(u) || genericMsg()); });
-      else m = uniq(function(){ return dress(genericMsg()); });
+      if (liveAgeMs() < 60000 && Math.random() < 0.7) {
+        m = uniq(function(){ return dress(liveRegion === "ge" ? rand(T_GE_GREET) : rand(T_GREET.concat(GREETINGS))); });
+      } else if (liveRegion === "ge" && Math.random() < 0.93) {
+        m = uniq(function(){ return dress(geMsg()); });
+      } else if (liveRegion === "en" && Math.random() < 0.07) {
+        m = uniq(function(){ return dress(geMsg()); });
+      } else if (Math.random() < rate) {
+        m = uniq(function(){ return dress(contextMsg(u) || genericMsg()); });
+      } else {
+        m = uniq(function(){ return dress(genericMsg()); });
+      }
       addMsg(nextName(), m);
     }, base + Math.random()*4500 + i*250);
   }
@@ -526,7 +733,7 @@ function startListening(){
   if (!SR) { st.textContent = "🎤 Mic: type to chat (no speech API)"; return; }
   recogWanted = true;
   recog = new SR();
-  recog.continuous = true; recog.interimResults = false; recog.lang = SPEECH_LANG;
+  recog.continuous = true; recog.interimResults = false; recog.lang = liveRegion === "ge" ? "ka-GE" : SPEECH_LANG;
   recog.onstart = function(){ st.textContent = "🎤 Mic: listening..."; st.style.color = "var(--green)"; };
   recog.onresult = function(e){
     for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -637,12 +844,110 @@ document.addEventListener("click", function(e){
   if (moreMenu && !moreMenu.contains(e.target) && e.target.id !== "btn-more") moreMenu.classList.remove("show");
 });
 
+
+/* ---------- SUPER CHAT (rare, scales with viewers) ---------- */
+let scTimer = null;
+function formatUSD(n){
+  n = Number(n)||0;
+  if (n >= 100) return "$" + n.toFixed(0);
+  if (n >= 10) return "$" + n.toFixed(0);
+  return "$" + n.toFixed(2);
+}
+function pickScAmount(){
+  const b = Math.max(1, botCount);
+  // weighted: mostly small, rare huge
+  const r = Math.random();
+  if (r < 0.45) return [1.99, 2.99, 4.99, 5][Math.floor(Math.random()*4)];
+  if (r < 0.75) return [9.99, 14.99, 19.99, 24.99][Math.floor(Math.random()*4)];
+  if (r < 0.92) return [49.99, 99.99, 149.99][Math.floor(Math.random()*3)];
+  if (r < 0.985) return [199.99, 299.99, 499.99][Math.floor(Math.random()*3)];
+  // ultra rare whale
+  return [999.99, 1999.99, 4999.99, 9999.99][Math.floor(Math.random()*4)];
+}
+function pickScText(tone){
+  if (tone === "hate") return rand(T_SC_NEG.concat(T_HATE));
+  if (tone === "love") return rand(T_SC_POS.concat(T_LOVE));
+  return rand(T_SC_ANY.concat(T_SC_POS));
+}
+function speakSuperChat(name, amount, text){
+  try {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const line = name + " donated " + formatUSD(amount) + ". " + text;
+    const u = new SpeechSynthesisUtterance(line);
+    u.rate = 1.05;
+    u.pitch = 1.0;
+    u.volume = 1;
+    // prefer English voice for amounts; GE region still reads name+text clearly
+    u.lang = liveRegion === "ge" ? "en-US" : "en-US";
+    const voices = window.speechSynthesis.getVoices() || [];
+    const en = voices.find(function(v){ return /en(-|_)US/i.test(v.lang) && /Google|Samantha|Daniel|Male/i.test(v.name); })
+      || voices.find(function(v){ return /^en/i.test(v.lang); });
+    if (en) u.voice = en;
+    window.speechSynthesis.speak(u);
+  } catch(e){}
+}
+function showSuperChat(name, amount, text, tone){
+  const host = document.getElementById("superchat-banner");
+  if (!host) return;
+  const card = document.createElement("div");
+  let cls = "sc-card";
+  if (tone === "hate") cls += " hate";
+  else if (amount >= 100) cls += " big";
+  card.className = cls;
+  card.innerHTML = '<div class="sc-top"><span class="sc-amt">'+formatUSD(amount)+'</span><span>'+esc(name)+'</span></div>'
+    + '<div class="sc-msg">'+esc(text)+'</div>';
+  host.appendChild(card);
+  while (host.children.length > 2) host.firstChild.remove();
+  setTimeout(function(){ try { card.remove(); } catch(e){} }, 13000);
+  // chat line
+  addMsg(name, " Super Chat "+formatUSD(amount)+": "+text, false, true);
+  speakSuperChat(name, amount, text);
+  const cut = hostCut(amount); // reuse 70% style → coins
+  coins += Math.round(amount * 10); // $1 ≈ 10 coins practice
+  saveCoins(); updateCoinsUI();
+  toast("💬 Super Chat "+formatUSD(amount)+" from "+name);
+}
+function scheduleSuperChat(){
+  clearTimeout(scTimer); scTimer = null;
+  if (!isHost || !currentLiveId) return;
+  const b = Math.max(0, botCount);
+  // Speed-like cadence: uncommon, not dead, not spam
+  let delay;
+  if (b < 50) delay = 70000 + Math.random()*80000;      // ~1–2.5 min
+  else if (b < 500) delay = 40000 + Math.random()*40000; // ~40–80s
+  else if (b < 5000) delay = 25000 + Math.random()*25000;
+  else if (b < 50000) delay = 18000 + Math.random()*18000;
+  else if (b < 500000) delay = 12000 + Math.random()*14000;
+  else delay = 8000 + Math.random()*10000;              // big rooms ~8–18s checks
+  scTimer = setTimeout(function(){
+    scTimer = null;
+    if (!isHost || botCount <= 0) { scheduleSuperChat(); return; }
+    // chance on each check — overall still rare
+    let chance = 0.22;
+    if (botCount > 200) chance = 0.32;
+    if (botCount > 2000) chance = 0.4;
+    if (botCount > 50000) chance = 0.48;
+    if (botCount > 500000) chance = 0.55;
+    if (Math.random() < chance) {
+      const name = nextName();
+      const amount = pickScAmount();
+      const r = Math.random();
+      const tone = r < 0.12 ? "hate" : r < 0.55 ? "love" : "any";
+      const text = pickScText(tone);
+      showSuperChat(name, amount, text, tone);
+    }
+    scheduleSuperChat();
+  }, delay);
+}
+function stopSuperChat(){ clearTimeout(scTimer); scTimer = null; try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e){} }
+
 /* ---------- BOT SIM ---------- */
 function startBots(){
   stopBots(); chatPhase = "greet";
   phaseTimer = setTimeout(function(){ chatPhase = "normal"; }, 22000);
   botTimer = setTimeout(scheduleJoin, 3500);
-  scheduleChat(); scheduleLeave(); scheduleBotDonation();
+  scheduleChat(); scheduleLeave(); scheduleBotDonation(); scheduleSuperChat();
 }
 function stopBots(){
   clearTimeout(botTimer); botTimer=null;
@@ -650,6 +955,7 @@ function stopBots(){
   clearTimeout(leaveTimer); leaveTimer=null;
   clearTimeout(botGiftTimer); botGiftTimer=null;
   clearTimeout(phaseTimer); phaseTimer=null;
+  stopSuperChat();
 }
 function scheduleJoin(){
   let delay;
@@ -668,13 +974,22 @@ function scheduleJoin(){
   botTimer = setTimeout(function(){ botCount += burst; updateCount(); scheduleJoin(); }, delay);
 }
 function scheduleLeave(){
-  let delay = 10000 + Math.random()*8000;
-  if (botCount > 200) delay = 5000 + Math.random()*4000;
-  if (botCount > 2000) delay = 2500 + Math.random()*2000;
+  // Realistic churn: tiny % leave, not mass exits
+  let delay = 14000 + Math.random()*12000;
+  if (botCount > 1000) delay = 10000 + Math.random()*10000;
+  if (botCount > 50000) delay = 8000 + Math.random()*8000;
   leaveTimer = setTimeout(function(){
-    if (botCount > 5) {
-      let leave = 1 + Math.floor(Math.random()*Math.min(5, botCount*0.03));
-      botCount = Math.max(0, botCount - leave); updateCount();
+    if (botCount > 8) {
+      let leave;
+      if (botCount < 50) leave = Math.random() < 0.4 ? 1 : 0;
+      else if (botCount < 500) leave = 1 + Math.floor(Math.random()*2);
+      else if (botCount < 5000) leave = 1 + Math.floor(Math.random()*4);
+      else if (botCount < 50000) leave = 2 + Math.floor(Math.random()*6);
+      else if (botCount < 200000) leave = 3 + Math.floor(Math.random()*10); // ~3–12 on huge lives
+      else leave = 5 + Math.floor(Math.random()*12);
+      leave = Math.min(leave, Math.floor(botCount * 0.002) + 1); // hard cap ~0.2%
+      botCount = Math.max(0, botCount - leave);
+      updateCount();
     }
     scheduleLeave();
   }, delay);
@@ -851,7 +1166,9 @@ function scheduleBotDonation(){
   else if (b < 300) delay = 3000 + Math.random()*3000;
   else if (b < 1000) delay = 1600 + Math.random()*1600;
   else if (b < 5000) delay = 900 + Math.random()*900;
-  else delay = 500 + Math.random()*500;
+  else if (b < 50000) delay = 400 + Math.random()*400;
+  else if (b < 500000) delay = 220 + Math.random()*220;
+  else delay = 120 + Math.random()*150; // millions — gifts often
   botGiftTimer = setTimeout(function(){
     botGiftTimer = null;
     if (!isHost || !currentLiveId || botCount <= 0) { scheduleBotDonation(); return; }
@@ -860,7 +1177,7 @@ function scheduleBotDonation(){
       if (gift) {
         const from = nextName();
         const toStreamer = hostCut(gift.cost);
-        playGiftAnim(gift.emoji, gift.name, gift.cost);
+        playGiftAnim(gift.emoji, gift.name, gift.cost, from);
         coins += toStreamer; saveCoins(); updateCoinsUI();
         toast("🎁 " + from + " · " + gift.emoji + " +" + formatCoins(toStreamer) + " 🪙");
         addMsg(from, "sent " + gift.emoji + " " + gift.name + " (🪙" + formatCoins(gift.cost) + ")", false, true, {
@@ -903,7 +1220,7 @@ function sendGift(gift){
   if (coins < gift.cost) { toast("Not enough coins"); return; }
   coins -= gift.cost; saveCoins(); updateCoinsUI();
   document.getElementById("gift-panel").classList.remove("show");
-  playGiftAnim(gift.emoji, gift.name, gift.cost);
+  playGiftAnim(gift.emoji, gift.name, gift.cost, user ? user.name : "You");
   const sender = user ? user.name : "You";
   const toStreamer = hostCut(gift.cost);
   // in offline host mode, you receive the cut too (practice)
@@ -913,13 +1230,36 @@ function sendGift(gift){
   });
   toast("Gift · +" + formatCoins(toStreamer) + " to streamer");
 }
-function playGiftAnim(emoji, name, cost){
-  const anim = document.getElementById("gift-anim");
-  anim.innerHTML = '<div class="gift-fly">'+emoji+'</div><div class="gift-label">'+emoji+" "+name+" · 🪙"+formatCoins(cost)+"</div>";
-  setTimeout(function(){ anim.innerHTML = ""; }, 1700);
+function playGiftAnim(emoji, gname, cost, fromName){
+  // TikTok-style combo pills — max 2 on screen
+  const feed = document.getElementById("gift-feed");
+  if (feed) {
+    const card = document.createElement("div");
+    card.className = "gf-card";
+    const who = fromName || gname || "Viewer";
+    card.innerHTML = '<span class="gf-emoji">'+emoji+'</span><div class="gf-meta">'
+      + '<div class="gf-name">'+esc(who)+'</div>'
+      + '<div class="gf-cost">'+emoji+' '+esc(gname||"")+' · 🪙'+formatCoins(cost)+'</div></div>';
+    feed.appendChild(card);
+    while (feed.children.length > 2) feed.firstChild.remove();
+    setTimeout(function(){ try { card.remove(); } catch(e){} }, 5500);
+  }
+  // Big center fly only for expensive gifts
+  if ((Number(cost)||0) >= 50) {
+    const anim = document.getElementById("gift-anim");
+    if (anim) {
+      anim.innerHTML = '<div class="gift-fly">'+emoji+'</div><div class="gift-label">'+emoji+' '+esc(gname||'')+' · 🪙'+formatCoins(cost)+'</div>';
+      setTimeout(function(){ anim.innerHTML = ""; }, 1700);
+    }
+  }
 }
-
-console.log("[Go Live Offline] names=", NAMES.length);
+try {
+  if (window.speechSynthesis) {
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = function(){ window.speechSynthesis.getVoices(); };
+  }
+} catch(e){}
+console.log("[Go Live Offline] EN names=", NAMES.length, "GE names=", GE_NAMES.length);
 })();
 </script>
 </body>
