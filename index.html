@@ -426,10 +426,15 @@ const T_COUNTRY = [
 const recentMsgs = [];
 function rand(a){ return a[Math.floor(Math.random()*a.length)]; }
 function uniq(fn){
+  // Soft filter only — phrases can come back. Never "throw away" a line forever.
   let m, tries=0;
-  do { m = fn(); tries++; } while (tries < 8 && recentMsgs.includes(m));
+  do { m = fn(); tries++; } while (tries < 4 && recentMsgs.slice(-6).includes(m));
   recentMsgs.push(m);
-  if (recentMsgs.length > 40) recentMsgs.shift();
+  if (recentMsgs.length > 12) recentMsgs.shift();
+  // ~18% of the time allow an intentional repeat of something recent (real chat does this)
+  if (Math.random() < 0.18 && recentMsgs.length > 2) {
+    m = recentMsgs[Math.floor(Math.random() * Math.min(5, recentMsgs.length))];
+  }
   return m;
 }
 function dress(m){
@@ -608,6 +613,147 @@ const T_SC_ANY = [
   "ჩემი სახელი თქვი","პირველი სუპერჩატი","წაიკითხე","წავედით","გამარჯობა სუპერჩატიდან"
 ];
 
+
+/* ---------- INFINITE TEXT GENERATOR ---------- */
+const GEN = {
+  enSubj: ["I","we","chat","this guy","host","streamer","bro","sis","this stream","everyone","nobody","my friend","my mom","my dog","the algorithm","TikTok","YouTube"],
+  enVerb: ["is","looks","feels","seems","stays","keeps","goes","hits","goes crazy","is mid","is fire","is sleeping","is cooking","is locking in"],
+  enAdj: ["crazy","insane","clean","mid","goated","underrated","overrated","smooth","laggy","loud","quiet","funny","toxic","wholesome","broken","buggy","cracked","sweaty"],
+  enNoun: ["game","clutch","setup","mic","camera","rank","lobby","team","ping","FPS","phone","PC","stream","chat","vibe","energy","content","donation","superchat"],
+  enGame: ["Fortnite","GTA","Valorant","CS2","Minecraft","Roblox","FIFA","Warzone","Apex","League","Rust","Free Fire","PUBG","eFootball"],
+  enPlace: ["USA","UK","Canada","Germany","Brazil","India","Japan","Korea","Australia","Georgia","Tbilisi","Batumi","Europe","Africa","Asia"],
+  enPhone: ["iPhone","Android","Samsung","Pixel","iPhone 16","S24","old phone","cracked screen"],
+  enPC: ["RTX 4090","RTX 3060","144hz","240hz","mechanical keyboard","RGB","webcam","mic arm","dual monitor"],
+  enAct: ["clutch this","push now","rotate","heal up","buy the gun","drop hot","play safe","1v1 me","party up","clip that","say my name","read this","touch grass","go outside","drink water"],
+  enHype: ["LET'S GO","W","L","RATIO","FIRE","GOAT","NO WAY","SEND IT","LOCK IN","BUILT DIFFERENT","CHAT WOKE","WE MOVING"],
+  enQ: ["what game is this","what rank","where are you from","PC or console","iPhone or Android","how old are you","what GPU","what headset","can you hear me","who is still here"],
+  geSubj: ["მე","ჩვენ","ჩატი","ჰოსტი","სტრიმერი","ბრა","ყველა","არავინ","მეგობარი","დედაჩემი","ალგორითმი"],
+  geVerb: ["არის","ჩანს","გრძნობს","რჩება","მიდის","კოქავს","ლოგინდება","სპამავს"],
+  geAdj: ["კარგი","ცუდი","სასაცილო","მაგარი","მოსაწყენი","სწრაფი","ნელი","ლაგიანი","ტოქსიკური"],
+  geNoun: ["თამაში","კლუჩი","სეტაპი","მიკი","კამერა","რანკი","ლობი","თიმი","პინგი","ტელეფონი","კომპი","სტრიმი","ჩატი"],
+  geGame: ["ფორტნაიტი","გტა","ვალორანტი","CS2","მაინკრაფტი","რობლოქსი","ფიფა","ფრიფაიერი","პაბჯი"],
+  gePlace: ["თბილისი","ბათუმი","ქუთაისი","საქართველო","ამერიკა","გერმანია","ევროპა","რუსთავი"],
+  geAct: ["კლუჩი გააკეთე","დააწექი","გადაადგილდი","გაიშველე","იყიდე","დროპი","1ვ1","პარტი","კლიპი","თქვი ჩემი სახელი","წაიკითხე"],
+  geHype: ["წავედით","ვიუ","ელ","ცეცხლი","გოუთი","ჩატი გაეღვიძა","ვმუშაობთ"],
+  geQ: ["რა თამაშია","რანკი რა გაქვს","საიდან ხარ","PC თუ კონსოლი","აიფონი თუ ანდროიდი","როგორ ხარ","ვის აქვს"]
+};
+function gPick(a){ return a[Math.floor(Math.random()*a.length)]; }
+function gMaybe(s, p){ return Math.random() < (p||0.35) ? s : ""; }
+function gCaps(s){
+  const r = Math.random();
+  if (r < 0.12) return s.toUpperCase();
+  if (r < 0.2) return s + "!";
+  if (r < 0.28) return s + "!!";
+  if (r < 0.34) return s + "...";
+  if (r < 0.4) return s + " 🔥";
+  return s;
+}
+function genEnChat(){
+  const t = Math.random();
+  let s;
+  // short spam / reactions
+  if (t < 0.08) s = gPick(["W","L","ratio","lol","lmao","fr","ong","nah","yes","no","ok","same","real","facts","bro","sis","gg","ez","ns","nt","??","...","!!!!","dead","I'm weak"]);
+  // hate / toxic
+  else if (t < 0.16) s = gPick([
+    "this is mid","L stream","skill issue","touch grass","delete the game","boring","cringe",
+    "chat is better than the stream","mute yourself","throwing","NPC host","overrated","fake energy",
+    "why am I watching this","next streamer","stop talking","bad gameplay","uninstall"
+  ]);
+  // questions
+  else if (t < 0.24) s = gPick(GEN.enQ) + gMaybe("?", 0.8);
+  // long-ish opinions
+  else if (t < 0.34) s = gPick([
+    "honestly this stream is better than half of what I see on TikTok",
+    "I was about to leave but the chat is funny so I'm staying",
+    "my phone is on 3 percent but I can't close this",
+    "who else is watching this at work right now",
+    "I told my friend to come and nobody showed up",
+    "the algorithm finally did something good for once",
+    "if you drop a follow I'll stay for the whole stream",
+    "can we talk about how loud that was",
+    "I don't even play this game and I'm hooked",
+    "real ones remember when chat was quiet"
+  ]);
+  // games
+  else if (t < 0.44) s = gPick(GEN.enGame) + " " + gPick(["is better","hits different","is mid","tonight","anyone?","who plays","rank when","1v1","I'm cracked at"]);
+  // places / countries
+  else if (t < 0.52) s = gPick(["from ","who's from ","shoutout ","love "]) + gPick(GEN.enPlace) + gMaybe(" here", 0.5);
+  // phones / pc
+  else if (t < 0.60) s = gPick(GEN.enPhone.concat(GEN.enPC)) + " " + gPick(["gang","user","better","or cry","in chat","setup","needed"]);
+  // actions
+  else if (t < 0.68) s = gPick(GEN.enAct);
+  // structure sentence
+  else if (t < 0.78) s = gPick(GEN.enSubj) + " " + gPick(GEN.enVerb) + " " + gPick(GEN.enAdj);
+  // love / support
+  else if (t < 0.86) s = gPick(["love this","youre the best","keep going","goat","W host","underrated","daily viewer","we love you","legend"]);
+  // hype
+  else if (t < 0.93) s = gPick(GEN.enHype);
+  else s = gPick(GEN.enSubj) + " " + gPick(["loves","hates","needs","wants","bought","lost"]) + " " + gPick(GEN.enNoun);
+  // random length spice: sometimes pad
+  if (Math.random() < 0.12) s = s + " " + gPick(["no cap","fr fr","I'm serious","chat agree?","who else","am I wrong"]);
+  if (Math.random() < 0.08) s = gPick(["bro ","yo ","hey ","okay "]) + s;
+  return gCaps(s);
+}
+function genGeChat(){
+  const t = Math.random();
+  let s;
+  if (t < 0.08) s = gPick(["ვიუ","ელ","რაციო","ლოლ","კი","არა","ოკ","იგივე","ბრა","გგ","??","...","!!!!"]);
+  else if (t < 0.16) s = gPick([
+    "მოსაწყენია","ცუდი სტრიმი","კრინჯი","წაშალე თამაში","რატომ ვუყურებ","არალაპარაკო",
+    "ცუდი თამაში","გადაჭარბებული","ჩატი უკეთესია","skill issue"
+  ]);
+  else if (t < 0.26) s = gPick(GEN.geQ) + gMaybe("?", 0.7);
+  else if (t < 0.36) s = gPick([
+    "ეს სტრიმი კარგია დღეს","ჩატი სასაცილოა","ტელეფონი მეწურება მაგრამ ვუყურებ",
+    "სამსახურიდან ვუყურებ","მეგობარს ვეუბნე არავინ მოვიდა","ალგორითმი კარგი იყო"
+  ]);
+  else if (t < 0.46) s = gPick(GEN.geGame) + " " + gPick(["კარგია","ცუდია","ვინ თამაშობს","დღეს","1ვ1"]);
+  else if (t < 0.56) s = gPick(GEN.gePlace) + " " + gPick(["აქა","ვარ","საუკეთესო","ჩატში"]);
+  else if (t < 0.66) s = gPick(GEN.geAct);
+  else if (t < 0.76) s = gPick(GEN.geSubj) + " " + gPick(GEN.geVerb) + " " + gPick(GEN.geAdj);
+  else if (t < 0.86) s = gPick(["გამარჯობა","სალამი","ჰაი","ბარო"]) + " " + gPick(["ჩატი","ჰოსტი","ყველას",""]);
+  else if (t < 0.93) s = gPick(GEN.geHype);
+  else s = gPick(GEN.geNoun) + " " + gPick(GEN.geAdj);
+  return gCaps(s.trim());
+}
+function genScText(tone){
+  const t = Math.random();
+  if (tone === "hate" || t < 0.12) {
+    return gPick([
+      "skill issue donation","L stream tax","get better","mid content fund","touch grass",
+      "you peaked already","chat is better","ratio in money form","wake up","uninstall",
+      "this is charity","boring tax","stop yelling","refund my time"
+    ]);
+  }
+  if (tone === "bug" || t < 0.22) {
+    const bugs = ["asdfghjkl","??????","!!!!!!!","aaaaaaa","TEST 123","null null","undefined",
+      "404 donation","kkkkkkk",".....","HELP","mic check","is this on","spam spam","0_0"];
+    return gPick(bugs);
+  }
+  if (tone === "funny" || t < 0.45) {
+    return gPick([
+      "my mom thinks this is a job","I sold my fridge for this","don't tell my wife",
+      "this is lunch money","boss is watching","say pineapple","bark like a dog",
+      "marry me for 2 dollars","I am the IRS","accidentally donated","wrong stream sorry",
+      "grandma said hi","my cat paid","I'm a bot beeping","sudo pay streamer",
+      "git commit donation","ping 999 but rich","NPC energy","speed who"
+    ]);
+  }
+  if (tone === "love" || t < 0.70) {
+    return gPick([
+      "keep going king","love the content","you deserve this","buy some food","W donation",
+      "from a real fan","goat status","rent money","coffee on me","for the grind",
+      "best streamer","don't give up","support","you made my day"
+    ]) + gMaybe(" " + gPick(GEN.enGame), 0.2);
+  }
+  // any / generated
+  if (Math.random() < 0.5) {
+    return gPick(["hello from superchat","say my name","read this out loud","first superchat",
+      "clip this","family","let's go","can you hear me","from " + gPick(GEN.enPlace)]);
+  }
+  return genEnChat();
+}
+
 function liveAgeMs(){
   try {
     const id = currentLiveId || "";
@@ -619,24 +765,22 @@ function liveAgeMs(){
 function nextMsg(){
   const age = liveAgeMs();
   const firstMin = age < 60000;
-  // While poll is live: ~40% of chat is voting in text
+  // Poll votes in chat
   if (pollState && !pollState.done && Math.random() < 0.40) {
     const labels = pollState.opts.map(function(o){ return o.label; });
-    // weight chat the same as vote weights when available
     let pick;
-    if (pollState.opts[0].w != null) {
+    if (pollState.opts[0] && pollState.opts[0].w != null) {
       let r = Math.random(), acc = 0;
       pick = labels[labels.length - 1];
       for (let j = 0; j < pollState.opts.length; j++) {
         acc += pollState.opts[j].w;
         if (r <= acc) { pick = labels[j]; break; }
       }
-    } else {
-      pick = rand(labels);
-    }
+    } else pick = rand(labels);
     const styles = [pick, pick + "!", pick.toUpperCase(), "I pick " + pick, pick + " all day", "easy " + pick, pick + " 🔥", "team " + pick];
     return uniq(function(){ return dress(rand(styles)); });
   }
+  // First minute greets (still from lists — short + natural)
   if (firstMin && Math.random() < 0.80) {
     if (liveRegion === "ge") {
       if (Math.random() < 0.95) return uniq(function(){ return dress(rand(T_GE_GREET)); });
@@ -645,14 +789,18 @@ function nextMsg(){
     if (Math.random() < 0.93) return uniq(function(){ return dress(rand(T_GREET.concat(GREETINGS))); });
     return uniq(function(){ return dress(rand(T_GE_GREET)); });
   }
+  // 70% infinite generated, 30% classic pools (mix so it stays rich)
+  const useGen = Math.random() < 0.85;
   let m;
-  if (liveRegion === "ge") {
-    m = Math.random() < 0.93 ? geMsg() : genericMsg();
+  if (useGen) {
+    if (liveRegion === "ge") m = Math.random() < 0.93 ? genGeChat() : genEnChat();
+    else m = Math.random() < 0.93 ? genEnChat() : genGeChat();
   } else {
-    m = Math.random() < 0.93 ? genericMsg() : geMsg();
+    if (liveRegion === "ge") m = Math.random() < 0.93 ? geMsg() : genericMsg();
+    else m = Math.random() < 0.93 ? genericMsg() : geMsg();
+    if (Math.random() < 0.08) m = rand(T_LOVE);
+    else if (Math.random() < 0.06) m = rand(T_HATE);
   }
-  if (Math.random() < 0.08) m = rand(T_LOVE);
-  else if (Math.random() < 0.06) m = rand(T_HATE);
   return uniq(function(){ return dress(m); });
 }
 
@@ -1136,11 +1284,12 @@ function pickScAmount(){
   return [999.99, 1999.99, 4999.99, 9999.99][Math.floor(Math.random()*4)];
 }
 function pickScText(tone){
+  // 65% infinite generator, 35% static pools
+  if (Math.random() < 0.80) return genScText(tone);
   if (tone === "hate") return rand(T_SC_NEG.concat(T_HATE));
   if (tone === "love") return rand(T_SC_POS.concat(T_LOVE));
   if (tone === "funny") return rand(T_SC_FUNNY);
   if (tone === "bug") return rand(T_SC_BUG);
-  // mix
   const r = Math.random();
   if (r < 0.28) return rand(T_SC_FUNNY);
   if (r < 0.40) return rand(T_SC_BUG);
