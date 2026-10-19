@@ -218,14 +218,23 @@ a{color:var(--link)}
 }
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
+.chan-backdrop{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:45;
+}
+.chan-backdrop.on{display:block}
 @media(max-width:860px){
   .members{display:none}
   .channels{width:200px}
 }
-@media(max-width:640px){
-  .channels{position:absolute;left:72px;top:0;bottom:0;z-index:50;display:none;box-shadow:8px 0 24px rgba(0,0,0,.4)}
+@media(max-width:720px){
+  .channels{
+    position:fixed;left:0;top:0;bottom:0;width:min(280px,85vw);z-index:50;
+    display:none;box-shadow:8px 0 32px rgba(0,0,0,.5);transform:translateX(0);
+  }
   .channels.open{display:flex}
-  .servers{width:64px}
+  .servers{width:64px;z-index:55}
+  #btn-toggle-chan{display:flex!important}
+  .chat-top .cdesc{display:none}
 }
 
 /* color classes for names */
@@ -304,7 +313,7 @@ a{color:var(--link)}
       <span class="ctitle" id="chan-title">main</span>
       <span class="cdesc" id="chan-desc">Global chat · bots never sleep</span>
       <div class="spacer"></div>
-      <div class="online-pill" id="online-pill">31.5M online</div>
+      <div class="online-pill" id="online-pill">31.5M members</div>
     </div>
     <div class="messages" id="messages"></div>
     <div class="composer" id="composer">
@@ -356,6 +365,8 @@ a{color:var(--link)}
     </div>
   </div>
 </div>
+
+<div class="chan-backdrop" id="chan-backdrop"></div>
 
 <!-- FRIENDS -->
 <div id="friends-panel">
@@ -522,7 +533,44 @@ const TOPICS_EN = [
   "alarm in 4 hours","why am i awake","chat is the reason",
   "same","this","literally me","mood",
   "big mood","tiny violin","sadge","poggers","ez","gg","wp","nt","glhf",
-  "o7","f","W","L","S","R","Q","gg wp","ez clap","copium overdosed"
+  "o7","f","W","L","S","R","Q","gg wp","ez clap","copium overdosed",
+  "who still up","chat moving crazy","cant keep up","scroll lock when",
+  "pc overheating","fan loud as hell","need new headset","mic check 1 2",
+  "drop your age if under 30","old heads only","gen z chat fr",
+  "what time is it where you are","timezones are wild","3am gang",
+  "just got paid","broke until friday","money talks",
+  "learning coding","html is easy js is not","python hits different",
+  "ai is taking over","robots in chat","are you a bot",
+  "prove you are real","captcha energy","human check",
+  "best pizza topping","pineapple belongs","war starts now",
+  "football scores","goal!!!!!!","ref is blind",
+  "new season hype","spoiler free zone","no spoilers pls",
+  "homework due in 1 hour","im cooked","extension when",
+  "boss is watching","pretend to work","slack status: busy",
+  "vacation loading","flight delayed","airport wifi trash",
+  "new sneaker drop","sold out in 2 sec","resellers hate them",
+  "gym streak day 12","legs destroyed","protein shake time",
+  "skin care routine","sun screen everyday","glow up arc",
+  "relationship advice","single by choice","dating is hard",
+  "pet did the funniest thing","send pet pics","cat tax now",
+  "weather app lied","storm coming","stay safe out there",
+  "power outage","back online","missed yall",
+  "server lag or me","packet loss 20%","isp is sleeping",
+  "new phone day","transferring data","setup takes forever",
+  "battery health 78%","need a replacement","wireless charging",
+  "discord who","pulse is home","never leaving this chat",
+  "admin is cooking","kobi built different","shoutout owner",
+  "report that guy","mods asleep","chaos mode",
+  "poll ideas","rate this 1-10","hot take incoming",
+  "unpopular opinion time","ready for drama","keep it civil",
+  "meme review","that meme is ancient","still funny tho",
+  "song of the day","playlist link","this beat goes hard",
+  "concert tickets","front row dreams","nosebleeds forever",
+  "movie night suggestions","netflix or cinema","popcorn ready",
+  "study with me","library quiet hours","focus mode on",
+  "break is over","back to the grind","one more match",
+  "gg everyone","wp chat","see you in an hour"
+
 ];
 const TOPICS_GE = [
   "გამარჯობა ჩატი","როგორ ხართ","ვინ არის აქედან საქართველოდან",
@@ -580,6 +628,30 @@ const TOPICS_GE = [
   "დავბრუნდი","ვაიფაი დაბრუნდა","მოგენატრე?",
   "იგივე","ეს","პირდაპირ მე","მუდი",
   "დიდი მუდი","პოგერსი","იზი","გგ","გლჰფ"
+  ,"ვინ არის ჯერ გამოფხიზლებული","ჩატი ძალიან სწრაფია","ვერ ვასწრებ",
+  "კომპი ცხელდება","ყურსასმენი მჭირდება","მიკროფონი მუშაობს?",
+  "რა საათია შენთან","დილის 3ს გეჰგი","ღამე არ მთავრდება",
+  "ხელფასი ავიღე","პარასკევამდე ფული არ მაქვს","ფული ლაპარაკობს",
+  "კოდს ვსწავლობ","ჯს რთულია","პითონი მაგარია",
+  "ხართ თუ ბოტი","დაამტკიცე რომ ადამიანი ხარ","რეალური ხალხი",
+  "ფეხბურთის ანგარიში","გოუუუუ","მსაჯი ბრმაა",
+  "ახალი სეზონი","სპოილერების გარეშე","არ დაწეროთ სპოილერი",
+  "დავალება 1 საათში","მოხარშული ვარ","გაგრძელება როდის",
+  "უფროსი მაკვირდება","თითქოს ვმუშაობ","სტატუსი: დაკავებული",
+  "შვებულება","რეისი დაგვიანდა","აეროპორტის ვაიფაი ცუდია",
+  "ახალი კედები","2 წამში გაყიდულია","გადამყიდველები",
+  "დარბაზი 12 დღე","ფეხები მომიკვდა","პროტეინის შეიქი",
+  "ამინდის აპლიკაცია იტყუება","ქარიშხალი მოდის","ფრთხილად იყავით",
+  "დენი გაჭრა","თავიდან ონლაინ","მოგენატრეთ",
+  "ლაგი მაქვს თუ მე","პაკეტ ლოსი","ინტერნეტ პროვაიდერი სძინავს",
+  "ახალი ტელეფონის დღე","მონაცემებს ვაწერ","სეტაპი დიდხანს გრძელდება",
+  "დისქორდი ვინ","პულსი სახლია","აქედან არ მივდივარ",
+  "ადმინი ამზადებს","კობი სხვანაირია","შაუთაუთი ოუნერს",
+  "მოდები სძინავთ","ქაოს მოდი","რეპორტი გავაკეთე",
+  "სიმღერა დღის","პლეილისტი","ბიტი მაგარია",
+  "ფილმის ღამე","ნეტფლიქსი თუ კინო","პოპკორნი მზადაა",
+  "ერთი მატჩი კიდევ","გგ ყველას","საათში ნახვამდის"
+
 ];
 const REACTIONS = ["W","L","F","S","R","gg","ez","nt","gl","hf","o7","based","cringe","real","fake","mid","fire","trash","goated","skill issue","touch grass","ratio","L + ratio","no cap","fr fr","on god","deadass","poggers","sadge","copium","hopium","malicious","sheesh","bussin","slay","periodt","iykyk","ngl","tbh","imo","idk","ikr","bruh","bro","sis","fam","chat","gang","squad"];
 
@@ -597,7 +669,7 @@ function makeName(){
 }
 
 const NAME_CACHE = [];
-for (let i = 0; i < 4000; i++) NAME_CACHE.push(makeName());
+for (let i = 0; i < 8000; i++) NAME_CACHE.push(makeName());
 // ensure uniqueness-ish
 const NAME_SET = [...new Set(NAME_CACHE)];
 let nameIdx = Math.floor(Math.random()*NAME_SET.length);
@@ -611,19 +683,20 @@ function nextBotName(){
 }
 
 function genMsg(){
-  if (chance(0.08)) return rand(REACTIONS);
-  if (chance(0.55)) {
-    // English-heavy global chat
+  if (chance(0.07)) return rand(REACTIONS);
+  // 70% English · 30% Georgian
+  if (chance(0.70)) {
     let t = rand(TOPICS_EN);
-    if (chance(0.25)) t = rand(OPENERS) + " " + t;
-    if (chance(0.3)) t = t + rand(ENDERS);
-    if (chance(0.12)) t = t + " " + rand(ADJ);
-    if (chance(0.08)) t = rand(OPENERS) + " " + rand(VERB) + " " + rand(NOUN) + rand(ENDERS);
+    if (chance(0.28)) t = rand(OPENERS) + " " + t;
+    if (chance(0.32)) t = t + rand(ENDERS);
+    if (chance(0.10)) t = t + " " + rand(ADJ);
+    if (chance(0.12)) t = rand(OPENERS) + " " + rand(VERB) + " " + rand(NOUN) + rand(ENDERS);
+    if (chance(0.06)) t = rand(OPENERS) + " " + rand(TOPICS_EN);
     return t.slice(0, 220);
   }
-  // Georgian mix
   let t = rand(TOPICS_GE);
-  if (chance(0.2)) t = t + " " + rand(ENDERS);
+  if (chance(0.22)) t = t + " " + rand(ENDERS);
+  if (chance(0.08)) t = t + " " + rand(REACTIONS);
   return t.slice(0, 220);
 }
 
@@ -806,6 +879,7 @@ document.getElementById("btn-claim").onclick = async function(){
 
 document.getElementById("btn-signout").onclick = function(){
   stopBotChat();
+  try { detachChatListen(); } catch(e){}
   if (fbAuth) fbAuth.signOut().catch(function(){});
   user = null;
   show("login");
@@ -818,7 +892,7 @@ const DEFAULT_EVERYONE = {
   icon: "E",
   ownerId: "system",
   channels: {
-    main: { id: "main", name: "main", topic: "Global chat · 31,469,047 online · max speed" },
+    main: { id: "main", name: "main", topic: "Global chat · 31,469,047 members · max speed" },
     announcements: { id: "announcements", name: "announcements", topic: "Only admins can post here" },
     general: { id: "general", name: "general", topic: "Hang out" }
   }
@@ -858,7 +932,7 @@ function enterApp(){
   currentChannelId = "main";
   document.getElementById("me-name").textContent = user.username + (user.isAdmin ? " · admin" : "");
   document.getElementById("me-av").textContent = initials(user.username);
-  document.getElementById("online-pill").textContent = formatNum(BOT_ONLINE) + " online";
+  document.getElementById("online-pill").textContent = formatNum(BOT_ONLINE) + " members";
   show("app");
   renderServers();
   selectServer("everyone");
@@ -928,6 +1002,13 @@ function renderChannels(){
   });
 }
 
+let chatListenRef = null;
+function detachChatListen(){
+  try {
+    if (chatListenRef) { chatListenRef.off(); chatListenRef = null; }
+  } catch(e){}
+}
+
 function selectChannel(cid){
   const s = servers[currentServerId];
   if (!s || !s.channels[cid]) return;
@@ -935,12 +1016,12 @@ function selectChannel(cid){
   const c = s.channels[cid];
   document.getElementById("chan-title").textContent = c.name;
   document.getElementById("chan-desc").textContent = c.topic || "";
-  document.getElementById("chat-input").placeholder = "Message #" + c.name;
   renderChannels();
 
   const box = document.getElementById("messages");
   box.innerHTML = "";
   msgCount = 0;
+  detachChatListen();
 
   // composer lock for announcements
   const composer = document.getElementById("composer");
@@ -954,12 +1035,11 @@ function selectChannel(cid){
       startBotChat();
     } else {
       stopBotChat();
-      // slower ambient for other channels
       if (currentServerId === "everyone") startAmbientChat(1200);
       else stopBotChat();
     }
   }
-  // load recent real messages
+  // load + live-sync real user messages
   loadChannelMessages();
 }
 
@@ -1036,13 +1116,21 @@ function postUserMessage(text){
 function loadChannelMessages(){
   if (!fbDb) return;
   const path = "pulseChat/" + currentServerId + "/" + currentChannelId;
+  const seen = {};
   try {
-    fbDb.ref(path).limitToLast(40).once("value").then(function(snap){
-      const v = snap.val() || {};
-      const arr = Object.keys(v).map(function(k){ return v[k]; }).sort(function(a,b){ return (a.t||0)-(b.t||0); });
-      arr.forEach(function(m){
-        if (!m || !m.text) return;
-        appendMsg(m.name || "user", m.text, { admin: !!m.admin, time: m.t ? new Date(m.t).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : timeStr() });
+    const ref = fbDb.ref(path).limitToLast(50);
+    chatListenRef = ref;
+    ref.on("child_added", function(snap){
+      const m = snap.val();
+      const key = snap.key;
+      if (!m || !m.text || seen[key]) return;
+      seen[key] = true;
+      // skip our own echo (already painted locally)
+      if (m.uid && user && m.uid === user.uid && (Date.now() - (m.t || 0)) < 4000) return;
+      appendMsg(m.name || "user", m.text, {
+        admin: !!m.admin,
+        me: !!(user && m.uid === user.uid),
+        time: m.t ? new Date(m.t).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}) : timeStr()
       });
     });
   } catch(e){}
@@ -1054,23 +1142,21 @@ function stopBotChat(){
 }
 function startBotChat(){
   stopBotChat();
-  // seed a few lines
-  for (let i = 0; i < 12; i++) appendMsg(nextBotName(), genMsg(), { bot: true });
+  for (let i = 0; i < 18; i++) appendMsg(nextBotName(), genMsg(), { bot: true });
   function tick(){
     if (currentServerId !== "everyone" || currentChannelId !== "main") return;
-    // burst size like max-speed go live
-    const burst = 2 + Math.floor(Math.random() * 5);
+    // Max speed — Go Live ultra style
+    const burst = 4 + Math.floor(Math.random() * 8);
     for (let i = 0; i < burst; i++) {
       appendMsg(nextBotName(), genMsg(), { bot: true });
     }
-    // online count jitter
-    const jitter = BOT_ONLINE + Math.floor(Math.random() * 8000) - 2000;
+    const jitter = BOT_ONLINE + Math.floor(Math.random() * 12000) - 3000;
     const pill = document.getElementById("online-pill");
-    if (pill) pill.textContent = formatNum(Math.max(BOT_ONLINE - 50000, jitter)) + " online";
-    // delay 40–120ms → extremely fast
-    chatTimer = setTimeout(tick, 45 + Math.random() * 90);
+    if (pill) pill.textContent = formatNum(Math.max(BOT_ONLINE - 80000, jitter)) + " members";
+    // 18–55ms between bursts
+    chatTimer = setTimeout(tick, 18 + Math.random() * 40);
   }
-  chatTimer = setTimeout(tick, 200);
+  chatTimer = setTimeout(tick, 80);
 }
 function startAmbientChat(baseMs){
   stopBotChat();
@@ -1227,12 +1313,35 @@ async function renderFriends(){
 }
 
 /* ========== MOBILE CHAN TOGGLE ========== */
-document.getElementById("btn-toggle-chan").onclick = function(){
-  document.getElementById("channels-col").classList.toggle("open");
-};
-if (window.matchMedia && window.matchMedia("(max-width:640px)").matches) {
-  document.getElementById("btn-toggle-chan").style.display = "flex";
+function isMobileLayout(){
+  return window.matchMedia && window.matchMedia("(max-width:720px)").matches;
 }
+function closeChannelsDrawer(){
+  document.getElementById("channels-col").classList.remove("open");
+  const bd = document.getElementById("chan-backdrop");
+  if (bd) bd.classList.remove("on");
+}
+function openChannelsDrawer(){
+  document.getElementById("channels-col").classList.add("open");
+  const bd = document.getElementById("chan-backdrop");
+  if (bd) bd.classList.add("on");
+}
+document.getElementById("btn-toggle-chan").onclick = function(){
+  const col = document.getElementById("channels-col");
+  if (col.classList.contains("open")) closeChannelsDrawer();
+  else openChannelsDrawer();
+};
+const _bd = document.getElementById("chan-backdrop");
+if (_bd) _bd.onclick = closeChannelsDrawer;
+// close drawer after picking a channel on mobile
+(function(){
+  const _sel = selectChannel;
+  selectChannel = function(cid){
+    _sel(cid);
+    if (isMobileLayout()) closeChannelsDrawer();
+  };
+})();
+
 
 /* ========== BOOT ========== */
 initFirebase();
