@@ -9,10 +9,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
 :root, [data-theme="dark"]{
-  --bg:#1e1f22;--rail:#111214;--side:#2b2d31;--panel:#313338;--input:#383a40;
-  --hover:#35373c;--active:#404249;--text:#f2f3f5;--muted:#949ba4;--faint:#6d6f78;
-  --link:#00a8fc;--green:#23a559;--danger:#f23f43;--blurple:#5865f2;--gold:#f0b232;
-  --border:rgba(0,0,0,.35);--shadow:0 8px 32px rgba(0,0,0,.45);--radius:8px;
+  --bg:#2b2d31;--rail:#1e1f22;--side:#36373e;--panel:#3c3e46;--input:#45474f;
+  --hover:#42444c;--active:#4a4c55;--text:#f5f6f8;--muted:#b5b8c0;--faint:#8b8e98;
+  --link:#5eb3f6;--green:#3dd68c;--danger:#f23f43;--blurple:#6a76f5;--gold:#f0b232;
+  --border:rgba(255,255,255,.08);--shadow:0 8px 32px rgba(0,0,0,.4);--radius:8px;
   --font:gg sans,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
 }
 [data-theme="light"]{
@@ -77,7 +77,7 @@ a{color:var(--link)}
 .row.on{background:var(--active);color:var(--text)}
 .row .ico{opacity:.75;width:20px;text-align:center;flex-shrink:0}
 .row .badge{margin-left:auto;background:var(--danger);color:#fff;font-size:.65rem;font-weight:700;padding:1px 6px;border-radius:999px;min-width:18px;text-align:center}
-.userbar{height:52px;background:#232428;padding:0 8px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border);flex-shrink:0}
+.userbar{height:52px;background:#2b2d31;padding:0 8px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border);flex-shrink:0}
 [data-theme="light"] .userbar{background:#ebedef}
 .av{width:32px;height:32px;border-radius:50%;background:var(--blurple);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;flex-shrink:0;position:relative;overflow:hidden;color:#fff}
 .av .dot{position:absolute;bottom:-1px;right:-1px;width:12px;height:12px;border-radius:50%;border:2px solid #232428}
@@ -106,7 +106,7 @@ a{color:var(--link)}
 .msg .name{font-weight:600}
 .msg .name.admin{color:#ed4245}
 .msg .time{font-size:.72rem;color:var(--muted)}
-.msg .text{font-size:.95rem;line-height:1.4;word-break:break-word;color:#dbdee1;white-space:pre-wrap}
+.msg .text{font-size:.95rem;line-height:1.4;word-break:break-word;color:#eef0f3;white-space:pre-wrap}
 [data-theme="light"] .msg .text{color:#2e3338}
 .msg .text .mention{background:rgba(88,101,242,.2);color:var(--link);border-radius:3px;padding:0 2px}
 .badge{font-size:.62rem;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle}
@@ -398,7 +398,7 @@ const MAX_MSGS = 100;
 const seenMsg = {};
 
 /* ========== BOT TEXT (70% EN / 30% GE) ========== */
-const PREFIX=["Neo","Dark","Sky","Fire","Ice","Shadow","Pixel","Cyber","Ultra","Mega","Pro","Silent","Rapid","Lucky","Wild","Cosmic","Nova","Ghost","Storm","Blaze","Aqua","Solar","Lunar","Night","Dawn","Frost","Ember","Viper","Hawk","Wolf","Fox","Bear","Lion","Drake","Phoenix","Rogue","Ace","King","Queen","xX","Real","Cool","Hot","Gold","Silver","Iron","Star","Moon","Sun","Cloud","Rain","Bolt","Wave","Prime","Elite","Omega","Alpha","Zero","Max","Mini","Young","Fast","True","Pure","Live","Open","Bright"];
+const PREFIX=["Neo","Dark","Sky","Fire","Ice","Shadow","Pixel","Cyber","Ultra","Mega","Pro","Silent","Rapid","Lucky","Wild","Cosmic","Nova","Ghost","Storm","Blaze","Aqua","Solar","Lunar","Night","Dawn","Frost","Ember","Viper","Hawk","Wolf","Fox","Bear","Lion","Drake","Phoenix","Rogue","Ace","King","Queen","xX","Real","Cool","Hot","Gold","Silver","Iron","Star","Moon","Sun","Cloud","Rain","Bolt","Wave","Prime","Elite","Omega","Alpha","Zero","Max","Mini","Young","Fast","True","Pure","Live","Open","Bright","Chill","Toxic","Based","Cringe","Epic","Lazy","Busy","Happy","Sad","Angry","Calm","Hyper","Quiet","Loud","Smart","Dumb","Rich","Broke","Fresh","Salty","Spicy","Sweet","Bitter","Sharp","Soft","Hard","Light","Heavy","Tiny","Huge","Ancient","Modern","Retro","Future","Crystal","Neon","Velvet","Rust","Chrome","Jade","Ruby","Pearl","Amber","Coral","Ivory","Onyx","Azure","Crimson","Violet","Indigo","Scarlet","Teal","Mint","Peach","Berry","Maple","Cedar","Oak","Pine","River","Ocean","Desert","Forest","Mountain","Valley","Island","Castle","Tower","Bridge","Garden","Temple","Market","Station","Harbor","Plaza"];
 const SUFFIX=["","_YT","_TT","_GG","_OP","_Pro","_God","_Kid","_HD","_PC","_Gamer","_Live","99","07","21","69","88","01","x","TV","Plays","Clips","Fan","Crew","Squad","Hub","Zone","Vibes"];
 const OPENERS=["yo","hey","hi","sup","bro","dude","fr","ngl","lowkey","tbh","idk","omg","lmao","lol","bruh","chat","guys","wait","ok","so","real talk","no cap","deadass"];
 const ENDERS=[""," lol"," lmao"," fr"," ngl"," tbh"," 💀"," 🔥"," 😭"," 😂"," ??"," !!!"," rn"," tho"];
@@ -438,6 +438,38 @@ const TOPICS_EN=[
   "missed yall","packet loss 20%","transferring data","battery health 78%","shoutout owner",
   "chaos mode","rate this 1-10","ready for drama","still funny tho","playlist link",
   "front row dreams","popcorn ready","library quiet hours","one more match","wp chat"
+
+  ,"who here from europe","asia check in","na server gang","latam where you at",
+  "this is actually funny","i cant stop laughing","send help","brain empty",
+  "homework done finally","exam tomorrow wish me luck","i studied zero",
+  "new haircut who this","fit check","drip or drown",
+  "stock market pain","crypto again","im investing in snacks",
+  "bus is late","train delayed","traffic is evil",
+  "cooking rice","burnt it again","microwave chef",
+  "sibling stole my charger","parents called","family group chat chaos",
+  "new episode hits","finale was wild","season 2 when",
+  "ranked anxiety","lost my streak","carried the team",
+  "download at 2%","update taking forever","storage full delete what",
+  "headphones broken","speaker mode chat","neighbors hate me",
+  "cold weather arc","too hot outside","ac is life",
+  "water reminder","stand up stretch","touch grass attempt failed",
+  "be right back","afk food","im back what happened",
+  "say a number","pick 1 to 10","lucky number 7",
+  "first message ever","long time no see","missed this chat",
+  "typing speed god","autocorrect ruined that","meant something else",
+  "voice note energy","too lazy to type","ok fine ill type",
+  "group project stress","deadline in 2 hours","we are so cooked",
+  "coffee number 4","tea time","energy drink bad idea",
+  "playlist on loop","one song 50 times","earworm hell",
+  "photo dump later","camera roll full","cloud storage paywall",
+  "windows update why","mac is smooth","linux user appears",
+  "phone at 1%","where is my cable","wireless pad missing",
+  "good vibes only","toxic free zone","be nice chat",
+  "who started this topic","thread is long","scroll forever",
+  "bot speed crazy","human somewhere","i am real trust",
+  "admin drop phrase","chat is synchronized","everyone saying same thing",
+  "w kobi","lets gooo","huge W","massive L","mid take",
+  "based beyond belief","cringe compilation","screenshot that"
 ];
 const TOPICS_GE=[
   "გამარჯობა ჩატი","როგორ ხართ","ვინ არის საქართველოდან","ეს ჩატი ძალიან სწრაფია",
@@ -458,6 +490,17 @@ const TOPICS_GE=[
   "მოხარშული ვარ","უფროსი მაკვირდება","რეისი დაგვიანდა","ახალი კედები",
   "ფეხები მომიკვდა","ქარიშხალი მოდის","თავიდან ონლაინ","ინტერნეტ პროვაიდერი სძინავს",
   "დისქორდი ვინ","ადმინი ამზადებს","ბიტი მაგარია","გგ ყველას"
+
+  ,"ვინ არის ევროპიდან","აზია ჩეკ ინ","ჩატი სასაცილოა","ვერ ვჩერდები",
+  "გამოცდა ხვალ","ნულოვანი სწავლა","ახალი ვარცხნილობა",
+  "ავტობუსი აგვიანებს","ბრინჯს ვმზადებ","დამიწვა ისევ",
+  "და დამიპარა დამტენი","ახალი ეპიზოდი","რანკედი სტრესი",
+  "განახლება არ მთავრდება","ყურსასმენი გაფუჭდა","ცივი ამინდი",
+  "წყალი დალიე","მალე დავბრუნდები","თქვით რიცხვი",
+  "დიდი ხნის შემდეგ","ავტოკორექტი დამანგრია","ჯგუფური პროექტი",
+  "ყავა ნომერი 4","ერთი სიმღერა 50-ჯერ","ფოტოები მალე",
+  "ვინდოუსის განახლება","ტელეფონი 1%-ზე","კარგი ვაიბები",
+  "ბოტების სიჩქარე","მე რეალური ვარ","ადმინმა ფრაზა ჩააგდო"
 ];
 
 function rand(a){return a[Math.floor(Math.random()*a.length)]}
@@ -469,7 +512,7 @@ function makeName(){
   return n;
 }
 const NAMES = [];
-for (let i=0;i<6000;i++) NAMES.push(makeName());
+for (let i=0;i<12000;i++) NAMES.push(makeName());
 const NAME_POOL = [...new Set(NAMES)];
 let ni = 0;
 function nextBotName(){
@@ -478,6 +521,13 @@ function nextBotName(){
   return chance(0.1) ? n + Math.floor(Math.random()*90) : n;
 }
 function genMsg(){
+  // Admin phrase mode — ~70-75% of messages
+  if (window._chatPhrase && chance(window._chatPhraseRate || 0.72)) {
+    let t = window._chatPhrase;
+    if (chance(0.25)) t = rand(OPENERS) + " " + t;
+    if (chance(0.3)) t = t + rand(ENDERS);
+    return t.slice(0,220);
+  }
   if (chance(0.07)) return rand(REACT);
   if (chance(0.70)) {
     let t = rand(TOPICS_EN);
@@ -782,20 +832,57 @@ function renderServerSide(){
   const s=servers[currentServerId];
   if(!s) return;
   const body=$("side-body");
-  let html='<div class="cat">Text channels';
-  if(s.ownerId===user.uid||user.isAdmin) html+=' <button id="btn-add-chan" title="Create channel">+</button>';
+  let html='<div class="cat"><span>Text channels</span>';
+  if(s.ownerId===user.uid||user.isAdmin) html+='<button type="button" id="btn-add-chan" title="Create channel">+</button>';
   html+='</div>';
   Object.keys(s.channels||{}).forEach(function(cid){
     const c=s.channels[cid];
-    const lock=c.type==="announcement"?" 🔒":"";
-    html+='<button class="row'+(cid===currentChannelId?" on":"")+'" data-chan="'+esc(cid)+'"><span class="ico">#</span> '+esc(c.name)+lock+'</button>';
+    const lock=c.type==="announcement"?' <span style="opacity:.7">🔒</span>':"";
+    html+='<button type="button" class="row'+(cid===currentChannelId?" on":"")+'" data-chan="'+esc(cid)+'"><span class="ico">#</span> <span>'+esc(c.name)+'</span>'+lock+'</button>';
   });
+  // Admin phrase tool (everyone server)
+  if(user && user.isAdmin && currentServerId==="everyone"){
+    html+='<div class="cat" style="margin-top:14px">Admin tools</div>';
+    html+='<div style="padding:6px 8px">';
+    html+='<input id="phrase-input" maxlength="120" placeholder="Phrase for bots…" style="width:100%;background:var(--bg);border-radius:6px;padding:8px 10px;font-size:.85rem;margin-bottom:6px"/>';
+    html+='<div style="display:flex;gap:6px">';
+    html+='<button type="button" class="btn-ok" id="btn-phrase-on" style="flex:1;padding:8px;font-size:.8rem">On · 70%</button>';
+    html+='<button type="button" class="btn-sec" id="btn-phrase-off" style="padding:8px;font-size:.8rem">Off</button>';
+    html+='</div>';
+    html+='<div id="phrase-status" style="font-size:.72rem;color:var(--muted);margin-top:6px">'+(window._chatPhrase?'Phrase ON: '+esc(window._chatPhrase):'Phrase off')+'</div>';
+    html+='</div>';
+  }
   body.innerHTML=html;
-  body.querySelectorAll("[data-chan]").forEach(function(el){
-    el.onclick=function(){selectChannel(el.getAttribute("data-chan"))};
-  });
-  const add=$("btn-add-chan");
-  if(add) add.onclick=function(e){e.stopPropagation();$("new-chan-name").value="";$("new-chan-topic").value="";openModal("modal-chan")};
+  body.onclick=function(e){
+    const btn=e.target.closest("[data-chan]");
+    if(btn){
+      e.preventDefault();
+      e.stopPropagation();
+      const cid=btn.getAttribute("data-chan");
+      if(cid) selectChannel(cid);
+      return;
+    }
+    if(e.target.id==="btn-add-chan"||e.target.closest("#btn-add-chan")){
+      e.preventDefault();
+      $("new-chan-name").value="";$("new-chan-topic").value="";
+      openModal("modal-chan");
+    }
+    if(e.target.id==="btn-phrase-on"||e.target.closest("#btn-phrase-on")){
+      const v=(($("phrase-input")&&$("phrase-input").value)||"").trim();
+      if(!v){toast("Type a phrase first");return}
+      window._chatPhrase=v;
+      window._chatPhraseRate=0.72;
+      const st=$("phrase-status");
+      if(st) st.textContent="Phrase ON: "+v;
+      toast("Bots will spam: "+v);
+    }
+    if(e.target.id==="btn-phrase-off"||e.target.closest("#btn-phrase-off")){
+      window._chatPhrase=null;
+      const st=$("phrase-status");
+      if(st) st.textContent="Phrase off";
+      toast("Phrase off");
+    }
+  };
 }
 
 $("side-head").onclick=function(){
@@ -811,15 +898,15 @@ $("side-head").onclick=function(){
 /* ========== CHANNELS / MESSAGES ========== */
 function selectChannel(cid){
   const s=servers[currentServerId];
-  if(!s||!s.channels[cid]) return;
+  if(!s){toast("No server");return}
+  if(!s.channels||!s.channels[cid]){toast("Channel not found");return}
   currentChannelId=cid;currentDmId=null;view="server";
   const c=s.channels[cid];
   $("top-hash").textContent="#";
   $("top-title").textContent=c.name;
   $("top-topic").textContent=c.topic||"";
-  renderServerSide();
   $("msgs").innerHTML="";
-  Object.keys(seenMsg).forEach(k=>delete seenMsg[k]);
+  Object.keys(seenMsg).forEach(function(k){delete seenMsg[k]});
   detachChat();
   stopBots();
 
@@ -829,9 +916,13 @@ function selectChannel(cid){
 
   attachChannelChat(currentServerId,cid);
   if(currentServerId==="everyone"&&cid==="main") startBots();
-  else if(currentServerId==="everyone") startAmbient(1500);
+  else if(currentServerId==="everyone"&&cid!=="announcements") startAmbient(1200);
+  else stopBots();
+  renderServerSide();
   renderMembers();
   closeSideMobile();
+  // show which channel is active
+  toast("#"+c.name, 900);
 }
 
 function setComposerLocked(msg){
@@ -902,7 +993,7 @@ function appendMsg(m,optimistic){
   const col=colorClass(name);
   let badges="";
   if(m.admin) badges+='<span class="badge admin">ADMIN</span>';
-  if(m.bot) badges+='<span class="badge bot">BOT</span>';
+  /* no bot badge on names */
   let replyHtml="";
   if(m.replyTo) replyHtml='<div style="font-size:.78rem;color:var(--muted);margin-bottom:2px">↩ '+esc(String(m.replyTo).slice(0,80))+'</div>';
   row.innerHTML='<div class="av '+col+'">'+esc(initials(name))+'</div><div class="body"><div class="head"><span class="name '+col+(m.admin?" admin":"")+'">'+esc(name)+badges+'</span><span class="time">'+timeStr(m.t)+'</span></div>'+replyHtml+'<div class="text">'+formatText(m.text)+'</div></div>';
