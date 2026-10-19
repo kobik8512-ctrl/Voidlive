@@ -72,7 +72,7 @@ a{color:var(--link)}
 .cat{font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:10px 8px 4px;display:flex;align-items:center;justify-content:space-between}
 .cat button{opacity:.6;font-size:1rem;padding:0 4px}
 .cat button:hover{opacity:1}
-.row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;color:var(--muted);font-size:.95rem;font-weight:500;width:100%;text-align:left}
+.row{display:flex;align-items:center;gap:8px;padding:10px 8px;min-height:42px;border-radius:6px;color:var(--muted);font-size:.95rem;font-weight:500;width:100%;text-align:left;-webkit-tap-highlight-color:rgba(255,255,255,.08)}
 .row:hover{background:var(--hover);color:var(--text)}
 .row.on{background:var(--active);color:var(--text)}
 .row .ico{opacity:.75;width:20px;text-align:center;flex-shrink:0}
@@ -131,7 +131,7 @@ a{color:var(--link)}
 .mem .av{width:32px;height:32px}
 
 /* drawers / modals */
-.backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:80}
+.backdrop{display:none;position:fixed;inset:0;left:64px;background:rgba(0,0,0,.5);z-index:65}
 .backdrop.on{display:block}
 .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:100;padding:20px;background:rgba(0,0,0,.65)}
 .modal.on{display:flex}
@@ -155,16 +155,25 @@ a{color:var(--link)}
 .c0{color:#ed4245}.c1{color:#57f287}.c2{color:#fee75c}.c3{color:#eb459e}
 .c4{color:#5865f2}.c5{color:#00a8fc}.c6{color:#f47b67}.c7{color:#9b59b6}
 
+.backdrop{z-index:65}
 @media(max-width:900px){
   .members{display:none}
   .side{width:220px}
 }
-@media(max-width:720px){
-  .side{position:fixed;left:0;top:0;bottom:0;width:min(280px,86vw);z-index:70;display:none;box-shadow:8px 0 32px rgba(0,0,0,.5)}
-  .side.open{display:flex}
-  .rail{width:64px}
+@media(max-width:900px){
+  /* phone + narrow: side is a drawer, chat is full width */
+  .side{
+    position:fixed;left:64px;top:0;bottom:0;width:min(300px,78vw);
+    z-index:70;display:none!important;
+    box-shadow:8px 0 32px rgba(0,0,0,.55);
+  }
+  .side.open{display:flex!important}
+  .rail{width:64px;z-index:80;position:relative}
+  .main{flex:1;min-width:0;width:100%}
   .top .topic{display:none}
   #btn-menu{display:flex!important}
+  #btn-close-side{display:flex!important}
+  .side-head{cursor:default}
 }
 </style>
 </head>
@@ -201,7 +210,13 @@ a{color:var(--link)}
 <div id="app" class="screen">
   <div class="rail" id="rail"></div>
   <div class="side" id="side">
-    <div class="side-head" id="side-head"><span id="side-title">Home</span><span style="opacity:.5">▾</span></div>
+    <div class="side-head" id="side-head">
+      <span id="side-title">Home</span>
+      <span style="display:flex;align-items:center;gap:4px">
+        <span id="side-chevron" style="opacity:.5">▾</span>
+        <button type="button" class="iconbtn" id="btn-close-side" title="Close" style="display:none">✕</button>
+      </span>
+    </div>
     <div class="side-body" id="side-body"></div>
     <div class="userbar">
       <div class="av" id="me-av"><span class="dot on" id="me-dot"></span></div>
@@ -676,7 +691,8 @@ async function enterApp(){
   await loadMemberships();
   ensureEveryone();
   renderRail();
-  openHome();
+  closeSideMobile();
+  openServer("everyone");
   attachPresence();
   listenFriends();
 }
@@ -885,15 +901,8 @@ function renderServerSide(){
   };
 }
 
-$("side-head").onclick=function(){
-  if(view!=="server"||!currentServerId) return;
-  if(currentServerId==="everyone"){toast("everyone is a system server");return}
-  const s=servers[currentServerId];
-  $("edit-srv-name").value=s.name;
-  $("edit-srv-icon").value=s.icon||"";
-  $("edit-srv-invite").value=s.invite||"";
-  openModal("modal-srv-set");
-};
+/* side-head handler moved to mobile section */
+
 
 /* ========== CHANNELS / MESSAGES ========== */
 function selectChannel(cid){
@@ -1278,20 +1287,55 @@ $("btn-save-settings").onclick=async function(){
 try{const th=localStorage.getItem("pulse_theme");if(th)document.body.setAttribute("data-theme",th)}catch(e){}
 
 /* ========== MOBILE ========== */
-function closeSideMobile(){
-  $("side").classList.remove("open");
-  $("backdrop").classList.remove("on");
+function isNarrow(){
+  return window.matchMedia && window.matchMedia("(max-width:900px)").matches;
 }
-$("btn-menu").onclick=function(){
-  const open=$("side").classList.toggle("open");
-  $("backdrop").classList.toggle("on",open);
+function closeSideMobile(){
+  const side=$("side");
+  if(side) side.classList.remove("open");
+  const bd=$("backdrop");
+  if(bd) bd.classList.remove("on");
+}
+function openSideMobile(){
+  const side=$("side");
+  if(side) side.classList.add("open");
+  const bd=$("backdrop");
+  if(bd) bd.classList.add("on");
+}
+$("btn-menu").onclick=function(e){
+  if(e) e.stopPropagation();
+  const side=$("side");
+  if(side.classList.contains("open")) closeSideMobile();
+  else openSideMobile();
 };
-$("backdrop").onclick=closeSideMobile;
+const _bcs=$("btn-close-side");
+if(_bcs) _bcs.onclick=function(e){
+  if(e){e.preventDefault();e.stopPropagation()}
+  closeSideMobile();
+};
+$("backdrop").onclick=function(){ closeSideMobile(); };
+
+// side-head: desktop opens settings; mobile X closes drawer
+$("side-head").onclick=function(e){
+  if(e.target && (e.target.id==="btn-close-side" || e.target.closest("#btn-close-side"))) return;
+  if(isNarrow()) return; // mobile: don't open settings by accident
+  if(view!=="server"||!currentServerId) return;
+  if(currentServerId==="everyone"){toast("everyone is a system server");return}
+  const s=servers[currentServerId];
+  $("edit-srv-name").value=s.name;
+  $("edit-srv-icon").value=s.icon||"";
+  $("edit-srv-invite").value=s.invite||"";
+  openModal("modal-srv-set");
+};
+
 $("btn-members").onclick=function(){
-  // on mobile members hidden — open friends as useful panel
   $("friends-drawer").classList.add("on");
   renderFriendsUI();
 };
+
+// Always start with drawer closed on load / after login
+closeSideMobile();
+
 
 /* ========== BOOT ========== */
 initFirebase();
