@@ -856,16 +856,20 @@ function renderServerSide(){
     const lock=c.type==="announcement"?' <span style="opacity:.7">🔒</span>':"";
     html+='<button type="button" class="row'+(cid===currentChannelId?" on":"")+'" data-chan="'+esc(cid)+'"><span class="ico">#</span> <span>'+esc(c.name)+'</span>'+lock+'</button>';
   });
-  // Admin phrase tool (everyone server)
-  if(user && user.isAdmin && currentServerId==="everyone"){
+  // Admin tools — ONLY for isAdmin on everyone
+  if(user && user.isAdmin === true && currentServerId==="everyone"){
     html+='<div class="cat" style="margin-top:14px">Admin tools</div>';
     html+='<div style="padding:6px 8px">';
     html+='<input id="phrase-input" maxlength="120" placeholder="Phrase for bots…" style="width:100%;background:var(--bg);border-radius:6px;padding:8px 10px;font-size:.85rem;margin-bottom:6px"/>';
-    html+='<div style="display:flex;gap:6px">';
-    html+='<button type="button" class="btn-ok" id="btn-phrase-on" style="flex:1;padding:8px;font-size:.8rem">On · 70%</button>';
-    html+='<button type="button" class="btn-sec" id="btn-phrase-off" style="padding:8px;font-size:.8rem">Off</button>';
+    html+='<div style="display:flex;gap:6px;margin-bottom:6px">';
+    html+='<button type="button" class="btn-ok" id="btn-phrase-on" style="flex:1;padding:8px;font-size:.8rem">Phrase On</button>';
+    html+='<button type="button" class="btn-sec" id="btn-phrase-off" style="padding:8px;font-size:.8rem">Phrase Off</button>';
     html+='</div>';
-    html+='<div id="phrase-status" style="font-size:.72rem;color:var(--muted);margin-top:6px">'+(window._chatPhrase?'Phrase ON: '+esc(window._chatPhrase):'Phrase off')+'</div>';
+    html+='<div style="display:flex;gap:6px;margin-bottom:6px">';
+    html+='<button type="button" class="btn-ok" id="btn-explode" style="flex:1;padding:8px;font-size:.8rem;background:#ed4245">Explode chat</button>';
+    html+='<button type="button" class="btn-sec" id="btn-explode-off" style="padding:8px;font-size:.8rem">Slow off</button>';
+    html+='</div>';
+    html+='<div id="phrase-status" style="font-size:.72rem;color:var(--muted);margin-top:4px">Normal speed</div>';
     html+='</div>';
   }
   body.innerHTML=html;
@@ -884,19 +888,44 @@ function renderServerSide(){
       openModal("modal-chan");
     }
     if(e.target.id==="btn-phrase-on"||e.target.closest("#btn-phrase-on")){
+      if(!(user&&user.isAdmin)) return;
       const v=(($("phrase-input")&&$("phrase-input").value)||"").trim();
       if(!v){toast("Type a phrase first");return}
       window._chatPhrase=v;
-      window._chatPhraseRate=0.72;
-      const st=$("phrase-status");
-      if(st) st.textContent="Phrase ON: "+v;
-      toast("Bots will spam: "+v);
+      window._chatPhraseRate=0.72 + Math.random()*0.03; // ~70-75%
+      updateAdminToolsStatus();
+      toast("Phrase on · ~72% bots say it");
     }
     if(e.target.id==="btn-phrase-off"||e.target.closest("#btn-phrase-off")){
+      if(!(user&&user.isAdmin)) return;
       window._chatPhrase=null;
-      const st=$("phrase-status");
-      if(st) st.textContent="Phrase off";
+      updateAdminToolsStatus();
       toast("Phrase off");
+    }
+    if(e.target.id==="btn-explode"||e.target.closest("#btn-explode")){
+      if(!(user&&user.isAdmin)) return;
+      window._chatMode="explode";
+      window._explodeLevel=0;
+      window._explodeTicks=0;
+      if(currentServerId==="everyone"&&currentChannelId==="main"){
+        stopBots(); startBots();
+      }
+      updateAdminToolsStatus();
+      toast("Explode: 1 → 2 → 4 → 8 → max");
+    }
+    if(e.target.id==="btn-explode-off"||e.target.closest("#btn-explode-off")){
+      if(!(user&&user.isAdmin)) return;
+      if(window._chatMode==="explode"||window._explodeLevel>0){
+        window._chatMode="cooling";
+        window._coolTicks=0;
+        updateAdminToolsStatus();
+        toast("Slowing down to normal…");
+      } else {
+        window._chatMode="normal";
+        window._explodeLevel=0;
+        updateAdminToolsStatus();
+        toast("Already normal");
+      }
     }
   };
 }
@@ -1035,29 +1064,103 @@ function attachChannelChat(sid,cid){
 }
 
 /* ========== BOTS ========== */
-function stopBots(){if(botTimer){clearTimeout(botTimer);botTimer=null}}
+/* chatMode: normal | explode | cooling */
+window._chatMode = window._chatMode || "normal";
+window._explodeLevel = 0; // 0..6  (1,2,4,8,16,32,max)
+window._chatPhrase = window._chatPhrase || null;
+window._chatPhraseRate = window._chatPhraseRate || 0.72;
+
+function stopBots(){
+  if(botTimer){clearTimeout(botTimer);botTimer=null}
+}
+function botDelayForMode(){
+  // normal: ~1–4 messages/sec overall (sometimes slow, sometimes a bit faster)
+  if(window._chatMode==="normal"){
+    // single message most of the time; occasional double
+    return 280 + Math.random()*700; // ~0.25–1s → about 1–3/sec
+  }
+  if(window._chatMode==="cooling"){
+    // gradually slower from current level toward normal
+    const lv = window._explodeLevel;
+    const base = [900,700,500,320,180,90,40][Math.min(6, Math.max(0,lv))];
+    return base + Math.random()*base*0.5;
+  }
+  // explode: faster as level rises
+  const lv = window._explodeLevel;
+  const base = [600,400,250,140,70,35,18][Math.min(6, Math.max(0,lv))];
+  return base + Math.random()*base*0.4;
+}
+function botBurstForMode(){
+  if(window._chatMode==="normal"){
+    return Math.random()<0.22 ? 2 : 1; // mostly 1, sometimes 2 → ~1–4/sec feel
+  }
+  if(window._chatMode==="cooling"){
+    const lv = window._explodeLevel;
+    return [1,1,1,2,2,3,4][Math.min(6,Math.max(0,lv))];
+  }
+  // explode 1 → 2 → 4 → 8 …
+  const lv = window._explodeLevel;
+  return [1,2,4,8,12,20,32][Math.min(6,Math.max(0,lv))];
+}
 function startBots(){
   stopBots();
-  for(let i=0;i<16;i++) appendMsg({name:nextBotName(),text:genMsg(),bot:true,t:Date.now()-i*100});
+  if(!window._chatMode) window._chatMode = "normal";
+  for(let i=0;i<10;i++) appendMsg({name:nextBotName(),text:genMsg(),bot:true,t:Date.now()-i*200});
   function tick(){
     if(currentServerId!=="everyone"||currentChannelId!=="main") return;
-    const burst=4+Math.floor(Math.random()*8);
+    const burst = botBurstForMode();
     for(let i=0;i<burst;i++) appendMsg({name:nextBotName(),text:genMsg(),bot:true,t:Date.now()});
     const j=EVERYONE_MEMBERS+Math.floor(Math.random()*12000)-3000;
-    $("member-pill").textContent=formatNum(Math.max(EVERYONE_MEMBERS-80000,j))+" members";
-    botTimer=setTimeout(tick,18+Math.random()*40);
+    const pill=$("member-pill");
+    if(pill) pill.textContent=formatNum(Math.max(EVERYONE_MEMBERS-80000,j))+" members";
+
+    // explode ramp: every few ticks raise level
+    if(window._chatMode==="explode"){
+      window._explodeTicks = (window._explodeTicks||0)+1;
+      if(window._explodeTicks % 5 === 0 && window._explodeLevel < 6){
+        window._explodeLevel++;
+        updateAdminToolsStatus();
+      }
+    }
+    // cooling ramp: every few ticks lower level until normal
+    if(window._chatMode==="cooling"){
+      window._coolTicks = (window._coolTicks||0)+1;
+      if(window._coolTicks % 6 === 0){
+        if(window._explodeLevel > 0){
+          window._explodeLevel--;
+          updateAdminToolsStatus();
+        } else {
+          window._chatMode = "normal";
+          updateAdminToolsStatus();
+          toast("Chat back to normal");
+        }
+      }
+    }
+    botTimer=setTimeout(tick, botDelayForMode());
   }
-  botTimer=setTimeout(tick,80);
+  botTimer=setTimeout(tick, 200);
 }
 function startAmbient(ms){
   stopBots();
+  window._chatMode = "normal";
   function tick(){
     if(currentChannelId==="announcements") return;
     appendMsg({name:nextBotName(),text:genMsg(),bot:true,t:Date.now()});
-    botTimer=setTimeout(tick,ms+Math.random()*ms);
+    botTimer=setTimeout(tick, ms + Math.random()*ms);
   }
-  botTimer=setTimeout(tick,600);
+  botTimer=setTimeout(tick, 600);
 }
+function updateAdminToolsStatus(){
+  const st=$("phrase-status");
+  if(!st) return;
+  let parts=[];
+  if(window._chatPhrase) parts.push("Phrase ON");
+  if(window._chatMode==="explode") parts.push("EXPLODE L"+window._explodeLevel);
+  else if(window._chatMode==="cooling") parts.push("Slowing L"+window._explodeLevel);
+  else parts.push("Normal speed");
+  st.textContent = parts.join(" · ");
+}
+
 
 /* ========== MEMBERS ========== */
 function renderMembers(){
@@ -1162,26 +1265,77 @@ function listenFriends(){
   fbDb.ref("pulseUsers/"+user.uid+"/friends").on("value",function(snap){friends=snap.val()||{};});
   fbDb.ref("pulseUsers/"+user.uid+"/friendRequests").on("value",function(snap){requests=snap.val()||{};if($("friends-drawer").classList.contains("on"))renderFriendsUI()});
 }
+window._fakeReqCount = window._fakeReqCount || 0;
+window._fakeReqNames = window._fakeReqNames || [];
+
+function seedFakeRequests(){
+  // Only for admin/kobi — simulate millions of bot requests without writing Firebase
+  if(!(user && user.isAdmin)) return;
+  if(window._fakeReqCount > 0) return;
+  window._fakeReqCount = 2847391; // ~2.8M pending
+  window._fakeReqNames = [];
+  for(let i=0;i<40;i++) window._fakeReqNames.push(nextBotName());
+}
+
 async function renderFriendsUI(){
   const pend=$("friend-pending");const list=$("friend-list");
+  if(!pend||!list) return;
+  seedFakeRequests();
+
   const reqKeys=Object.keys(requests||{});
-  if(!reqKeys.length) pend.innerHTML='<div style="color:var(--muted);font-size:.85rem;padding:6px">No pending requests</div>';
-  else {
-    pend.innerHTML="";
-    reqKeys.forEach(function(uid){
-      const r=requests[uid];
+  pend.innerHTML="";
+
+  // Real requests first
+  reqKeys.forEach(function(uid){
+    const r=requests[uid];
+    const row=document.createElement("div");
+    row.className="row";
+    row.style.justifyContent="space-between";
+    row.innerHTML="<span>"+esc(r.username||uid)+"</span>";
+    const wrap=document.createElement("span");
+    const acc=document.createElement("button");acc.className="btn-ok";acc.style.cssText="padding:4px 8px;font-size:.75rem;margin-right:4px";acc.textContent="Accept";
+    acc.onclick=function(){acceptFriend(uid,r.username)};
+    const dec=document.createElement("button");dec.className="btn-sec";dec.style.cssText="padding:4px 8px;font-size:.75rem";dec.textContent="Ignore";
+    dec.onclick=function(){fbDb.ref("pulseUsers/"+user.uid+"/friendRequests/"+uid).remove()};
+    wrap.appendChild(acc);wrap.appendChild(dec);row.appendChild(wrap);pend.appendChild(row);
+  });
+
+  // Admin: flood of bot friend requests
+  if(user && user.isAdmin){
+    const banner=document.createElement("div");
+    banner.style.cssText="padding:8px;margin:6px 0;background:rgba(237,66,69,.15);border-radius:8px;font-size:.82rem;color:var(--text)";
+    banner.innerHTML="<strong>"+formatNum(window._fakeReqCount)+"</strong> pending requests from members";
+    pend.insertBefore(banner, pend.firstChild);
+
+    // show a rolling sample of names
+    window._fakeReqNames.forEach(function(nm, idx){
       const row=document.createElement("div");
       row.className="row";
       row.style.justifyContent="space-between";
-      row.innerHTML="<span>"+esc(r.username||uid)+"</span>";
-      const wrap=document.createElement("span");
-      const acc=document.createElement("button");acc.className="btn-ok";acc.style.cssText="padding:4px 8px;font-size:.75rem;margin-right:4px";acc.textContent="Accept";
-      acc.onclick=function(){acceptFriend(uid,r.username)};
-      const dec=document.createElement("button");dec.className="btn-sec";dec.style.cssText="padding:4px 8px;font-size:.75rem";dec.textContent="Ignore";
-      dec.onclick=function(){fbDb.ref("pulseUsers/"+user.uid+"/friendRequests/"+uid).remove()};
-      wrap.appendChild(acc);wrap.appendChild(dec);row.appendChild(wrap);pend.appendChild(row);
+      row.innerHTML="<span>"+esc(nm)+"</span><span style=\"font-size:.72rem;color:var(--muted)\">wants to be friends</span>";
+      pend.appendChild(row);
     });
+    const more=document.createElement("div");
+    more.style.cssText="padding:8px;color:var(--muted);font-size:.8rem";
+    more.textContent="+" + formatNum(Math.max(0, window._fakeReqCount - window._fakeReqNames.length)) + " more…";
+    pend.appendChild(more);
+
+    // keep adding new names slowly while panel open
+    if(window._fakeReqTimer) clearInterval(window._fakeReqTimer);
+    window._fakeReqTimer=setInterval(function(){
+      if(!$("friends-drawer").classList.contains("on")){clearInterval(window._fakeReqTimer);return}
+      window._fakeReqCount += Math.floor(3+Math.random()*8);
+      const nm=nextBotName();
+      window._fakeReqNames.unshift(nm);
+      if(window._fakeReqNames.length>50) window._fakeReqNames.pop();
+      // update banner text only
+      const b=pend.querySelector("strong");
+      if(b) b.textContent=formatNum(window._fakeReqCount);
+    }, 1200);
+  } else if(!reqKeys.length){
+    pend.innerHTML='<div style="color:var(--muted);font-size:.85rem;padding:6px">No pending requests</div>';
   }
+
   const fKeys=Object.keys(friends||{});
   if(!fKeys.length) list.innerHTML='<div style="color:var(--muted);font-size:.85rem;padding:6px">No friends yet</div>';
   else {
@@ -1195,7 +1349,8 @@ async function renderFriendsUI(){
       list.appendChild(row);
     });
   }
-};
+}
+
 
 $("btn-add-friend").onclick=async function(){
   const uname=($("friend-user").value||"").trim();
