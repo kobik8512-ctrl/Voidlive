@@ -1,132 +1,1254 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Free Robux Generator</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            /* Roblox-style dark/blue theme background */
-            background: linear-gradient(135deg, #1f1f1f, #0d1b2a);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            font-family: Arial, sans-serif;
-            overflow: hidden;
-            color: white;
-        }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Pulse · Chat</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+:root{
+  --bg:#1e1f22;--sidebar:#2b2d31;--chan:#313338;--chat:#313338;--input:#383a40;
+  --hover:#35373c;--active:#404249;--text:#f2f3f5;--muted:#949ba4;--link:#00a8fc;
+  --green:#23a559;--danger:#f23f43;--blurple:#5865f2;--gold:#f0b232;
+  --border:#1e1f22;--member:#2b2d31;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+  font-family:gg sans,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:16px;-webkit-tap-highlight-color:transparent}
+button{font-family:inherit;border:none;background:none;color:inherit;cursor:pointer}
+input,textarea{font-family:inherit;color:var(--text);outline:none;border:none}
+a{color:var(--link)}
 
-        /* Initial Start Screen / Button */
-        #start-screen {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-            text-align: center;
-            padding: 20px;
-        }
+/* screens */
+.screen{display:none;height:100%;width:100%}
+.screen.on{display:flex}
 
-        h1 {
-            font-size: 2.5rem;
-            color: #00b4d8;
-            text-shadow: 0 4px 10px rgba(0, 180, 216, 0.4);
-        }
+/* LOGIN */
+#login{
+  align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 30% 20%,#3b3d8a 0%,#1e1f22 55%);
+  padding:24px;
+}
+.login-card{
+  width:100%;max-width:420px;background:var(--sidebar);border-radius:12px;
+  padding:32px 28px;box-shadow:0 8px 32px rgba(0,0,0,.45);
+}
+.login-logo{font-size:2rem;font-weight:800;letter-spacing:-.5px;margin-bottom:6px}
+.login-logo span{color:var(--blurple)}
+.login-sub{color:var(--muted);font-size:.9rem;margin-bottom:22px;line-height:1.45}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+.field input{
+  width:100%;background:var(--bg);border:1px solid transparent;border-radius:8px;
+  padding:12px 14px;font-size:1rem;
+}
+.field input:focus{border-color:var(--blurple)}
+.btn-primary{
+  width:100%;background:var(--blurple);color:#fff;font-weight:600;font-size:1rem;
+  padding:12px;border-radius:8px;margin-top:8px;
+}
+.btn-primary:active{opacity:.88}
+.btn-google{
+  width:100%;background:#fff;color:#1e1f22;font-weight:600;font-size:.95rem;
+  padding:12px;border-radius:8px;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.btn-ghost{width:100%;margin-top:10px;color:var(--muted);font-size:.9rem;padding:10px}
+.login-note{margin-top:16px;font-size:.78rem;color:var(--muted);text-align:center;line-height:1.4}
+.err{color:var(--danger);font-size:.85rem;margin-top:8px;min-height:1.2em}
 
-        .robux-btn {
-            background-color: #00ff88;
-            color: #000;
-            font-size: 1.5rem;
-            font-weight: bold;
-            padding: 15px 40px;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            box-shadow: 0 4px 20px rgba(0, 255, 136, 0.4);
-            transition: transform 0.2s, background-color 0.2s;
-        }
+/* USERNAME GATE */
+#user-gate{
+  align-items:center;justify-content:center;background:var(--bg);padding:24px;
+}
+.gate-card{width:100%;max-width:400px;background:var(--sidebar);border-radius:12px;padding:28px}
+.gate-card h2{font-size:1.35rem;margin-bottom:8px}
+.gate-card p{color:var(--muted);font-size:.9rem;margin-bottom:18px;line-height:1.45}
+.hint{font-size:.78rem;color:var(--muted);margin-top:6px}
 
-        .robux-btn:hover {
-            transform: scale(1.05);
-            background-color: #00cc6a;
-        }
+/* APP SHELL */
+#app{flex-direction:row;background:var(--bg)}
+.servers{
+  width:72px;background:#1e1f22;display:flex;flex-direction:column;align-items:center;
+  padding:12px 0;gap:8px;overflow-y:auto;flex-shrink:0;scrollbar-width:none;
+}
+.servers::-webkit-scrollbar{display:none}
+.srv{
+  width:48px;height:48px;border-radius:50%;background:var(--chan);display:flex;align-items:center;
+  justify-content:center;font-weight:800;font-size:1rem;position:relative;transition:border-radius .15s,background .15s;
+  overflow:hidden;flex-shrink:0;
+}
+.srv img{width:100%;height:100%;object-fit:cover}
+.srv:hover,.srv.on{border-radius:16px;background:var(--blurple)}
+.srv.on{background:var(--blurple)}
+.srv-add{background:var(--chan);color:var(--green);font-size:1.5rem;font-weight:400}
+.srv-add:hover{background:var(--green);color:#fff;border-radius:16px}
+.srv-pill{position:absolute;left:-4px;width:4px;border-radius:0 4px 4px 0;background:#fff;transition:height .15s}
+.srv.on .srv-pill{height:40px;top:4px}
+.srv:not(.on) .srv-pill{height:8px;top:20px;opacity:0}
+.srv:hover:not(.on) .srv-pill{opacity:1}
+.srv-sep{width:32px;height:2px;background:#35363c;border-radius:1px;margin:4px 0}
 
-        /* Hidden Content Container (Image) */
-        #main-content {
-            display: none;
-            width: 100%;
-            max-width: 800px;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
+.channels{
+  width:240px;background:var(--sidebar);display:flex;flex-direction:column;flex-shrink:0;
+}
+.chan-header{
+  height:48px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid rgba(0,0,0,.3);font-weight:700;font-size:.95rem;cursor:pointer;
+}
+.chan-header:hover{background:rgba(255,255,255,.02)}
+.chan-list{flex:1;overflow-y:auto;padding:12px 8px;scrollbar-width:thin}
+.chan-cat{font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;
+  padding:8px 8px 4px;display:flex;align-items:center;gap:4px}
+.chan-item{
+  display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;color:var(--muted);
+  font-size:.95rem;font-weight:500;margin:1px 0;
+}
+.chan-item:hover{background:var(--hover);color:var(--text)}
+.chan-item.on{background:var(--active);color:var(--text)}
+.chan-hash{font-weight:700;opacity:.7;font-size:1.15rem}
+.user-panel{
+  height:52px;background:#232428;padding:0 8px;display:flex;align-items:center;gap:8px;
+  border-top:1px solid rgba(0,0,0,.2);
+}
+.avatar{
+  width:32px;height:32px;border-radius:50%;background:var(--blurple);display:flex;align-items:center;
+  justify-content:center;font-weight:700;font-size:.8rem;flex-shrink:0;position:relative;overflow:hidden;
+}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.avatar .dot{position:absolute;bottom:-1px;right:-1px;width:12px;height:12px;border-radius:50%;
+  background:var(--green);border:2px solid #232428}
+.user-meta{flex:1;min-width:0}
+.user-meta .un{font-size:.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-meta .st{font-size:.7rem;color:var(--muted)}
+.icon-sm{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.icon-sm:hover{background:var(--hover);color:var(--text)}
 
-        img {
-            max-width: 100%;
-            height: auto;
-            display: block;
-            border-radius: 4px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
-        }
+.main{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--chat)}
+.chat-top{
+  height:48px;padding:0 16px;display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid rgba(0,0,0,.3);flex-shrink:0;
+}
+.chat-top .hash{font-size:1.3rem;color:var(--muted);font-weight:700}
+.chat-top .ctitle{font-weight:700;font-size:1rem}
+.chat-top .cdesc{color:var(--muted);font-size:.85rem;margin-left:8px;border-left:1px solid #3f4147;padding-left:12px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-top .spacer{flex:1}
+.online-pill{
+  background:rgba(35,165,89,.15);color:var(--green);font-size:.78rem;font-weight:700;
+  padding:4px 10px;border-radius:999px;white-space:nowrap;
+}
 
-        /* Watermark in the corner */
-        .watermark {
-            position: fixed;
-            bottom: 15px;
-            right: 20px;
-            font-size: 0.85rem;
-            color: rgba(255, 255, 255, 0.4);
-            letter-spacing: 1px;
-            pointer-events: none;
-            font-family: monospace;
-        }
-    </style>
+.messages{
+  flex:1;overflow-y:auto;overflow-x:hidden;padding:16px 16px 8px;
+  display:flex;flex-direction:column;gap:0;scrollbar-width:thin;
+}
+.msg-row{display:flex;gap:12px;padding:4px 8px;border-radius:4px;margin:0 -8px}
+.msg-row:hover{background:rgba(0,0,0,.08)}
+.msg-row.sys{justify-content:center;color:var(--muted);font-size:.82rem;padding:8px}
+.msg-av{width:40px;height:40px;border-radius:50%;background:var(--blurple);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;overflow:hidden;margin-top:2px}
+.msg-av img{width:100%;height:100%;object-fit:cover}
+.msg-body{min-width:0;flex:1}
+.msg-head{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
+.msg-name{font-weight:600;font-size:1rem}
+.msg-name.admin{color:#ed4245}
+.msg-name.bot{color:#5865f2}
+.badge{font-size:.65rem;font-weight:700;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:4px}
+.badge.bot{background:var(--blurple);color:#fff}
+.badge.admin{background:#ed4245;color:#fff}
+.msg-time{font-size:.72rem;color:var(--muted)}
+.msg-text{font-size:.95rem;line-height:1.4;word-break:break-word;color:#dbdee1}
+.msg-text a{color:var(--link)}
+
+.composer{
+  padding:0 16px 24px;flex-shrink:0;
+}
+.composer-box{
+  background:var(--input);border-radius:8px;padding:0 12px;display:flex;align-items:center;gap:8px;
+  min-height:44px;
+}
+.composer-box input{flex:1;background:transparent;padding:12px 0;font-size:1rem}
+.composer-box input::placeholder{color:#6d6f78}
+.composer-box:focus-within{box-shadow:0 0 0 1px rgba(88,101,242,.4)}
+.send-btn{color:var(--muted);font-weight:700;padding:6px 10px;border-radius:6px}
+.send-btn:hover{color:var(--text);background:rgba(255,255,255,.06)}
+.composer-lock{padding:12px 16px;background:rgba(0,0,0,.2);border-radius:8px;color:var(--muted);font-size:.9rem;text-align:center}
+
+.members{
+  width:240px;background:var(--member);flex-shrink:0;overflow-y:auto;padding:16px 8px;scrollbar-width:thin;
+}
+.mem-cat{font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:8px 8px 4px}
+.mem-item{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;color:var(--muted)}
+.mem-item:hover{background:var(--hover);color:var(--text)}
+.mem-item .av{width:32px;height:32px;border-radius:50%;background:#5865f2;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0}
+.mem-item .nm{font-size:.9rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* modals */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal.on{display:flex}
+.modal-card{background:var(--sidebar);border-radius:12px;padding:24px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto}
+.modal-card h3{font-size:1.25rem;margin-bottom:6px}
+.modal-card .sub{color:var(--muted);font-size:.88rem;margin-bottom:16px}
+.modal-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+.btn-sec{padding:10px 16px;border-radius:6px;background:transparent;color:var(--text);font-weight:500}
+.btn-sec:hover{text-decoration:underline}
+.btn-ok{padding:10px 18px;border-radius:6px;background:var(--blurple);color:#fff;font-weight:600}
+.btn-danger{padding:10px 18px;border-radius:6px;background:var(--danger);color:#fff;font-weight:600}
+
+/* friends panel overlay */
+#friends-panel{
+  position:fixed;top:0;right:0;bottom:0;width:min(360px,100%);background:var(--sidebar);
+  border-left:1px solid rgba(0,0,0,.4);z-index:90;display:none;flex-direction:column;
+  box-shadow:-8px 0 32px rgba(0,0,0,.35);
+}
+#friends-panel.on{display:flex}
+.fp-head{height:48px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(0,0,0,.3);font-weight:700}
+.fp-body{flex:1;overflow-y:auto;padding:12px}
+.fp-item{display:flex;align-items:center;gap:10px;padding:10px;border-radius:8px}
+.fp-item:hover{background:var(--hover)}
+.fp-item .av{width:36px;height:36px;border-radius:50%;background:var(--blurple);display:flex;align-items:center;justify-content:center;font-weight:700}
+
+#toast{
+  position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:#111214;color:#fff;padding:10px 18px;border-radius:8px;font-size:.9rem;
+  opacity:0;transition:all .25s;z-index:300;pointer-events:none;border:1px solid #3f4147;
+  max-width:90%;
+}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(max-width:860px){
+  .members{display:none}
+  .channels{width:200px}
+}
+@media(max-width:640px){
+  .channels{position:absolute;left:72px;top:0;bottom:0;z-index:50;display:none;box-shadow:8px 0 24px rgba(0,0,0,.4)}
+  .channels.open{display:flex}
+  .servers{width:64px}
+}
+
+/* color classes for names */
+.c0{color:#ed4245}.c1{color:#57f287}.c2{color:#fee75c}.c3{color:#eb459e}
+.c4{color:#5865f2}.c5{color:#00a8fc}.c6{color:#f47b67}.c7{color:#9b59b6}
+</style>
 </head>
 <body>
 
-    <!-- Start Screen with Robux Theme & Button -->
-    <div id="start-screen">
-        <h1>Roblox Free Robux Generator</h1>
-        <p>Click below to generate your free Robux instantly!</p>
-        <button class="robux-btn" onclick="revealContent()">Free Robux!</button>
+<!-- LOGIN -->
+<div id="login" class="screen on">
+  <div class="login-card">
+    <div class="login-logo">Pulse<span>.</span></div>
+    <div class="login-sub">Talk with everyone. Same account system as Go Live.</div>
+    <div class="field">
+      <label>Email</label>
+      <input id="auth-email" type="email" autocomplete="email" placeholder="you@email.com"/>
     </div>
-
-    <!-- Main Content (Hidden until click) -->
-    <div id="main-content">
-        <img src="https://i.postimg.cc/mknWhJF2/Screenshot-20261014-220808-Tik-Tok.jpg" alt="Hypergamy Infographic">
+    <div class="field">
+      <label>Password</label>
+      <input id="auth-pass" type="password" autocomplete="current-password" placeholder="••••••••"/>
     </div>
+    <div class="field" id="name-field" style="display:none">
+      <label>Display name (signup)</label>
+      <input id="auth-name" type="text" maxlength="24" placeholder="How others see you"/>
+    </div>
+    <button class="btn-primary" id="btn-login">Log In</button>
+    <button class="btn-ghost" id="btn-show-signup">Need an account? Sign up</button>
+    <button class="btn-google" id="btn-google">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.2 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.5-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.2 6.1 29.3 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.3 35.7 26.8 36.8 24 36.8c-5.3 0-9.7-3.4-11.3-8.1l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.4l6.2 5.2C39.2 36 44 30.7 44 24c0-1.3-.1-2.5-.4-3.5z"/></svg>
+      Continue with Google
+    </button>
+    <div class="err" id="login-err"></div>
+    <div class="login-note">Connected to Go Live accounts · usernames are unique worldwide</div>
+  </div>
+</div>
 
-    <!-- Hidden Watermark -->
-    <div class="watermark">Made by Kobi</div>
+<!-- USERNAME SETUP -->
+<div id="user-gate" class="screen">
+  <div class="gate-card">
+    <h2>Pick a username</h2>
+    <p>This is how people find you. 3–20 characters. Letters, numbers, underscore. One username per account — choose carefully.</p>
+    <div class="field">
+      <label>Username</label>
+      <input id="gate-user" type="text" maxlength="20" placeholder="e.g. kobi" autocomplete="off" spellcheck="false"/>
+      <div class="hint" id="gate-hint">3–20 chars · a-z, 0-9, _</div>
+    </div>
+    <button class="btn-primary" id="btn-claim">Claim username</button>
+    <div class="err" id="gate-err"></div>
+  </div>
+</div>
 
-    <!-- Hidden Audio Player -->
-    <audio id="bg-music" loop preload="auto">
-        <source src="https://files.catbox.moe/5zxod1.mp4" type="audio/mp4">
-    </audio>
+<!-- APP -->
+<div id="app" class="screen">
+  <div class="servers" id="server-rail"></div>
+  <div class="channels" id="channels-col">
+    <div class="chan-header" id="server-title-btn">
+      <span id="server-title">everyone</span>
+      <span style="opacity:.6">▾</span>
+    </div>
+    <div class="chan-list" id="chan-list"></div>
+    <div class="user-panel">
+      <div class="avatar" id="me-av"><span class="dot"></span></div>
+      <div class="user-meta">
+        <div class="un" id="me-name">—</div>
+        <div class="st" id="me-status">Online</div>
+      </div>
+      <button class="icon-sm" id="btn-friends" title="Friends">👥</button>
+      <button class="icon-sm" id="btn-signout" title="Sign out">⏻</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="chat-top">
+      <button class="icon-sm" id="btn-toggle-chan" style="display:none">☰</button>
+      <span class="hash">#</span>
+      <span class="ctitle" id="chan-title">main</span>
+      <span class="cdesc" id="chan-desc">Global chat · bots never sleep</span>
+      <div class="spacer"></div>
+      <div class="online-pill" id="online-pill">31.5M online</div>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="composer" id="composer">
+      <div class="composer-box">
+        <input id="chat-input" type="text" maxlength="500" placeholder="Message #main" autocomplete="off"/>
+        <button class="send-btn" id="btn-send">Send</button>
+      </div>
+    </div>
+  </div>
+  <div class="members" id="members-col"></div>
+</div>
 
-    <script>
-        function revealContent() {
-            // Hide the Robux screen
-            document.getElementById('start-screen').style.display = 'none';
-            
-            // Show the image container
-            document.getElementById('main-content').style.display = 'flex';
-            
-            // Change background to match the image viewer style
-            document.body.style.background = '#121212';
+<!-- CREATE SERVER -->
+<div class="modal" id="modal-server">
+  <div class="modal-card">
+    <h3>Create a server</h3>
+    <div class="sub">Your server is where you and your friends hang out.</div>
+    <div class="field">
+      <label>Server name</label>
+      <input id="new-srv-name" maxlength="40" placeholder="My squad"/>
+    </div>
+    <div class="field">
+      <label>Icon letter / emoji (optional)</label>
+      <input id="new-srv-icon" maxlength="2" placeholder="S"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sec" id="srv-cancel">Cancel</button>
+      <button class="btn-ok" id="srv-create">Create</button>
+    </div>
+  </div>
+</div>
 
-            // Play audio starting right past the initial delay (0.8 seconds)
-            const audio = document.getElementById('bg-music');
-            audio.currentTime = 0.8;
-            audio.play();
-        }
-    </script>
+<!-- SERVER SETTINGS (owner) -->
+<div class="modal" id="modal-srv-settings">
+  <div class="modal-card">
+    <h3>Server settings</h3>
+    <div class="sub">Only the owner can change these.</div>
+    <div class="field">
+      <label>Server name</label>
+      <input id="edit-srv-name" maxlength="40"/>
+    </div>
+    <div class="field">
+      <label>Icon (letter or emoji)</label>
+      <input id="edit-srv-icon" maxlength="2"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sec" id="edit-srv-cancel">Cancel</button>
+      <button class="btn-ok" id="edit-srv-save">Save</button>
+    </div>
+  </div>
+</div>
 
+<!-- FRIENDS -->
+<div id="friends-panel">
+  <div class="fp-head">
+    <span>Friends</span>
+    <button class="icon-sm" id="fp-close">✕</button>
+  </div>
+  <div class="fp-body">
+    <div class="field">
+      <label>Add friend by username</label>
+      <div style="display:flex;gap:8px">
+        <input id="friend-user" maxlength="20" placeholder="username" style="flex:1;background:var(--bg);border-radius:8px;padding:10px 12px"/>
+        <button class="btn-ok" id="btn-add-friend" style="padding:10px 14px">Add</button>
+      </div>
+    </div>
+    <div class="mem-cat" style="margin-top:16px">Your friends</div>
+    <div id="friends-list"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ========== FIREBASE (same project as Go Live) ========== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDaQ06E5Zvj6M9XnqOpWgmUsbe5T_EnaPo",
+  authDomain: "golive-ff5ad.firebaseapp.com",
+  projectId: "golive-ff5ad",
+  storageBucket: "golive-ff5ad.firebasestorage.app",
+  messagingSenderId: "994701431927",
+  appId: "1:994701431927:web:4e7615434facc5b54ae272",
+  measurementId: "G-Q99XRZG8EG",
+  databaseURL: "https://golive-ff5ad-default-rtdb.firebaseio.com"
+};
+const SPECIAL_EMAIL = "kobik8512@gmail.com";
+const BOT_ONLINE = 31469047;
+
+let fbApp = null, fbAuth = null, fbDb = null;
+function initFirebase(){
+  try {
+    if (typeof firebase === "undefined") return false;
+    if (!firebase.apps.length) fbApp = firebase.initializeApp(FIREBASE_CONFIG);
+    else fbApp = firebase.app();
+    fbAuth = firebase.auth();
+    fbDb = firebase.database();
+    return true;
+  } catch(e){ console.warn(e); return false; }
+}
+
+/* ========== STATE ========== */
+let user = null; // {uid, email, username, displayName, isAdmin}
+let currentServerId = "everyone";
+let currentChannelId = "main";
+let servers = {}; // id -> server obj
+let chatTimer = null;
+let msgCount = 0;
+const MAX_DOM_MSGS = 80;
+let signupMode = false;
+
+/* ========== NAME + MESSAGE GENERATORS (huge variety, small footprint) ========== */
+const PREFIX = ["Neo","Dark","Sky","Fire","Ice","Shadow","Pixel","Cyber","Ultra","Mega","Pro","Silent","Rapid","Lucky","Wild","Cosmic","Nova","Ghost","Storm","Blaze","Aqua","Solar","Lunar","Night","Dawn","Frost","Ember","Viper","Hawk","Wolf","Fox","Bear","Lion","Drake","Phoenix","Rogue","Ace","King","Queen","Lord","Miss","Mr","xX","i","The","Real","Not","Just","Only","Super","Hyper","Turbo","Prime","Elite","Omega","Alpha","Beta","Zero","One","Two","Max","Mini","Big","Lil","Young","Old","Fast","Slow","True","Fake","Cool","Hot","Cold","Soft","Hard","Pure","Raw","Live","Dead","Open","Closed","Bright","Dim","Gold","Silver","Iron","Steel","Glass","Stone","Wood","Leaf","Rose","Thorn","Star","Moon","Sun","Cloud","Rain","Snow","Wind","Dust","Ash","Spark","Bolt","Wave","Tide","Reef","Peak","Valley","River","Lake","Sea","Deep","High","Low"];
+const MID = ["","_","x","","",".",""];
+const SUFFIX = ["","_YT","_TT","_GG","_OP","_Pro","_God","_Kid","_Boy","_Girl","_Man","_HD","_4K","_PC","_Mobile","_Gamer","_Live","_TV","_News","_Bot","99","07","12","21","69","88","01","13","24","42","77","2000","2005","2008","2010","x","xx","xxx","TV","Plays","Clips","Reacts","Edits","Fan","Stan","Crew","Squad","Team","Gang","Club","Hub","Zone","World","Land","City","Town","Base","Nest","Den","Cave","Lab","Studio","Room","Chat","Talk","Vibes","Energy","Wave","Force","Power","King","Queen"];
+const ADJ = ["crazy","insane","wild","chill","mid","fire","trash","goated","clean","dirty","smooth","rough","loud","quiet","fast","slow","easy","hard","fair","unfair","real","fake","based","cringe","peak","low","high","deep","shallow","bright","dark"];
+const NOUN = ["game","match","round","clip","stream","chat","server","phone","pc","laptop","wifi","lag","ping","fps","rank","skin","map","boss","quest","loot","drop","win","loss","team","duo","trio","squad","lobby","queue","patch","update","bug","glitch","hack","mod","song","beat","track","video","reel","post","story","meme","joke","trend","news","update","drama","tea","gossip","food","coffee","sleep","school","work","job","money","coins","gift","donate","follow","sub","like","share"];
+const VERB = ["love","hate","need","want","got","lost","won","tried","failed","made","built","broke","fixed","played","watched","heard","saw","found","missed","caught","sent","got","ran","walked","jumped","dropped","picked","sold","bought","traded"];
+const OPENERS = ["yo","hey","hi","sup","bro","dude","man","fr","ngl","lowkey","highkey","tbh","imo","idk","ikr","omg","lmao","lol","bruh","broo","chat","guys","yall","everyone","help","wait","ok","okay","alright","so","anyway","real talk","no cap","deadass","on god","fr fr","be so fr"];
+const ENDERS = [""," lol"," lmao"," fr"," ngl"," tbh"," idk"," 💀"," 🔥"," 😭"," 😂"," 👀"," ??"," !!!","..."," imo"," tho"," though"," rn"," tonight"," today"," forever"," for real"];
+const TOPICS_EN = [
+  "this chat is actually insane","who else is just vibing","anyone playing tonight",
+  "my ping is so bad rn","new update is mid","that clip was crazy",
+  "can someone help me","i just woke up","good morning chat",
+  "good night everyone","this server never sleeps","31 million people is wild",
+  "how is this so active","bots or real people lmao","admin drop something",
+  "when is the next event","i need friends here","add me",
+  "what game should i play","rank grinding is painful","one more game",
+  "im so tired","coffee first","school was rough","work drained me",
+  "music recommendations?","this song is stuck in my head","new album fire",
+  "did you see the news","world is crazy","weather is perfect today",
+  "who wants to duo","looking for squad","vc anyone?",
+  "typing so fast i cant read","chat is moving too quick","scroll up for lore",
+  "first time here","been here since day 1","pulse is better than discord ngl",
+  "go live is connected right","same account as go live","kobi built this",
+  "announcements when","drop a W in chat","F in chat",
+  "ratio","L + ratio","skill issue","git gud","touch grass",
+  "i cant stop chatting","someone say something funny","tell a joke",
+  "favorite food","pizza or burger","cats or dogs","summer or winter",
+  "iphone or android","pc or console","day or night person",
+  "this is peak internet","internet never sleeps","timezones colliding",
+  "europe gang","asia gang","america gang","africa gang","oceania where you at",
+  "georgia mentioned","english chat go","bilingual chaos",
+  "i spilled water on my keyboard","my battery is at 2%","charging rn",
+  "brb","afk 5 min","im back","missed anything?","what happened",
+  "who is online from my city","say your country","flags in chat",
+  "i need sleep but chat too good","one more message","last message i swear",
+  "this app looks so real","ui is clean","dark mode forever",
+  "can we get roles","mod when","report button where",
+  "friend request sent","accept my request","who wants to be friends",
+  "server boost when","custom emoji please","nitro but free",
+  "i just hit a clip","clip in announcements pls","host drop the vod",
+  "stock market is weird","crypto talk banned?","just chatting money vibes",
+  "homework help","math is pain","history test tomorrow",
+  "gym later","leg day","protein check",
+  "cooking something","burnt the toast again","chef arc",
+  "pet just jumped on keyboard aaaaa","cat tax","dog tax",
+  "rain outside","sun finally","snow when",
+  "birthday soon","happy birthday someone","party in chat",
+  "new phone who dis","old phone still going","broken charger",
+  "wifi down using data","lag spikes","packet loss",
+  "ranked is sweaty","casual is better","arcade mode",
+  "speedrun any%","world record when","practice makes pain",
+  "i queue for 20 min","found a match","teammates are bots",
+  "carry me","i will carry","thrower in lobby",
+  "patch notes long","balance changes mid","nerf this buff that",
+  "skin is expensive","battle pass grind","free rewards only",
+  "stream starting soon","raid this chat","host is cooking",
+  "super chat energy","gift spam","rose for the chat",
+  "poll time","vote in chat","A or B",
+  "messi or ronaldo","android or ios","tea or coffee",
+  "early gang","night owls only","lunch break chat",
+  "i ate already","hungry rn","snack recommendations",
+  "book recommendations","movie night","series to binge",
+  "anime season","manga catch up","manhwa hits different",
+  "football tonight","basketball game","esports match",
+  "odds are crazy","i predicted it","called it",
+  "coding something","bug free? never","deployed to prod",
+  "school wifi blocked this","using vpn","it works",
+  "parents cooking","family time","siblings noisy",
+  "moved to new city","homesick","travel plans",
+  "passport ready","visa pain","airport food",
+  "random fact incoming","did you know","mind blown",
+  "unpopular opinion","fight me","respectfully disagree",
+  "agree with this","facts","spitting",
+  "this aged well","old message hits","lore drop",
+  "welcome new people","say hi if new","veterans stand up",
+  "bot count is fake?","31m is real energy","server never empty",
+  "cpu on fire","gpu crying","ram full of chrome tabs",
+  "close some tabs","task manager go brr","restart fixed it",
+  "update available","later","forced update hate",
+  "backup your stuff","lost files before","cloud saves",
+  "password manager","2fa on","stay safe",
+  "scam link?","dont click random","report that",
+  "mod online?","admin help","kobi you there",
+  "announcement hype","new feature when","roadmap please",
+  "pulse > everything","im addicted","one more hour",
+  "going offline","see you tomorrow","bye chat",
+  "reconnected","wifi back","miss me?",
+  "typing...","wait for it","drumroll",
+  "surprise","plot twist","not clickbait",
+  "quality post","rare W","huge L",
+  "copium","hopium","malicious compliance",
+  "skill issue detected","based department","cringe alert",
+  "touch grass challenge","outside is scary","sun is bright",
+  "vitamin d check","water reminder","stretch break",
+  "posture check","eye strain","dark mode helps",
+  "font is nice","ui polish","animations smooth",
+  "mobile gang","desktop supremacy","tablet weird",
+  "landscape mode","portrait only","rotate phone",
+  "battery saver on","performance mode","max brightness",
+  "night light","blue light filter","sleep schedule ruined",
+  "alarm in 4 hours","why am i awake","chat is the reason",
+  "same","this","literally me","mood",
+  "big mood","tiny violin","sadge","poggers","ez","gg","wp","nt","glhf",
+  "o7","f","W","L","S","R","Q","gg wp","ez clap","copium overdosed"
+];
+const TOPICS_GE = [
+  "გამარჯობა ჩატი","როგორ ხართ","ვინ არის აქედან საქართველოდან",
+  "ეს ჩატი ძალიან სწრაფია","ვერ ვასწრებ კითხვას","ბოტებია თუ ხალხი",
+  "რა თამაშს თამაშობთ","რანკედი მძიმეა","ერთი მატჩი კიდევ",
+  "დაღლილი ვარ","სკოლა მძიმე იყო","სამსახური გამიწია",
+  "ყავა მინდა","რა მუსიკას უსმენთ","ახალი სიმღერა ცეცხლია",
+  "ამინდი კარგია","წვიმს","მზე გამოვიდა",
+  "ვინ მინდა დუო","სკვადი გვინდა","ვოისში შემოდით",
+  "პირველად ვარ აქ","დღიდან ვარ","პულსი მაგარია",
+  "გო ლაივი დაკავშირებულია","იგივე ექაუნთი","კობი ააგო",
+  "ანაუნსმენთი როდის","W ჩატში","F ჩატში",
+  "ფაქტები","ვეთანხმები","არ ვეთანხმები",
+  "საქართველო გეჰგი","ინგლისური ჩატი","ორენოვანი ქაოსი",
+  "ბატარეა 2%-ზეა","ვიზავი","ლაგი მაქვს",
+  "ახალი ტელეფონი","ძველი ჯერ მუშაობს","კაბელი გაფუჭდა",
+  "ვაიფაი გაჭრა","მობილური ინტერნეტი","ახლა კარგია",
+  "დაბრუნდი","აფკ ვიყავი","რა მოხდა",
+  "ქვეყანა დაწერეთ","დროშები ჩატში","ევროპა გეჰგი",
+  "ძილი მინდა მაგრამ ჩატი კარგია","ბოლო მესიჯი","ხვალამდე",
+  "აპლიკაცია რეალურია","დიზაინი სუფთაა","დარკ მოდი",
+  "მეგობარი დამამატეთ","რექვესტი გამოგიგზავნე","ვინ გინდათ მეგობრობა",
+  "კლიპი ავიღე","ანაუნსმენთში ჩააგდეთ","ჰოსტი როდის",
+  "საშინაო დავალება","მათემატიკა ტკივილია","ტესტი ხვალ",
+  "სპორტდარბაზი","ფეხების დღე","პროტეინი",
+  "ვმზადებ რამეს","პური დამიწვა","შეფი ვარ",
+  "კატა კლავიატურაზე","კატის გადასახადი","ძაღლის გადასახადი",
+  "დაბადების დღე მალე","გილოცავთ","წვეულება ჩატში",
+  "რანკედი ოფლიანია","ქეჟუალი უკეთესია","არკადა",
+  "სტრიმი იწყება","რეიდი ამ ჩატზე","ჰოსტი ამზადებს",
+  "გამოკითხვა","ხმა ჩატში","ა თუ ბ",
+  "მესი თუ რონალდო","ანდროიდი თუ აიფონი","ჩაი თუ ყავა",
+  "დილის გეჰგი","ღამის ბუები","ლანჩის შესვენება",
+  "უკვე ვჭამე","მშია","სნეკები",
+  "წიგნის რეკომენდაცია","ფილმის ღამე","სერიალი",
+  "ანიმე სეზონი","მანგა","მანხვა სხვანაირია",
+  "ფეხბურთი ამაღამ","კალათბურთი","ესპორტი",
+  "კოდს ვწერ","ბაგი არ არის? არასდროს","პროდზე გავუშვი",
+  "სკოლის ვაიფაი ბლოკავს","ვპნ","მუშაობს",
+  "მშობლები ამზადებენ","ოჯახური დრო","ძმები ხმაურობენ",
+  "ახალ ქალაქში გადავედი","მოწყენილი ვარ","მოგზაურობა",
+  "შემთხვევითი ფაქტი","იცოდით","გონება აფეთქებულია",
+  "პოპულარული აზრი არაა","შემომეტაკე","პატივისცემით არ ვეთანხმები",
+  "ახალბედები მოგესალმებით","თქვით გამარჯობა","ვეტერანები ადექით",
+  "ბოტების რაოდენობა","31 მილიონი ენერგიაა","სერვერი ცარიელი არ არის",
+  "პროცესორი იწვის","ვიდეო ბარათი ტირის","რამი სავსეა",
+  "ტაბები დახურე","თასქ მენეჯერი","რესტარტმა გაასწორა",
+  "განახლება არის","მოგვიანებით","იძულებითი განახლება",
+  "პაროლების მენეჯერი","ორი ფაქტორი","უსაფრთხოდ იყავით",
+  "სკამი ლინკი?","არ დააკლიკოთ","დაარეპორტეთ",
+  "მოდი ონლაინ?","ადმინი დამეხმარე","კობი ხარ?",
+  "ანაუნსმენთი ჰაიპი","ახალი ფიჩერი როდის","როუდმეფი",
+  "პულსი ყველაფერზე უკეთესია","მიმდგარი ვარ","კიდევ ერთი საათი",
+  "გავთიშები","ხვალამდე","ნახვამდის ჩატი",
+  "დავბრუნდი","ვაიფაი დაბრუნდა","მოგენატრე?",
+  "იგივე","ეს","პირდაპირ მე","მუდი",
+  "დიდი მუდი","პოგერსი","იზი","გგ","გლჰფ"
+];
+const REACTIONS = ["W","L","F","S","R","gg","ez","nt","gl","hf","o7","based","cringe","real","fake","mid","fire","trash","goated","skill issue","touch grass","ratio","L + ratio","no cap","fr fr","on god","deadass","poggers","sadge","copium","hopium","malicious","sheesh","bussin","slay","periodt","iykyk","ngl","tbh","imo","idk","ikr","bruh","bro","sis","fam","chat","gang","squad"];
+
+function rand(a){ return a[Math.floor(Math.random()*a.length)]; }
+function chance(p){ return Math.random() < p; }
+
+function makeName(){
+  const p = rand(PREFIX);
+  const m = rand(MID);
+  const s = chance(0.55) ? rand(SUFFIX) : (chance(0.4) ? String(Math.floor(Math.random()*99)) : "");
+  let n = p + m + (chance(0.35) ? rand(PREFIX).slice(0,4) : "") + s;
+  if (n.length > 20) n = n.slice(0,20);
+  if (n.length < 3) n = p + String(Math.floor(Math.random()*90)+10);
+  return n;
+}
+
+const NAME_CACHE = [];
+for (let i = 0; i < 4000; i++) NAME_CACHE.push(makeName());
+// ensure uniqueness-ish
+const NAME_SET = [...new Set(NAME_CACHE)];
+let nameIdx = Math.floor(Math.random()*NAME_SET.length);
+
+function nextBotName(){
+  if (chance(0.12)) return makeName() + Math.floor(Math.random()*90);
+  const n = NAME_SET[nameIdx % NAME_SET.length];
+  nameIdx++;
+  if (nameIdx > NAME_SET.length * 3) nameIdx = Math.floor(Math.random()*NAME_SET.length);
+  return n;
+}
+
+function genMsg(){
+  if (chance(0.08)) return rand(REACTIONS);
+  if (chance(0.55)) {
+    // English-heavy global chat
+    let t = rand(TOPICS_EN);
+    if (chance(0.25)) t = rand(OPENERS) + " " + t;
+    if (chance(0.3)) t = t + rand(ENDERS);
+    if (chance(0.12)) t = t + " " + rand(ADJ);
+    if (chance(0.08)) t = rand(OPENERS) + " " + rand(VERB) + " " + rand(NOUN) + rand(ENDERS);
+    return t.slice(0, 220);
+  }
+  // Georgian mix
+  let t = rand(TOPICS_GE);
+  if (chance(0.2)) t = t + " " + rand(ENDERS);
+  return t.slice(0, 220);
+}
+
+/* ========== HELPERS ========== */
+function toast(t, ms){
+  const e = document.getElementById("toast");
+  e.textContent = t;
+  e.classList.add("on");
+  setTimeout(() => e.classList.remove("on"), ms || 2000);
+}
+function show(id){
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("on"));
+  document.getElementById(id).classList.add("on");
+}
+function esc(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function colorClass(n){
+  let h = 0;
+  for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0;
+  return "c" + (h % 8);
+}
+function formatNum(n){
+  n = Number(n) || 0;
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, "") + "K";
+  return String(Math.floor(n));
+}
+function initials(n){
+  n = String(n || "?");
+  return n.slice(0, 2).toUpperCase();
+}
+function isValidUsername(u){
+  return /^[a-zA-Z0-9_]{3,20}$/.test(u);
+}
+function timeStr(){
+  const d = new Date();
+  return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+}
+
+/* ========== AUTH ========== */
+function setLoginErr(m){ document.getElementById("login-err").textContent = m || ""; }
+function setGateErr(m){ document.getElementById("gate-err").textContent = m || ""; }
+
+document.getElementById("btn-show-signup").onclick = function(){
+  signupMode = !signupMode;
+  document.getElementById("name-field").style.display = signupMode ? "block" : "none";
+  document.getElementById("btn-login").textContent = signupMode ? "Sign Up" : "Log In";
+  this.textContent = signupMode ? "Have an account? Log in" : "Need an account? Sign up";
+};
+
+document.getElementById("btn-login").onclick = async function(){
+  setLoginErr("");
+  if (!initFirebase() || !fbAuth) { setLoginErr("Server not ready"); return; }
+  const email = (document.getElementById("auth-email").value || "").trim();
+  const pass = document.getElementById("auth-pass").value || "";
+  if (!email || pass.length < 6) { setLoginErr("Email + password (min 6)"); return; }
+  try {
+    if (signupMode) {
+      const name = (document.getElementById("auth-name").value || "").trim().slice(0, 24);
+      if (name.length < 2) { setLoginErr("Pick a display name"); return; }
+      const res = await fbAuth.createUserWithEmailAndPassword(email, pass);
+      await res.user.updateProfile({ displayName: name });
+      await afterAuth(res.user);
+    } else {
+      const res = await fbAuth.signInWithEmailAndPassword(email, pass);
+      await afterAuth(res.user);
+    }
+  } catch(e){ setLoginErr(e.message || "Auth failed"); }
+};
+
+document.getElementById("btn-google").onclick = function(){
+  setLoginErr("");
+  if (!initFirebase() || !fbAuth) { setLoginErr("Server not ready"); return; }
+  const provider = new firebase.auth.GoogleAuthProvider();
+  const btn = this;
+  btn.disabled = true;
+  fbAuth.signInWithPopup(provider).then(function(res){
+    return afterAuth(res.user);
+  }).catch(function(e){
+    if (e && e.code === "auth/popup-blocked") {
+      toast("Redirecting to Google…");
+      fbAuth.signInWithRedirect(provider).catch(function(e2){
+        setLoginErr(e2.message || e.message || "Google sign in failed");
+      });
+    } else {
+      setLoginErr(e.message || "Google sign in failed");
+    }
+  }).finally(function(){ btn.disabled = false; });
+};
+
+async function afterAuth(u){
+  if (!u) return;
+  // Load pulse profile
+  let profile = null;
+  try {
+    const snap = await fbDb.ref("pulseUsers/" + u.uid).once("value");
+    profile = snap.val();
+  } catch(e){}
+
+  if (profile && profile.username) {
+    user = {
+      uid: u.uid,
+      email: (u.email || "").toLowerCase(),
+      username: profile.username,
+      displayName: profile.displayName || profile.username,
+      isAdmin: !!profile.isAdmin || (u.email || "").toLowerCase() === SPECIAL_EMAIL || profile.username.toLowerCase() === "kobi"
+    };
+    // refresh admin flag if kobi
+    if (user.username.toLowerCase() === "kobi" || user.email === SPECIAL_EMAIL) {
+      user.isAdmin = true;
+      try { await fbDb.ref("pulseUsers/" + u.uid + "/isAdmin").set(true); } catch(e){}
+    }
+    enterApp();
+  } else {
+    // need username
+    user = {
+      uid: u.uid,
+      email: (u.email || "").toLowerCase(),
+      username: null,
+      displayName: u.displayName || (u.email ? u.email.split("@")[0] : "User"),
+      isAdmin: false
+    };
+    show("user-gate");
+    document.getElementById("gate-user").value = "";
+    document.getElementById("gate-user").focus();
+  }
+}
+
+document.getElementById("btn-claim").onclick = async function(){
+  setGateErr("");
+  if (!user || !user.uid) { setGateErr("Not signed in"); return; }
+  let uname = (document.getElementById("gate-user").value || "").trim();
+  if (!isValidUsername(uname)) {
+    setGateErr("Username must be 3–20 chars: letters, numbers, underscore");
+    return;
+  }
+  const key = uname.toLowerCase();
+  try {
+    // Claim username atomically
+    const unameRef = fbDb.ref("pulseUsernames/" + key);
+    const result = await unameRef.transaction(function(current){
+      if (current === null) return user.uid;
+      return; // abort if taken
+    });
+    if (!result.committed) {
+      setGateErr("Username already taken");
+      return;
+    }
+    const isAdmin = key === "kobi" || user.email === SPECIAL_EMAIL;
+    const profile = {
+      username: uname,
+      usernameLower: key,
+      displayName: uname,
+      email: user.email,
+      isAdmin: isAdmin,
+      createdAt: Date.now(),
+      friends: {}
+    };
+    await fbDb.ref("pulseUsers/" + user.uid).set(profile);
+    // also mirror light profile under users for Go Live compatibility
+    try {
+      await fbDb.ref("users/" + user.uid).update({
+        name: uname,
+        email: user.email,
+        pulseUsername: uname,
+        lastLogin: Date.now()
+      });
+    } catch(e){}
+
+    user.username = uname;
+    user.displayName = uname;
+    user.isAdmin = isAdmin;
+    toast(isAdmin ? "Welcome, admin @" + uname : "Welcome @" + uname);
+    enterApp();
+  } catch(e){
+    setGateErr(e.message || "Could not claim username");
+  }
+};
+
+document.getElementById("btn-signout").onclick = function(){
+  stopBotChat();
+  if (fbAuth) fbAuth.signOut().catch(function(){});
+  user = null;
+  show("login");
+};
+
+/* ========== SERVERS / CHANNELS ========== */
+const DEFAULT_EVERYONE = {
+  id: "everyone",
+  name: "everyone",
+  icon: "E",
+  ownerId: "system",
+  channels: {
+    main: { id: "main", name: "main", topic: "Global chat · 31,469,047 online · max speed" },
+    announcements: { id: "announcements", name: "announcements", topic: "Only admins can post here" },
+    general: { id: "general", name: "general", topic: "Hang out" }
+  }
+};
+
+function loadLocalServers(){
+  try {
+    const raw = localStorage.getItem("pulse_servers_" + (user && user.uid));
+    if (raw) return JSON.parse(raw);
+  } catch(e){}
+  return {};
+}
+function saveLocalServers(){
+  try {
+    const own = {};
+    Object.keys(servers).forEach(function(id){
+      if (id === "everyone") return;
+      own[id] = servers[id];
+    });
+    localStorage.setItem("pulse_servers_" + user.uid, JSON.stringify(own));
+  } catch(e){}
+}
+
+function enterApp(){
+  servers = { everyone: JSON.parse(JSON.stringify(DEFAULT_EVERYONE)) };
+  const local = loadLocalServers();
+  Object.assign(servers, local);
+  // also try load from FB
+  if (fbDb && user) {
+    fbDb.ref("pulseServers").orderByChild("ownerId").equalTo(user.uid).once("value").then(function(snap){
+      const v = snap.val() || {};
+      Object.keys(v).forEach(function(id){ servers[id] = v[id]; });
+      renderServers();
+    }).catch(function(){});
+  }
+  currentServerId = "everyone";
+  currentChannelId = "main";
+  document.getElementById("me-name").textContent = user.username + (user.isAdmin ? " · admin" : "");
+  document.getElementById("me-av").textContent = initials(user.username);
+  document.getElementById("online-pill").textContent = formatNum(BOT_ONLINE) + " online";
+  show("app");
+  renderServers();
+  selectServer("everyone");
+  // presence
+  try {
+    const pref = fbDb.ref("pulsePresence/" + user.uid);
+    pref.set({ username: user.username, at: Date.now() });
+    pref.onDisconnect().remove();
+  } catch(e){}
+}
+
+function renderServers(){
+  const rail = document.getElementById("server-rail");
+  rail.innerHTML = "";
+  Object.keys(servers).forEach(function(id){
+    const s = servers[id];
+    const btn = document.createElement("button");
+    btn.className = "srv" + (id === currentServerId ? " on" : "");
+    btn.title = s.name;
+    btn.innerHTML = '<span class="srv-pill"></span>' + esc(s.icon || s.name.slice(0,1).toUpperCase());
+    btn.onclick = function(){ selectServer(id); };
+    rail.appendChild(btn);
+  });
+  const sep = document.createElement("div");
+  sep.className = "srv-sep";
+  rail.appendChild(sep);
+  const add = document.createElement("button");
+  add.className = "srv srv-add";
+  add.title = "Add a Server";
+  add.textContent = "+";
+  add.onclick = function(){
+    document.getElementById("new-srv-name").value = "";
+    document.getElementById("new-srv-icon").value = "";
+    document.getElementById("modal-server").classList.add("on");
+  };
+  rail.appendChild(add);
+}
+
+function selectServer(id){
+  if (!servers[id]) return;
+  currentServerId = id;
+  const s = servers[id];
+  document.getElementById("server-title").textContent = s.name;
+  const chans = s.channels || {};
+  const first = Object.keys(chans)[0] || "main";
+  renderChannels();
+  selectChannel(chans[currentChannelId] ? currentChannelId : first);
+  renderServers();
+  renderMembers();
+}
+
+function renderChannels(){
+  const s = servers[currentServerId];
+  const list = document.getElementById("chan-list");
+  list.innerHTML = "";
+  const cat = document.createElement("div");
+  cat.className = "chan-cat";
+  cat.textContent = "Text channels";
+  list.appendChild(cat);
+  Object.keys(s.channels || {}).forEach(function(cid){
+    const c = s.channels[cid];
+    const el = document.createElement("button");
+    el.className = "chan-item" + (cid === currentChannelId ? " on" : "");
+    el.innerHTML = '<span class="chan-hash">#</span> ' + esc(c.name);
+    el.onclick = function(){ selectChannel(cid); };
+    list.appendChild(el);
+  });
+}
+
+function selectChannel(cid){
+  const s = servers[currentServerId];
+  if (!s || !s.channels[cid]) return;
+  currentChannelId = cid;
+  const c = s.channels[cid];
+  document.getElementById("chan-title").textContent = c.name;
+  document.getElementById("chan-desc").textContent = c.topic || "";
+  document.getElementById("chat-input").placeholder = "Message #" + c.name;
+  renderChannels();
+
+  const box = document.getElementById("messages");
+  box.innerHTML = "";
+  msgCount = 0;
+
+  // composer lock for announcements
+  const composer = document.getElementById("composer");
+  if (cid === "announcements" && !(user && user.isAdmin)) {
+    composer.innerHTML = '<div class="composer-lock">Only admins can post in #announcements</div>';
+    stopBotChat();
+  } else {
+    composer.innerHTML = '<div class="composer-box"><input id="chat-input" type="text" maxlength="500" placeholder="Message #' + esc(c.name) + '" autocomplete="off"/><button class="send-btn" id="btn-send">Send</button></div>';
+    wireComposer();
+    if (currentServerId === "everyone" && cid === "main") {
+      startBotChat();
+    } else {
+      stopBotChat();
+      // slower ambient for other channels
+      if (currentServerId === "everyone") startAmbientChat(1200);
+      else stopBotChat();
+    }
+  }
+  // load recent real messages
+  loadChannelMessages();
+}
+
+function wireComposer(){
+  const input = document.getElementById("chat-input");
+  const btn = document.getElementById("btn-send");
+  if (!input || !btn) return;
+  function send(){
+    const t = (input.value || "").trim();
+    if (!t) return;
+    input.value = "";
+    postUserMessage(t);
+  }
+  btn.onclick = send;
+  input.onkeydown = function(e){
+    if (e.key === "Enter") { e.preventDefault(); send(); }
+  };
+}
+
+/* ========== MESSAGES ========== */
+function appendMsg(name, text, opts){
+  opts = opts || {};
+  const box = document.getElementById("messages");
+  if (!box) return;
+  const row = document.createElement("div");
+  row.className = "msg-row";
+  const isAdmin = !!opts.admin;
+  const isBot = !!opts.bot;
+  const isMe = !!opts.me;
+  const col = colorClass(name);
+  let badges = "";
+  if (isAdmin) badges += '<span class="badge admin">ADMIN</span>';
+  if (isBot) badges += '<span class="badge bot">BOT</span>';
+  row.innerHTML =
+    '<div class="msg-av ' + col + '">' + esc(initials(name)) + '</div>' +
+    '<div class="msg-body">' +
+      '<div class="msg-head">' +
+        '<span class="msg-name ' + col + (isAdmin ? " admin" : "") + (isBot ? " bot" : "") + '">' + esc(name) + badges + '</span>' +
+        '<span class="msg-time">' + (opts.time || timeStr()) + '</span>' +
+      '</div>' +
+      '<div class="msg-text">' + esc(text) + '</div>' +
+    '</div>';
+  box.appendChild(row);
+  msgCount++;
+  while (box.children.length > MAX_DOM_MSGS) box.removeChild(box.firstChild);
+  // stick to bottom if near bottom
+  if (box.scrollHeight - box.scrollTop - box.clientHeight < 120) {
+    box.scrollTop = box.scrollHeight;
+  }
+}
+
+function postUserMessage(text){
+  if (!user) return;
+  if (currentChannelId === "announcements" && !user.isAdmin) {
+    toast("Only admins can post here");
+    return;
+  }
+  appendMsg(user.username, text, { me: true, admin: user.isAdmin });
+  // persist
+  if (fbDb) {
+    const path = "pulseChat/" + currentServerId + "/" + currentChannelId;
+    try {
+      fbDb.ref(path).push({
+        name: user.username,
+        text: text.slice(0, 500),
+        uid: user.uid,
+        admin: !!user.isAdmin,
+        t: Date.now()
+      });
+    } catch(e){}
+  }
+}
+
+function loadChannelMessages(){
+  if (!fbDb) return;
+  const path = "pulseChat/" + currentServerId + "/" + currentChannelId;
+  try {
+    fbDb.ref(path).limitToLast(40).once("value").then(function(snap){
+      const v = snap.val() || {};
+      const arr = Object.keys(v).map(function(k){ return v[k]; }).sort(function(a,b){ return (a.t||0)-(b.t||0); });
+      arr.forEach(function(m){
+        if (!m || !m.text) return;
+        appendMsg(m.name || "user", m.text, { admin: !!m.admin, time: m.t ? new Date(m.t).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : timeStr() });
+      });
+    });
+  } catch(e){}
+}
+
+/* ========== BOT CHAT ENGINE (main channel ultra fast) ========== */
+function stopBotChat(){
+  if (chatTimer) { clearTimeout(chatTimer); chatTimer = null; }
+}
+function startBotChat(){
+  stopBotChat();
+  // seed a few lines
+  for (let i = 0; i < 12; i++) appendMsg(nextBotName(), genMsg(), { bot: true });
+  function tick(){
+    if (currentServerId !== "everyone" || currentChannelId !== "main") return;
+    // burst size like max-speed go live
+    const burst = 2 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < burst; i++) {
+      appendMsg(nextBotName(), genMsg(), { bot: true });
+    }
+    // online count jitter
+    const jitter = BOT_ONLINE + Math.floor(Math.random() * 8000) - 2000;
+    const pill = document.getElementById("online-pill");
+    if (pill) pill.textContent = formatNum(Math.max(BOT_ONLINE - 50000, jitter)) + " online";
+    // delay 40–120ms → extremely fast
+    chatTimer = setTimeout(tick, 45 + Math.random() * 90);
+  }
+  chatTimer = setTimeout(tick, 200);
+}
+function startAmbientChat(baseMs){
+  stopBotChat();
+  function tick(){
+    if (currentChannelId === "announcements") return;
+    appendMsg(nextBotName(), genMsg(), { bot: true });
+    chatTimer = setTimeout(tick, baseMs + Math.random() * baseMs);
+  }
+  chatTimer = setTimeout(tick, 800);
+}
+
+/* ========== MEMBERS SIDEBAR ========== */
+function renderMembers(){
+  const col = document.getElementById("members-col");
+  if (!col) return;
+  let html = "";
+  if (currentServerId === "everyone") {
+    html += '<div class="mem-cat">Online — ' + formatNum(BOT_ONLINE) + '</div>';
+    // show sample of "online" bots + user
+    html += '<div class="mem-item"><div class="av" style="background:#ed4245">' + esc(initials(user.username)) + '</div><div class="nm">' + esc(user.username) + (user.isAdmin ? " 👑" : "") + '</div></div>';
+    for (let i = 0; i < 18; i++) {
+      const n = nextBotName();
+      html += '<div class="mem-item"><div class="av ' + colorClass(n) + '">' + esc(initials(n)) + '</div><div class="nm">' + esc(n) + '</div></div>';
+    }
+    html += '<div class="mem-cat" style="margin-top:12px">Offline — lots</div>';
+    for (let i = 0; i < 6; i++) {
+      const n = nextBotName();
+      html += '<div class="mem-item" style="opacity:.45"><div class="av">' + esc(initials(n)) + '</div><div class="nm">' + esc(n) + '</div></div>';
+    }
+  } else {
+    html += '<div class="mem-cat">Members</div>';
+    html += '<div class="mem-item"><div class="av">' + esc(initials(user.username)) + '</div><div class="nm">' + esc(user.username) + ' (you)</div></div>';
+  }
+  col.innerHTML = html;
+}
+
+/* ========== CREATE / EDIT SERVER ========== */
+document.getElementById("srv-cancel").onclick = function(){
+  document.getElementById("modal-server").classList.remove("on");
+};
+document.getElementById("srv-create").onclick = async function(){
+  const name = (document.getElementById("new-srv-name").value || "").trim().slice(0, 40);
+  if (name.length < 2) { toast("Name too short"); return; }
+  let icon = (document.getElementById("new-srv-icon").value || "").trim().slice(0, 2);
+  if (!icon) icon = name.slice(0, 1).toUpperCase();
+  const id = "s_" + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36);
+  const srv = {
+    id: id,
+    name: name,
+    icon: icon,
+    ownerId: user.uid,
+    channels: {
+      general: { id: "general", name: "general", topic: "General chat" },
+      random: { id: "random", name: "random", topic: "Off-topic" }
+    }
+  };
+  servers[id] = srv;
+  saveLocalServers();
+  if (fbDb) {
+    try { await fbDb.ref("pulseServers/" + id).set(srv); } catch(e){}
+  }
+  document.getElementById("modal-server").classList.remove("on");
+  renderServers();
+  selectServer(id);
+  toast("Server created");
+};
+
+document.getElementById("server-title-btn").onclick = function(){
+  const s = servers[currentServerId];
+  if (!s) return;
+  if (s.ownerId !== user.uid && currentServerId !== "everyone") {
+    toast("Only the owner can edit this server");
+    return;
+  }
+  if (currentServerId === "everyone") {
+    toast("everyone is a system server");
+    return;
+  }
+  document.getElementById("edit-srv-name").value = s.name;
+  document.getElementById("edit-srv-icon").value = s.icon || "";
+  document.getElementById("modal-srv-settings").classList.add("on");
+};
+document.getElementById("edit-srv-cancel").onclick = function(){
+  document.getElementById("modal-srv-settings").classList.remove("on");
+};
+document.getElementById("edit-srv-save").onclick = async function(){
+  const s = servers[currentServerId];
+  if (!s || s.ownerId !== user.uid) return;
+  const name = (document.getElementById("edit-srv-name").value || "").trim().slice(0, 40);
+  let icon = (document.getElementById("edit-srv-icon").value || "").trim().slice(0, 2);
+  if (name.length < 2) { toast("Name too short"); return; }
+  if (!icon) icon = name.slice(0, 1).toUpperCase();
+  s.name = name;
+  s.icon = icon;
+  saveLocalServers();
+  if (fbDb) {
+    try { await fbDb.ref("pulseServers/" + s.id).update({ name: name, icon: icon }); } catch(e){}
+  }
+  document.getElementById("modal-srv-settings").classList.remove("on");
+  document.getElementById("server-title").textContent = name;
+  renderServers();
+  toast("Server updated");
+};
+
+/* ========== FRIENDS ========== */
+document.getElementById("btn-friends").onclick = function(){
+  document.getElementById("friends-panel").classList.add("on");
+  renderFriends();
+};
+document.getElementById("fp-close").onclick = function(){
+  document.getElementById("friends-panel").classList.remove("on");
+};
+document.getElementById("btn-add-friend").onclick = async function(){
+  const uname = (document.getElementById("friend-user").value || "").trim();
+  if (!isValidUsername(uname)) { toast("Invalid username"); return; }
+  if (uname.toLowerCase() === user.username.toLowerCase()) { toast("That's you"); return; }
+  try {
+    const snap = await fbDb.ref("pulseUsernames/" + uname.toLowerCase()).once("value");
+    const uid = snap.val();
+    if (!uid) { toast("User not found"); return; }
+    await fbDb.ref("pulseUsers/" + user.uid + "/friends/" + uid).set({
+      username: uname,
+      since: Date.now()
+    });
+    // reverse request light
+    await fbDb.ref("pulseUsers/" + uid + "/friendRequests/" + user.uid).set({
+      username: user.username,
+      at: Date.now()
+    });
+    toast("Friend request / added @" + uname);
+    document.getElementById("friend-user").value = "";
+    renderFriends();
+  } catch(e){ toast(e.message || "Failed"); }
+};
+
+async function renderFriends(){
+  const list = document.getElementById("friends-list");
+  list.innerHTML = '<div style="color:var(--muted);font-size:.85rem;padding:8px">Loading…</div>';
+  try {
+    const snap = await fbDb.ref("pulseUsers/" + user.uid + "/friends").once("value");
+    const fr = snap.val() || {};
+    const keys = Object.keys(fr);
+    if (!keys.length) {
+      list.innerHTML = '<div style="color:var(--muted);font-size:.85rem;padding:8px">No friends yet. Add someone by username.</div>';
+      return;
+    }
+    list.innerHTML = keys.map(function(uid){
+      const f = fr[uid];
+      return '<div class="fp-item"><div class="av">' + esc(initials(f.username)) + '</div><div><div style="font-weight:600">' + esc(f.username) + '</div><div style="font-size:.75rem;color:var(--muted)">Friend</div></div></div>';
+    }).join("");
+  } catch(e){
+    list.innerHTML = '<div style="color:var(--muted);padding:8px">Could not load friends</div>';
+  }
+}
+
+/* ========== MOBILE CHAN TOGGLE ========== */
+document.getElementById("btn-toggle-chan").onclick = function(){
+  document.getElementById("channels-col").classList.toggle("open");
+};
+if (window.matchMedia && window.matchMedia("(max-width:640px)").matches) {
+  document.getElementById("btn-toggle-chan").style.display = "flex";
+}
+
+/* ========== BOOT ========== */
+initFirebase();
+if (fbAuth) {
+  fbAuth.getRedirectResult().then(function(res){
+    if (res && res.user) afterAuth(res.user);
+  }).catch(function(){});
+  fbAuth.onAuthStateChanged(function(u){
+    if (u) afterAuth(u);
+    else show("login");
+  });
+} else {
+  setLoginErr("Firebase failed to load — check connection");
+}
+
+})();
+</script>
 </body>
 </html>
