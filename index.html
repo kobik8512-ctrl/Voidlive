@@ -97,7 +97,9 @@ a{color:var(--link)}
 .pill{background:rgba(35,165,89,.15);color:var(--green);font-size:.75rem;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap}
 
 .msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin}
-.msg{display:flex;gap:12px;padding:4px 8px;border-radius:4px;margin:0 -8px}
+.msg{display:flex;gap:12px;padding:4px 8px;border-radius:4px;margin:0 -8px;animation:msgIn .2s ease-out}
+@keyframes msgIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.msgs.speed-on .msg{animation-duration:.12s}
 .msg:hover{background:rgba(0,0,0,.06)}
 .msg.sys{justify-content:center;color:var(--muted);font-size:.82rem;padding:10px}
 .msg .av{width:40px;height:40px;font-size:.85rem;margin-top:2px}
@@ -452,7 +454,7 @@ let botTimer = null;
 let replyTo = null;
 let signupMode = false;
 let profileTarget = null;
-const MAX_MSGS = 100;
+const MAX_MSGS = 160;
 const seenMsg = {};
 
 /* ========== BOT TEXT (70% EN / 30% GE) ========== */
@@ -582,8 +584,12 @@ function genMsg(){
   // Admin phrase mode — ~70-75% of messages
   if (window._chatPhrase && chance(window._chatPhraseRate || 0.72)) {
     let t = window._chatPhrase;
-    if (chance(0.25)) t = rand(OPENERS) + " " + t;
-    if (chance(0.3)) t = t + rand(ENDERS);
+    const roll = Math.random();
+    if (roll < 0.18) t = rand(OPENERS) + " " + t;
+    else if (roll < 0.32) t = t + " " + rand(ENDERS);
+    else if (roll < 0.42) t = t + " " + rand(["lol","lmao","fr","ngl","tho","rn","tbh","??","!!","💀","🔥","😭"]);
+    else if (roll < 0.50) t = rand(["yo","bro","guys","chat","ok","wait"]) + " " + t;
+    // else pure phrase
     return t.slice(0,220);
   }
   if (chance(0.07)) return rand(REACT);
@@ -1206,7 +1212,6 @@ function postMessage(text){
 function appendMsg(m,optimistic){
   const box=$("msgs");
   if(!box||!m||!m.text) return;
-  // Dedup by firebase key OR local fingerprint
   if(m._key && seenMsg[m._key]) return;
   const fp=(m.uid||"")+"|"+(m.t||"")+"|"+String(m.text).slice(0,40);
   if(m.uid && m.t && seenMsg["fp:"+fp]) {
@@ -1225,10 +1230,19 @@ function appendMsg(m,optimistic){
   if(m.admin) badges+='<span class="badge admin">ADMIN</span>';
   let replyHtml="";
   if(m.replyTo) replyHtml='<div style="font-size:.78rem;color:var(--muted);margin-bottom:2px">↩ '+esc(String(m.replyTo).slice(0,80))+'</div>';
-  row.innerHTML='<div class="av '+col+'">'+esc(initials(name))+'</div><div class="body"><div class="head"><span class="name '+col+(m.admin?" admin":"")+'">'+esc(name)+badges+'</span><span class="time">'+timeStr(m.t)+'</span></div>'+replyHtml+'<div class="text">'+formatText(m.text)+'</div></div>';
+  // slight padding variance so rows don't look like a fixed grid recycling
+  const pad = (name.length % 3);
+  row.style.paddingTop = (2+pad)+"px";
+  row.style.paddingBottom = (2+(2-pad))+"px";
+  row.innerHTML='<div class="av '+col+'">'+esc(initials(name))+'</div><div class="body"><div class="head"><span class="name '+col+(m.admin?" admin":"")+'">'+esc(name)+badges+'</span><span class="time">'+timeStr(m.t||Date.now())+'</span></div>'+replyHtml+'<div class="text">'+formatText(m.text)+'</div></div>';
   box.appendChild(row);
-  while(box.children.length>MAX_MSGS) box.removeChild(box.firstChild);
-  if(box.scrollHeight-box.scrollTop-box.clientHeight<140) box.scrollTop=box.scrollHeight;
+  const cap = (window._chatMode==="explode") ? MAX_MSGS : Math.min(MAX_MSGS, 120);
+  while(box.children.length>cap) box.removeChild(box.firstChild);
+  // always stick to bottom when streaming (fast modes or near bottom)
+  const near = box.scrollHeight-box.scrollTop-box.clientHeight < 180;
+  if(near || window._chatMode==="explode" || window._chatMode==="cooling" || optimistic){
+    box.scrollTop = box.scrollHeight;
+  }
 }
 
 function formatText(t){
@@ -1332,34 +1346,52 @@ function startBots(){
   function tick(){
     if(currentServerId!=="everyone"||currentChannelId!=="main") return;
     const burst = botBurstForMode();
-    for(let i=0;i<burst;i++) appendMsg({name:nextBotName(),text:genMsg(),bot:true,t:Date.now()});
-    const j=EVERYONE_MEMBERS+Math.floor(Math.random()*12000)-3000;
-    const pill=$("member-pill");
-    if(pill) pill.textContent=formatNum(Math.max(EVERYONE_MEMBERS-80000,j))+" members";
-
-    // explode ramp: every few ticks raise level
-    if(window._chatMode==="explode"){
-      window._explodeTicks = (window._explodeTicks||0)+1;
-      if(window._explodeTicks % 5 === 0 && window._explodeLevel < 6){
-        window._explodeLevel++;
-        updateAdminToolsStatus();
-      }
+    const box=$("msgs");
+    if(box){
+      if(window._chatMode==="explode"||window._chatMode==="cooling") box.classList.add("speed-on");
+      else box.classList.remove("speed-on");
     }
-    // cooling ramp: every few ticks lower level until normal
-    if(window._chatMode==="cooling"){
-      window._coolTicks = (window._coolTicks||0)+1;
-      if(window._coolTicks % 6 === 0){
-        if(window._explodeLevel > 0){
-          window._explodeLevel--;
-          updateAdminToolsStatus();
-        } else {
-          window._chatMode = "normal";
-          updateAdminToolsStatus();
-          toast("Chat back to normal");
+    // stream messages in one-by-one so it feels like a real feed, not text swapping
+    let i=0;
+    function pushOne(){
+      if(currentServerId!=="everyone"||currentChannelId!=="main") return;
+      appendMsg({name:nextBotName(),text:genMsg(),bot:true,t:Date.now()});
+      i++;
+      if(i<burst){
+        // small gap between messages in a burst (visible cascade)
+        const gap = window._chatMode==="explode"
+          ? (8 + Math.random()*18)
+          : (30 + Math.random()*50);
+        setTimeout(pushOne, gap);
+      } else {
+        const j=EVERYONE_MEMBERS+Math.floor(Math.random()*12000)-3000;
+        const pill=$("member-pill");
+        if(pill) pill.textContent=formatNum(Math.max(EVERYONE_MEMBERS-80000,j))+" members";
+        if(window._chatMode==="explode"){
+          window._explodeTicks = (window._explodeTicks||0)+1;
+          if(window._explodeTicks % 4 === 0 && window._explodeLevel < 6){
+            window._explodeLevel++;
+            updateAdminToolsStatus();
+          }
         }
+        if(window._chatMode==="cooling"){
+          window._coolTicks = (window._coolTicks||0)+1;
+          if(window._coolTicks % 5 === 0){
+            if(window._explodeLevel > 0){
+              window._explodeLevel--;
+              updateAdminToolsStatus();
+            } else {
+              window._chatMode = "normal";
+              updateAdminToolsStatus();
+              toast("Chat back to normal");
+            }
+          }
+        }
+        botTimer=setTimeout(tick, botDelayForMode());
       }
     }
-    botTimer=setTimeout(tick, botDelayForMode());
+    pushOne();
+    return; // tick schedules next itself via pushOne completion
   }
   botTimer=setTimeout(tick, 200);
 }
