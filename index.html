@@ -97,10 +97,17 @@ a{color:var(--link)}
 .pill{background:rgba(35,165,89,.15);color:var(--green);font-size:.75rem;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap}
 
 .msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin}
-.msg{display:flex;gap:12px;padding:4px 8px;border-radius:4px;margin:0 -8px;animation:msgIn .2s ease-out}
-@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-/* Fast/custom: no opacity fade — prevents bottom-of-list ghosting when chat is dense */
-.msgs.speed-on .msg{animation:none;opacity:1;transform:none}
+.msg{display:flex;gap:12px;padding:4px 8px;border-radius:4px;margin:0 -8px;animation:msgSlideIn .28s cubic-bezier(.22,.9,.3,1)}
+@keyframes msgSlideIn{
+  from{opacity:0;transform:translateX(48px)}
+  to{opacity:1;transform:translateX(0)}
+}
+/* Fast/custom: still slide from right, shorter so dense chat stays smooth */
+.msgs.speed-on .msg{animation:msgSlideInFast .14s cubic-bezier(.22,.9,.3,1)}
+@keyframes msgSlideInFast{
+  from{opacity:0;transform:translateX(28px)}
+  to{opacity:1;transform:translateX(0)}
+}
 .msg:hover{background:rgba(0,0,0,.06)}
 .msg.sys{justify-content:center;color:var(--muted);font-size:.82rem;padding:10px}
 .msg .av{width:40px;height:40px;font-size:.85rem;margin-top:2px}
