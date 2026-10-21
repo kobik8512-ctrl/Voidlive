@@ -1013,6 +1013,25 @@ function renderServerSide(){
     html+='<button type="button" class="btn-ok" id="btn-explode" style="flex:1;padding:8px;font-size:.8rem;background:#ed4245">Explode chat</button>';
     html+='<button type="button" class="btn-sec" id="btn-explode-off" style="padding:8px;font-size:.8rem">Slow off</button>';
     html+='</div>';
+    html+='<div style="font-size:.72rem;color:var(--muted);margin:8px 0 4px">Custom speed</div>';
+    html+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">';
+    html+='<input type="number" id="custom-interval" value="500" min="1" step="1" style="width:72px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:#fff;font-size:.8rem"/>';
+    html+='<select id="custom-unit" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:#fff;font-size:.78rem">';
+    html+='<option value="ms" selected>ms</option>';
+    html+='<option value="s">seconds</option>';
+    html+='<option value="m">minutes</option>';
+    html+='<option value="h">hours</option>';
+    html+='<option value="d">days</option>';
+    html+='</select>';
+    html+='</div>';
+    html+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">';
+    html+='<input type="number" id="custom-msgs" value="20" min="1" max="500" style="width:72px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:#fff;font-size:.8rem"/>';
+    html+='<span style="font-size:.72rem;color:var(--muted)">messages each tick</span>';
+    html+='</div>';
+    html+='<div style="display:flex;gap:6px;margin-bottom:6px">';
+    html+='<button type="button" class="btn-ok" id="btn-custom-on" style="flex:1;padding:8px;font-size:.8rem">Start</button>';
+    html+='<button type="button" class="btn-sec" id="btn-custom-off" style="padding:8px;font-size:.8rem">Stop</button>';
+    html+='</div>';
     html+='<div id="phrase-status" style="font-size:.72rem;color:var(--muted);margin-top:4px">Normal speed</div>';
     html+='</div>';
   }
@@ -1080,6 +1099,39 @@ function renderServerSide(){
         updateAdminToolsStatus();
         toast("Already normal");
       }
+    }
+    if(e.target.id==="btn-custom-on"||e.target.closest("#btn-custom-on")){
+      if(!(user&&user.isAdmin)) return;
+      const raw = Math.max(1, parseFloat(($("custom-interval")&&$("custom-interval").value)||500) || 500);
+      const unit = (($("custom-unit")&&$("custom-unit").value)||"ms");
+      let ms = raw;
+      if(unit==="s") ms = raw * 1000;
+      else if(unit==="m") ms = raw * 60 * 1000;
+      else if(unit==="h") ms = raw * 60 * 60 * 1000;
+      else if(unit==="d") ms = raw * 24 * 60 * 60 * 1000;
+      // hard floor 16ms so UI never freezes browser; ceiling ~7 days
+      ms = Math.max(16, Math.min(ms, 7*24*60*60*1000));
+      const msgs = Math.max(1, Math.min(500, parseInt(($("custom-msgs")&&$("custom-msgs").value)||20,10)||20));
+      window._customMs = ms;
+      window._customMsgs = msgs;
+      window._chatMode = "custom";
+      window._explodeLevel = 0;
+      if(currentServerId==="everyone"&&currentChannelId==="main"){
+        stopBots(); startBots();
+      }
+      updateAdminToolsStatus();
+      const unitLabel = {ms:"ms",s:"s",m:"min",h:"h",d:"d"}[unit]||"ms";
+      toast("Custom ON · "+msgs+" msgs / "+raw+" "+unitLabel);
+    }
+    if(e.target.id==="btn-custom-off"||e.target.closest("#btn-custom-off")){
+      if(!(user&&user.isAdmin)) return;
+      window._chatMode = "normal";
+      window._explodeLevel = 0;
+      if(currentServerId==="everyone"&&currentChannelId==="main"){
+        stopBots(); startBots();
+      }
+      updateAdminToolsStatus();
+      toast("Custom stopped · normal speed");
     }
   };
 }
@@ -1311,6 +1363,10 @@ function stopBots(){
   if(botTimer){clearTimeout(botTimer);botTimer=null}
 }
 function botDelayForMode(){
+  // custom: fixed interval from admin inputs (e.g. 500ms)
+  if(window._chatMode==="custom"){
+    return Math.max(16, window._customMs || 500);
+  }
   // normal: ~1–4 messages/sec overall (sometimes slow, sometimes a bit faster)
   if(window._chatMode==="normal"){
     // single message most of the time; occasional double
@@ -1328,6 +1384,9 @@ function botDelayForMode(){
   return base + Math.random()*base*0.4;
 }
 function botBurstForMode(){
+  if(window._chatMode==="custom"){
+    return Math.max(1, window._customMsgs || 20);
+  }
   if(window._chatMode==="normal"){
     return Math.random()<0.22 ? 2 : 1; // mostly 1, sometimes 2 → ~1–4/sec feel
   }
@@ -1348,7 +1407,7 @@ function startBots(){
     const burst = botBurstForMode();
     const box=$("msgs");
     if(box){
-      if(window._chatMode==="explode"||window._chatMode==="cooling") box.classList.add("speed-on");
+      if(window._chatMode==="explode"||window._chatMode==="cooling"||window._chatMode==="custom") box.classList.add("speed-on");
       else box.classList.remove("speed-on");
     }
     // stream messages in one-by-one so it feels like a real feed, not text swapping
@@ -1359,9 +1418,10 @@ function startBots(){
       i++;
       if(i<burst){
         // small gap between messages in a burst (visible cascade)
-        const gap = window._chatMode==="explode"
-          ? (8 + Math.random()*18)
-          : (30 + Math.random()*50);
+        let gap;
+        if(window._chatMode==="explode") gap = 8 + Math.random()*18;
+        else if(window._chatMode==="custom") gap = 4 + Math.random()*10; // tight drip for custom bursts
+        else gap = 30 + Math.random()*50;
         setTimeout(pushOne, gap);
       } else {
         const j=EVERYONE_MEMBERS+Math.floor(Math.random()*12000)-3000;
@@ -1410,7 +1470,9 @@ function updateAdminToolsStatus(){
   if(!st) return;
   let parts=[];
   if(window._chatPhrase) parts.push("Phrase ON");
-  if(window._chatMode==="explode") parts.push("EXPLODE L"+window._explodeLevel);
+  if(window._chatMode==="custom"){
+    parts.push("Custom "+(window._customMsgs||20)+" msgs / "+(window._customMs||500)+"ms");
+  } else if(window._chatMode==="explode") parts.push("EXPLODE L"+window._explodeLevel);
   else if(window._chatMode==="cooling") parts.push("Slowing L"+window._explodeLevel);
   else parts.push("Normal speed");
   st.textContent = parts.join(" · ");
