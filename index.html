@@ -98,8 +98,9 @@ a{color:var(--link)}
 
 .msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin}
 .msg{display:flex;gap:12px;padding:4px 8px;border-radius:4px;margin:0 -8px;animation:msgIn .2s ease-out}
-@keyframes msgIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.msgs.speed-on .msg{animation-duration:.12s}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* Fast/custom: no opacity fade — prevents bottom-of-list ghosting when chat is dense */
+.msgs.speed-on .msg{animation:none;opacity:1;transform:none}
 .msg:hover{background:rgba(0,0,0,.06)}
 .msg.sys{justify-content:center;color:var(--muted);font-size:.82rem;padding:10px}
 .msg .av{width:40px;height:40px;font-size:.85rem;margin-top:2px}
@@ -1288,11 +1289,12 @@ function appendMsg(m,optimistic){
   row.style.paddingBottom = (2+(2-pad))+"px";
   row.innerHTML='<div class="av '+col+'">'+esc(initials(name))+'</div><div class="body"><div class="head"><span class="name '+col+(m.admin?" admin":"")+'">'+esc(name)+badges+'</span><span class="time">'+timeStr(m.t||Date.now())+'</span></div>'+replyHtml+'<div class="text">'+formatText(m.text)+'</div></div>';
   box.appendChild(row);
-  const cap = (window._chatMode==="explode") ? MAX_MSGS : Math.min(MAX_MSGS, 120);
+  const fastMode = window._chatMode==="explode" || window._chatMode==="cooling" || window._chatMode==="custom";
+  const cap = fastMode ? MAX_MSGS : Math.min(MAX_MSGS, 120);
   while(box.children.length>cap) box.removeChild(box.firstChild);
   // always stick to bottom when streaming (fast modes or near bottom)
   const near = box.scrollHeight-box.scrollTop-box.clientHeight < 180;
-  if(near || window._chatMode==="explode" || window._chatMode==="cooling" || optimistic){
+  if(near || fastMode || optimistic){
     box.scrollTop = box.scrollHeight;
   }
 }
@@ -1404,23 +1406,35 @@ function startBots(){
   for(let i=0;i<10;i++) appendMsg({name:nextBotName(),text:genMsg(),bot:true,t:Date.now()-i*200});
   function tick(){
     if(currentServerId!=="everyone"||currentChannelId!=="main") return;
-    const burst = botBurstForMode();
     const box=$("msgs");
     if(box){
       if(window._chatMode==="explode"||window._chatMode==="cooling"||window._chatMode==="custom") box.classList.add("speed-on");
       else box.classList.remove("speed-on");
     }
-    // stream messages in one-by-one so it feels like a real feed, not text swapping
+
+    // CUSTOM: even continuous drip — no pause-then-explode
+    // e.g. 20 msgs / 500ms → 1 msg every 25ms forever until Stop
+    if(window._chatMode==="custom"){
+      const interval = Math.max(16, window._customMs || 500);
+      const msgs = Math.max(1, window._customMsgs || 20);
+      const gap = Math.max(8, Math.floor(interval / msgs));
+      appendMsg({name:nextBotName(),text:genMsg(),bot:true,t:Date.now()});
+      const j=EVERYONE_MEMBERS+Math.floor(Math.random()*12000)-3000;
+      const pill=$("member-pill");
+      if(pill && Math.random()<0.08) pill.textContent=formatNum(Math.max(EVERYONE_MEMBERS-80000,j))+" members";
+      botTimer=setTimeout(tick, gap);
+      return;
+    }
+
+    const burst = botBurstForMode();
     let i=0;
     function pushOne(){
       if(currentServerId!=="everyone"||currentChannelId!=="main") return;
       appendMsg({name:nextBotName(),text:genMsg(),bot:true,t:Date.now()});
       i++;
       if(i<burst){
-        // small gap between messages in a burst (visible cascade)
         let gap;
         if(window._chatMode==="explode") gap = 8 + Math.random()*18;
-        else if(window._chatMode==="custom") gap = 4 + Math.random()*10; // tight drip for custom bursts
         else gap = 30 + Math.random()*50;
         setTimeout(pushOne, gap);
       } else {
@@ -1451,7 +1465,6 @@ function startBots(){
       }
     }
     pushOne();
-    return; // tick schedules next itself via pushOne completion
   }
   botTimer=setTimeout(tick, 200);
 }
