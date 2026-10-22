@@ -46,6 +46,8 @@ a{color:var(--link)}
 .btn-primary{background:var(--blurple);color:#fff}
 .btn-primary:hover{filter:brightness(1.08)}
 .btn-google{background:#fff;color:#1e1f22;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px}
+.btn-guest{background:#2b2d31;color:#dbdee1;border:1px solid #3f4147;margin-top:10px}
+.btn-guest:hover{background:#35373c}
 .btn-ghost{color:var(--muted);font-size:.9rem;padding:10px;margin-top:8px;width:100%}
 .err{color:var(--danger);font-size:.85rem;margin-top:8px;min-height:1.2em}
 .note{margin-top:14px;font-size:.78rem;color:var(--muted);text-align:center;line-height:1.4}
@@ -200,8 +202,9 @@ a{color:var(--link)}
     <button class="btn btn-primary" id="btn-login">Log In</button>
     <button class="btn-ghost" id="btn-toggle-signup">Need an account? Sign up</button>
     <button class="btn btn-google" id="btn-google">Continue with Google</button>
+    <button class="btn btn-guest" id="btn-guest">Continue as Guest</button>
     <div class="err" id="login-err"></div>
-    <div class="note">Firebase auth shared with Go Live · usernames are unique</div>
+    <div class="note">Firebase auth shared with Go Live · usernames are unique · guests pick a username</div>
   </div>
 </div>
 
@@ -735,7 +738,22 @@ $("btn-google").onclick=function(){
   });
 };
 
-async function afterAuth(u){
+$("btn-guest").onclick=async function(){
+  setLoginErr("");
+  if(!initFirebase()||!fbAuth){setLoginErr("Server not ready");return}
+  try{
+    const res=await fbAuth.signInAnonymously();
+    await afterAuth(res.user,{isGuest:true});
+  }catch(e){
+    const code=e&&e.code||"";
+    const msg=(e&&e.message)||"Guest login failed";
+    if(code==="auth/admin-restricted-operation"||code==="auth/operation-not-allowed"||msg.toLowerCase().indexOf("anonymous")>=0){
+      setLoginErr("Enable Anonymous in Firebase → Authentication → Sign-in method");
+    } else setLoginErr(msg);
+  }
+};
+
+async function afterAuth(u,opts){
   if(!u) return;
   let profile=null;
   try{const snap=await fbDb.ref("pulseUsers/"+u.uid).once("value");profile=snap.val()}catch(e){}
@@ -747,7 +765,8 @@ async function afterAuth(u){
       displayName:profile.displayName||profile.username,
       about:profile.about||"",
       presence:profile.presence||"online",
-      isAdmin:!!profile.isAdmin||(u.email||"").toLowerCase()===SPECIAL_EMAIL||profile.username.toLowerCase()==="kobi"
+      isAdmin:!!profile.isAdmin||(u.email||"").toLowerCase()===SPECIAL_EMAIL||profile.username.toLowerCase()==="kobi",
+      isGuest:!!profile.isGuest||!!u.isAnonymous
     };
     if(user.username.toLowerCase()==="kobi"||user.email===SPECIAL_EMAIL){
       user.isAdmin=true;
@@ -755,8 +774,23 @@ async function afterAuth(u){
     }
     enterApp();
   } else {
-    user={uid:u.uid,email:(u.email||"").toLowerCase(),username:null,displayName:u.displayName||(u.email?u.email.split("@")[0]:"User"),about:"",presence:"online",isAdmin:false};
+    const isGuest=!!(opts&&opts.isGuest)||!!u.isAnonymous;
+    user={
+      uid:u.uid,
+      email:(u.email||"").toLowerCase(),
+      username:null,
+      displayName:u.displayName||(u.email?u.email.split("@")[0]:(isGuest?"Guest":"User")),
+      about:"",
+      presence:"online",
+      isAdmin:false,
+      isGuest:isGuest
+    };
     show("gate");
+    const gh=$("gate").querySelector("h2");
+    const gp=$("gate").querySelector("p.sub");
+    if(gh) gh.textContent=isGuest?"Guest username":"Pick a username";
+    if(gp) gp.textContent=isGuest?"Choose how you appear in chat. 3–20 characters. Letters, numbers, underscore.":"3–20 characters. Letters, numbers, underscore. One per account.";
+    $("gate-user").value="";
     $("gate-user").focus();
   }
 }
@@ -774,11 +808,12 @@ $("btn-claim").onclick=async function(){
     });
     if(!result.committed){setGateErr("Username taken");return}
     const isAdmin=key==="kobi"||user.email===SPECIAL_EMAIL;
-    const profile={username:uname,usernameLower:key,displayName:uname,email:user.email,isAdmin:isAdmin,about:"",presence:"online",createdAt:Date.now(),friends:{},friendRequests:{}};
+    const isGuest=!!user.isGuest||(fbAuth.currentUser&&fbAuth.currentUser.isAnonymous);
+    const profile={username:uname,usernameLower:key,displayName:uname,email:user.email||"",isAdmin:isAdmin,isGuest:isGuest,about:"",presence:"online",createdAt:Date.now(),friends:{},friendRequests:{}};
     await fbDb.ref("pulseUsers/"+user.uid).set(profile);
-    try{await fbDb.ref("users/"+user.uid).update({name:uname,email:user.email,pulseUsername:uname,lastLogin:Date.now()})}catch(e){}
-    user.username=uname;user.displayName=uname;user.isAdmin=isAdmin;
-    toast(isAdmin?"Welcome admin @"+uname:"Welcome @"+uname);
+    try{await fbDb.ref("users/"+user.uid).update({name:uname,email:user.email||"",pulseUsername:uname,lastLogin:Date.now(),isGuest:isGuest})}catch(e){}
+    user.username=uname;user.displayName=uname;user.isAdmin=isAdmin;user.isGuest=isGuest;
+    toast(isAdmin?"Welcome admin @"+uname:(isGuest?"Welcome guest @"+uname:"Welcome @"+uname));
     enterApp();
   }catch(e){setGateErr(e.message||"Claim failed")}
 };
@@ -791,7 +826,7 @@ $("btn-signout").onclick=function(){
 
 /* ========== ENTER APP ========== */
 async function enterApp(){
-  $("me-name").textContent=user.username+(user.isAdmin?" · admin":"");
+  $("me-name").textContent=user.username+(user.isAdmin?" · admin":(user.isGuest?" · guest":""));
   (function(){
     const av=$("me-av");
     const dot=$("me-dot");
@@ -1820,7 +1855,7 @@ $("btn-save-settings").onclick=async function(){
     if(presenceRef) presenceRef.update({displayName:display,presence:presence,at:Date.now()});
   }catch(e){}
   setPresenceUI(presence);
-  $("me-name").textContent=user.username+(user.isAdmin?" · admin":"");
+  $("me-name").textContent=user.username+(user.isAdmin?" · admin":(user.isGuest?" · guest":""));
   closeModal("modal-settings");toast("Settings saved");
 };
 try{const th=localStorage.getItem("pulse_theme");if(th)document.body.setAttribute("data-theme",th)}catch(e){}
