@@ -1203,8 +1203,12 @@ function selectChannel(cid){
 
   stopBots();
   attachChannelChat(currentServerId,cid, function(){
-    if(currentServerId==="everyone"&&cid==="main") startBots();
-    else if(currentServerId==="everyone"&&cid!=="announcements") startAmbient(1200);
+    if(currentServerId==="everyone"&&cid==="main"){
+      if(user&&user.isAdmin) startBots();
+      // non-admin: bots arrive from Firebase (admin emitBotMsg)
+    } else if(currentServerId==="everyone"&&cid!=="announcements"){
+      if(user&&user.isAdmin) startAmbient(1200);
+    }
   });
   renderServerSide();
   renderMembers();
@@ -1356,7 +1360,7 @@ function attachChannelChat(sid,cid, thenBots){
   }
   // Load history once in order, THEN listen for new only
   const base=fbDb.ref("pulseChat/"+sid+"/"+cid);
-  chatRef=base.limitToLast(50);
+  chatRef=base.limitToLast(80);
   let initialDone=false;
   const initialKeys={};
   chatRef.once("value").then(function(snap){
@@ -1384,10 +1388,17 @@ function attachChannelChat(sid,cid, thenBots){
     if(initialKeys[k]) return;
     const m=snap.val();if(!m) return;
     m._key=k;
-    // skip our own echo if already painted optimistically
+    // skip our own echo if already painted optimistically (humans + bots from this admin)
     if(m.uid && user && m.uid===user.uid){
       const fp=m.uid+"|"+m.t+"|"+String(m.text).slice(0,40);
       if(seenMsg["fp:"+fp] || window._localSendFingerprints[fp]){
+        seenMsg[k]=true;
+        return;
+      }
+    }
+    if(m.bot || m.uid==="bot"){
+      const fp="bot|"+(m.t||"")+"|"+String(m.text).slice(0,40);
+      if(seenMsg["fp:"+fp] || (window._localSendFingerprints && window._localSendFingerprints[fp])){
         seenMsg[k]=true;
         return;
       }
@@ -1442,11 +1453,94 @@ function botBurstForMode(){
   const lv = window._explodeLevel;
   return [1,2,4,8,12,20,32][Math.min(6,Math.max(0,lv))];
 }
+/* Bot messages must hit Firebase so real members see explode / phrase / chat */
+window._botFbQueue = window._botFbQueue || [];
+window._botFbBusy = false;
+window._botFbDropped = 0;
+
+function emitBotMsg(name, text, opts){
+  opts = opts || {};
+  const tnow = Date.now();
+  const payload = {
+    name: name,
+    displayName: name,
+    text: String(text).slice(0, 2000),
+    bot: true,
+    uid: "bot",
+    t: tnow
+  };
+  // Local paint for the admin who is generating
+  const fp = "bot|"+tnow+"|"+String(text).slice(0,40);
+  window._localSendFingerprints = window._localSendFingerprints || {};
+  window._localSendFingerprints[fp] = true;
+  payload._key = "local_bot_"+tnow+"_"+Math.random().toString(36).slice(2,6);
+  appendMsg(payload, true);
+
+  // Queue for Firebase so every real member receives the same feed
+  if(fbDb && user && user.isAdmin){
+    window._botFbQueue.push({
+      name: payload.name,
+      displayName: payload.displayName,
+      text: payload.text,
+      bot: true,
+      uid: "bot",
+      t: payload.t,
+      _fp: fp
+    });
+    // Cap queue — under extreme explode keep newest
+    if(window._botFbQueue.length > 250){
+      const drop = window._botFbQueue.length - 150;
+      window._botFbQueue.splice(0, drop);
+      window._botFbDropped += drop;
+    }
+    drainBotFbQueue();
+  }
+}
+
+function drainBotFbQueue(){
+  if(window._botFbBusy) return;
+  if(!fbDb) return;
+  window._botFbBusy = true;
+  function step(){
+    if(!window._botFbQueue.length){
+      window._botFbBusy = false;
+      return;
+    }
+    // Only stream while on everyone/main (or still flush a bit if admin navigates)
+    const m = window._botFbQueue.shift();
+    try{
+      fbDb.ref("pulseChat/everyone/main").push({
+        name: m.name,
+        displayName: m.displayName || m.name,
+        text: m.text,
+        bot: true,
+        uid: "bot",
+        t: m.t
+      });
+    }catch(e){}
+    // Throttle writes so Firebase + other clients stay alive
+    // explode/custom: ~20-28 msgs/sec · normal: slower
+    let gap = 45;
+    if(window._chatMode==="explode") gap = 32 + Math.random()*12;
+    else if(window._chatMode==="custom"){
+      const interval = Math.max(16, window._customMs || 500);
+      const msgs = Math.max(1, window._customMsgs || 20);
+      gap = Math.max(24, Math.min(120, Math.floor(interval / msgs)));
+    } else if(window._chatMode==="cooling") gap = 50 + Math.random()*30;
+    else gap = 70 + Math.random()*80;
+    setTimeout(step, gap);
+  }
+  step();
+}
+
 function startBots(){
   stopBots();
+  // Only ADMIN generates bots — everyone else receives via Firebase listener
+  if(!(user && user.isAdmin)) return;
   if(!window._chatMode) window._chatMode = "normal";
-  for(let i=0;i<10;i++) appendMsg({name:nextBotName(),text:genMsg(),bot:true,t:Date.now()-i*200});
+  for(let i=0;i<8;i++) emitBotMsg(nextBotName(), genMsg());
   function tick(){
+    if(!(user && user.isAdmin)) return;
     if(currentServerId!=="everyone"||currentChannelId!=="main") return;
     const box=$("msgs");
     if(box){
@@ -1454,13 +1548,11 @@ function startBots(){
       else box.classList.remove("speed-on");
     }
 
-    // CUSTOM: even continuous drip — no pause-then-explode
-    // e.g. 20 msgs / 500ms → 1 msg every 25ms forever until Stop
     if(window._chatMode==="custom"){
       const interval = Math.max(16, window._customMs || 500);
       const msgs = Math.max(1, window._customMsgs || 20);
       const gap = Math.max(8, Math.floor(interval / msgs));
-      appendMsg({name:nextBotName(),text:genMsg(),bot:true,t:Date.now()});
+      emitBotMsg(nextBotName(), genMsg());
       const j=EVERYONE_MEMBERS+Math.floor(Math.random()*12000)-3000;
       const pill=$("member-pill");
       if(pill && Math.random()<0.08) pill.textContent=formatNum(Math.max(EVERYONE_MEMBERS-80000,j))+" members";
@@ -1471,8 +1563,9 @@ function startBots(){
     const burst = botBurstForMode();
     let i=0;
     function pushOne(){
+      if(!(user && user.isAdmin)) return;
       if(currentServerId!=="everyone"||currentChannelId!=="main") return;
-      appendMsg({name:nextBotName(),text:genMsg(),bot:true,t:Date.now()});
+      emitBotMsg(nextBotName(), genMsg());
       i++;
       if(i<burst){
         let gap;
@@ -1512,10 +1605,17 @@ function startBots(){
 }
 function startAmbient(ms){
   stopBots();
+  if(!(user && user.isAdmin)) return;
   window._chatMode = "normal";
   function tick(){
+    if(!(user && user.isAdmin)) return;
     if(currentChannelId==="announcements") return;
-    appendMsg({name:nextBotName(),text:genMsg(),bot:true,t:Date.now()});
+    // Ambient still goes to whatever channel is open if it's under everyone — only main is global feed
+    if(currentServerId==="everyone" && currentChannelId==="main"){
+      emitBotMsg(nextBotName(), genMsg());
+    } else {
+      appendMsg({name:nextBotName(),text:genMsg(),bot:true,t:Date.now()});
+    }
     botTimer=setTimeout(tick, ms + Math.random()*ms);
   }
   botTimer=setTimeout(tick, 600);
