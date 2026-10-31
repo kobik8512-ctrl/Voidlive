@@ -294,11 +294,19 @@
   let counting = true;
   let count = 0;
   let animId = null;
-  let prevFrame = null;
-  let cooldown = 0;          // frames to ignore after a count
-  const COOLDOWN_FRAMES = 18;
-  const LINE_BAND = 14;      // pixels above/below line to watch
-  const SENSITIVITY = 28;    // motion threshold
+  let prevBand = null;
+  let prevFull = null;
+  let cooldown = 0;
+  let crossing = false;       // currently in a crossing event
+  let stillFrames = 0;
+
+  // Tuning
+  const COOLDOWN_FRAMES = 45;     // longer lockout after a count (prevents spam on long objects)
+  const LINE_BAND = 16;           // pixels above/below the line
+  const SENSITIVITY = 32;
+  const MIN_MOTION = 0.045;       // % of band pixels that must change
+  const GLOBAL_MOTION_MAX = 0.12; // if whole frame moves more than this → camera shake, ignore
+  const STILL_RESET = 10;         // frames of low motion before allowing next count
 
   function setStatus(text, live) {
     statusText.textContent = text;
@@ -340,6 +348,20 @@
     }
   }
 
+  function motionRatio(curr, prev, step) {
+    if (!prev || curr.length !== prev.length) return 0;
+    let changed = 0;
+    let total = 0;
+    for (let i = 0; i < curr.length; i += step) {
+      const dr = Math.abs(curr[i] - prev[i]);
+      const dg = Math.abs(curr[i + 1] - prev[i + 1]);
+      const db = Math.abs(curr[i + 2] - prev[i + 2]);
+      if (dr + dg + db > SENSITIVITY * 3) changed++;
+      total++;
+    }
+    return total ? changed / total : 0;
+  }
+
   function loop() {
     animId = requestAnimationFrame(loop);
     if (!counting || video.readyState < 2) return;
@@ -350,37 +372,52 @@
 
     ctx.drawImage(video, 0, 0, w, h);
 
-    // Sample a horizontal band around the middle line
+    // Full frame (downsampled) to detect camera movement
+    const full = ctx.getImageData(0, 0, w, h).data;
+    const globalMotion = motionRatio(full, prevFull, 4 * 24);
+
+    // Band around the red line
     const midY = Math.floor(h / 2);
     const y0 = Math.max(0, midY - LINE_BAND);
     const bandH = LINE_BAND * 2;
-    const frame = ctx.getImageData(0, y0, w, bandH);
-    const data = frame.data;
+    const band = ctx.getImageData(0, y0, w, bandH).data;
+    const lineMotion = motionRatio(band, prevBand, 4 * 2);
 
-    if (prevFrame && cooldown <= 0) {
-      let motion = 0;
-      const step = 4 * 3; // every 3rd pixel, RGBA
-      for (let i = 0; i < data.length; i += step) {
-        const dr = Math.abs(data[i] - prevFrame[i]);
-        const dg = Math.abs(data[i + 1] - prevFrame[i + 1]);
-        const db = Math.abs(data[i + 2] - prevFrame[i + 2]);
-        if (dr + dg + db > SENSITIVITY * 3) motion++;
-      }
+    prevFull = new Uint8ClampedArray(full);
+    prevBand = new Uint8ClampedArray(band);
 
-      // Enough changed pixels = something crossed
-      const threshold = (w * bandH) / 90;
-      if (motion > threshold) {
+    if (cooldown > 0) {
+      cooldown--;
+      return;
+    }
+
+    // Camera is shaking / panning → ignore
+    if (globalMotion > GLOBAL_MOTION_MAX) {
+      crossing = false;
+      stillFrames = 0;
+      return;
+    }
+
+    if (lineMotion >= MIN_MOTION) {
+      // Significant motion on the line
+      if (!crossing) {
+        // New crossing started
+        crossing = true;
         count++;
         countEl.textContent = count;
         countBox.classList.remove('flash');
         void countBox.offsetWidth;
         countBox.classList.add('flash');
         cooldown = COOLDOWN_FRAMES;
+        stillFrames = 0;
+      }
+    } else {
+      // Low motion
+      stillFrames++;
+      if (stillFrames >= STILL_RESET) {
+        crossing = false;
       }
     }
-
-    prevFrame = new Uint8ClampedArray(data);
-    if (cooldown > 0) cooldown--;
   }
 
   btnAllow.addEventListener('click', startCamera);
