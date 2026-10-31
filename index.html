@@ -1,132 +1,410 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Free Robux Generator</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            /* Roblox-style dark/blue theme background */
-            background: linear-gradient(135deg, #1f1f1f, #0d1b2a);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            font-family: Arial, sans-serif;
-            overflow: hidden;
-            color: white;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Line Counter</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --red: #ff2d55;
+    --green: #30d158;
+    --text: #ffffff;
+    --muted: #8e8e93;
+    --card: rgba(20,20,22,0.85);
+  }
 
-        /* Initial Start Screen / Button */
-        #start-screen {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-            text-align: center;
-            padding: 20px;
-        }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
 
-        h1 {
-            font-size: 2.5rem;
-            color: #00b4d8;
-            text-shadow: 0 4px 10px rgba(0, 180, 216, 0.4);
-        }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text);
+    user-select: none;
+  }
 
-        .robux-btn {
-            background-color: #00ff88;
-            color: #000;
-            font-size: 1.5rem;
-            font-weight: bold;
-            padding: 15px 40px;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            box-shadow: 0 4px 20px rgba(0, 255, 136, 0.4);
-            transition: transform 0.2s, background-color 0.2s;
-        }
+  #app {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
 
-        .robux-btn:hover {
-            transform: scale(1.05);
-            background-color: #00cc6a;
-        }
+  /* Camera */
+  #camera-wrap {
+    position: relative;
+    flex: 1;
+    background: #000;
+    overflow: hidden;
+  }
 
-        /* Hidden Content Container (Image) */
-        #main-content {
-            display: none;
-            width: 100%;
-            max-width: 800px;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
+  #video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(1);
+  }
 
-        img {
-            max-width: 100%;
-            height: auto;
-            display: block;
-            border-radius: 4px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
-        }
+  #canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
 
-        /* Watermark in the corner */
-        .watermark {
-            position: fixed;
-            bottom: 15px;
-            right: 20px;
-            font-size: 0.85rem;
-            color: rgba(255, 255, 255, 0.4);
-            letter-spacing: 1px;
-            pointer-events: none;
-            font-family: monospace;
-        }
-    </style>
+  /* Red line */
+  .line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--red);
+    box-shadow: 0 0 12px var(--red), 0 0 24px rgba(255,45,85,0.5);
+    z-index: 5;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .line::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -8px;
+    bottom: -8px;
+    background: linear-gradient(to bottom, transparent, rgba(255,45,85,0.15), transparent);
+  }
+
+  /* Top bar */
+  .top-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    padding: 14px 16px;
+    padding-top: max(14px, env(safe-area-inset-top));
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+  }
+
+  .title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+
+  .status {
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .dot.live {
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+  }
+
+  /* Counter card */
+  .counter-card {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    padding: 20px 20px 28px;
+    padding-bottom: max(28px, env(safe-area-inset-bottom));
+    background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .count-box {
+    background: var(--card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 18px 36px;
+    text-align: center;
+    min-width: 180px;
+  }
+
+  .count-label {
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .count-value {
+    font-size: 52px;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  button {
+    border: none;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 12px 22px;
+    cursor: pointer;
+    color: #fff;
+    transition: transform 0.15s, opacity 0.15s;
+  }
+  button:active {
+    transform: scale(0.96);
+  }
+
+  .btn-reset {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+
+  .btn-start {
+    background: var(--red);
+  }
+  .btn-start.running {
+    background: #333;
+  }
+
+  /* Flash when count increases */
+  .flash {
+    animation: flash 0.35s ease;
+  }
+  @keyframes flash {
+    0% { box-shadow: 0 0 0 0 rgba(255,45,85,0.6); }
+    100% { box-shadow: 0 0 0 20px rgba(255,45,85,0); }
+  }
+
+  /* Permission / error screen */
+  #overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    text-align: center;
+    gap: 16px;
+  }
+  #overlay.hidden { display: none; }
+
+  #overlay h1 {
+    font-size: 22px;
+    font-weight: 700;
+  }
+  #overlay p {
+    font-size: 15px;
+    color: var(--muted);
+    max-width: 280px;
+    line-height: 1.45;
+  }
+  #overlay button {
+    margin-top: 12px;
+    background: var(--red);
+    padding: 14px 28px;
+  }
+</style>
 </head>
 <body>
+<div id="app">
+  <div id="camera-wrap">
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="canvas"></canvas>
+    <div class="line" id="line"></div>
 
-    <!-- Start Screen with Robux Theme & Button -->
-    <div id="start-screen">
-        <h1>Roblox Free Robux Generator</h1>
-        <p>Click below to generate your free Robux instantly!</p>
-        <button class="robux-btn" onclick="revealContent()">Free Robux!</button>
+    <div class="top-bar">
+      <div class="title">Line Counter</div>
+      <div class="status">
+        <div class="dot" id="dot"></div>
+        <span id="status-text">Starting…</span>
+      </div>
     </div>
 
-    <!-- Main Content (Hidden until click) -->
-    <div id="main-content">
-        <img src="https://i.postimg.cc/mknWhJF2/Screenshot-20261014-220808-Tik-Tok.jpg" alt="Hypergamy Infographic">
+    <div class="counter-card">
+      <div class="count-box" id="count-box">
+        <div class="count-label">Passed</div>
+        <div class="count-value" id="count">0</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-reset" id="btn-reset">Reset</button>
+        <button class="btn-start" id="btn-toggle">Pause</button>
+      </div>
     </div>
+  </div>
 
-    <!-- Hidden Watermark -->
-    <div class="watermark">Made by Kobi</div>
+  <div id="overlay">
+    <h1>Camera access needed</h1>
+    <p>Allow the back camera so the counter can see objects crossing the red line.</p>
+    <button id="btn-allow">Enable Camera</button>
+  </div>
+</div>
 
-    <!-- Hidden Audio Player -->
-    <audio id="bg-music" loop preload="auto">
-        <source src="https://files.catbox.moe/5zxod1.mp4" type="audio/mp4">
-    </audio>
+<script>
+(function () {
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const countEl = document.getElementById('count');
+  const countBox = document.getElementById('count-box');
+  const statusText = document.getElementById('status-text');
+  const dot = document.getElementById('dot');
+  const overlay = document.getElementById('overlay');
+  const btnAllow = document.getElementById('btn-allow');
+  const btnReset = document.getElementById('btn-reset');
+  const btnToggle = document.getElementById('btn-toggle');
 
-    <script>
-        function revealContent() {
-            // Hide the Robux screen
-            document.getElementById('start-screen').style.display = 'none';
-            
-            // Show the image container
-            document.getElementById('main-content').style.display = 'flex';
-            
-            // Change background to match the image viewer style
-            document.body.style.background = '#121212';
+  let stream = null;
+  let counting = true;
+  let count = 0;
+  let animId = null;
+  let prevFrame = null;
+  let cooldown = 0;          // frames to ignore after a count
+  const COOLDOWN_FRAMES = 18;
+  const LINE_BAND = 14;      // pixels above/below line to watch
+  const SENSITIVITY = 28;    // motion threshold
 
-            // Play audio starting right past the initial delay (0.8 seconds)
-            const audio = document.getElementById('bg-music');
-            audio.currentTime = 0.8;
-            audio.play();
+  function setStatus(text, live) {
+    statusText.textContent = text;
+    dot.classList.toggle('live', !!live);
+  }
+
+  async function startCamera() {
+    try {
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+      }
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         }
-    </script>
+      });
+      video.srcObject = stream;
+      await video.play();
+      overlay.classList.add('hidden');
+      setStatus('Live', true);
+      resize();
+      if (!animId) loop();
+    } catch (err) {
+      console.error(err);
+      overlay.classList.remove('hidden');
+      setStatus('Camera blocked', false);
+    }
+  }
 
+  function resize() {
+    const w = video.videoWidth || video.clientWidth;
+    const h = video.videoHeight || video.clientHeight;
+    if (w && h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+  }
+
+  function loop() {
+    animId = requestAnimationFrame(loop);
+    if (!counting || video.readyState < 2) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    if (!w || !h) return;
+
+    ctx.drawImage(video, 0, 0, w, h);
+
+    // Sample a horizontal band around the middle line
+    const midY = Math.floor(h / 2);
+    const y0 = Math.max(0, midY - LINE_BAND);
+    const bandH = LINE_BAND * 2;
+    const frame = ctx.getImageData(0, y0, w, bandH);
+    const data = frame.data;
+
+    if (prevFrame && cooldown <= 0) {
+      let motion = 0;
+      const step = 4 * 3; // every 3rd pixel, RGBA
+      for (let i = 0; i < data.length; i += step) {
+        const dr = Math.abs(data[i] - prevFrame[i]);
+        const dg = Math.abs(data[i + 1] - prevFrame[i + 1]);
+        const db = Math.abs(data[i + 2] - prevFrame[i + 2]);
+        if (dr + dg + db > SENSITIVITY * 3) motion++;
+      }
+
+      // Enough changed pixels = something crossed
+      const threshold = (w * bandH) / 90;
+      if (motion > threshold) {
+        count++;
+        countEl.textContent = count;
+        countBox.classList.remove('flash');
+        void countBox.offsetWidth;
+        countBox.classList.add('flash');
+        cooldown = COOLDOWN_FRAMES;
+      }
+    }
+
+    prevFrame = new Uint8ClampedArray(data);
+    if (cooldown > 0) cooldown--;
+  }
+
+  btnAllow.addEventListener('click', startCamera);
+  btnReset.addEventListener('click', () => {
+    count = 0;
+    countEl.textContent = '0';
+  });
+  btnToggle.addEventListener('click', () => {
+    counting = !counting;
+    btnToggle.textContent = counting ? 'Pause' : 'Resume';
+    btnToggle.classList.toggle('running', !counting);
+    setStatus(counting ? 'Live' : 'Paused', counting);
+  });
+
+  window.addEventListener('resize', resize);
+  video.addEventListener('loadedmetadata', resize);
+
+  // Auto-try camera on load
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    startCamera();
+  } else {
+    setStatus('No camera', false);
+  }
+})();
+</script>
 </body>
 </html>
