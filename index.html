@@ -3,15 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Line Counter</title>
+<title>Motion Cam</title>
 <style>
   :root {
     --bg: #0a0a0a;
-    --red: #ff2d55;
     --green: #30d158;
     --text: #ffffff;
     --muted: #8e8e93;
-    --card: rgba(20,20,22,0.85);
   }
 
   * {
@@ -35,14 +33,11 @@
     position: relative;
     width: 100%;
     height: 100%;
-    display: flex;
-    flex-direction: column;
   }
 
-  /* Camera */
   #camera-wrap {
-    position: relative;
-    flex: 1;
+    position: absolute;
+    inset: 0;
     background: #000;
     overflow: hidden;
   }
@@ -53,7 +48,6 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transform: scaleX(1);
   }
 
   #canvas {
@@ -64,30 +58,6 @@
     pointer-events: none;
   }
 
-  /* Red line */
-  .line {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: var(--red);
-    box-shadow: 0 0 12px var(--red), 0 0 24px rgba(255,45,85,0.5);
-    z-index: 5;
-    top: 50%;
-    transform: translateY(-50%);
-  }
-
-  .line::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: -8px;
-    bottom: -8px;
-    background: linear-gradient(to bottom, transparent, rgba(255,45,85,0.15), transparent);
-  }
-
-  /* Top bar */
   .top-bar {
     position: absolute;
     top: 0;
@@ -99,13 +69,12 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+    background: linear-gradient(to bottom, rgba(0,0,0,0.65), transparent);
   }
 
   .title {
     font-size: 15px;
     font-weight: 600;
-    letter-spacing: 0.3px;
   }
 
   .status {
@@ -127,51 +96,18 @@
     box-shadow: 0 0 8px var(--green);
   }
 
-  /* Counter card */
-  .counter-card {
+  .bottom-bar {
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
     z-index: 20;
-    padding: 20px 20px 28px;
+    padding: 16px 20px 28px;
     padding-bottom: max(28px, env(safe-area-inset-bottom));
-    background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-  }
-
-  .count-box {
-    background: var(--card);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 20px;
-    padding: 18px 36px;
-    text-align: center;
-    min-width: 180px;
-  }
-
-  .count-label {
-    font-size: 13px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 4px;
-  }
-
-  .count-value {
-    font-size: 52px;
-    font-weight: 700;
-    line-height: 1.1;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .btn-row {
-    display: flex;
+    justify-content: center;
     gap: 12px;
+    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
   }
 
   button {
@@ -182,34 +118,17 @@
     padding: 12px 22px;
     cursor: pointer;
     color: #fff;
-    transition: transform 0.15s, opacity 0.15s;
-  }
-  button:active {
-    transform: scale(0.96);
-  }
-
-  .btn-reset {
     background: rgba(255,255,255,0.12);
     border: 1px solid rgba(255,255,255,0.15);
+    transition: transform 0.15s;
+  }
+  button:active { transform: scale(0.96); }
+  button.active {
+    background: var(--green);
+    border-color: var(--green);
+    color: #000;
   }
 
-  .btn-start {
-    background: var(--red);
-  }
-  .btn-start.running {
-    background: #333;
-  }
-
-  /* Flash when count increases */
-  .flash {
-    animation: flash 0.35s ease;
-  }
-  @keyframes flash {
-    0% { box-shadow: 0 0 0 0 rgba(255,45,85,0.6); }
-    100% { box-shadow: 0 0 0 20px rgba(255,45,85,0); }
-  }
-
-  /* Permission / error screen */
   #overlay {
     position: absolute;
     inset: 0;
@@ -224,22 +143,9 @@
     gap: 16px;
   }
   #overlay.hidden { display: none; }
-
-  #overlay h1 {
-    font-size: 22px;
-    font-weight: 700;
-  }
-  #overlay p {
-    font-size: 15px;
-    color: var(--muted);
-    max-width: 280px;
-    line-height: 1.45;
-  }
-  #overlay button {
-    margin-top: 12px;
-    background: var(--red);
-    padding: 14px 28px;
-  }
+  #overlay h1 { font-size: 22px; font-weight: 700; }
+  #overlay p { font-size: 15px; color: var(--muted); max-width: 280px; line-height: 1.45; }
+  #overlay button { margin-top: 12px; background: var(--green); color: #000; border: none; padding: 14px 28px; }
 </style>
 </head>
 <body>
@@ -247,31 +153,23 @@
   <div id="camera-wrap">
     <video id="video" playsinline muted autoplay></video>
     <canvas id="canvas"></canvas>
-    <div class="line" id="line"></div>
 
     <div class="top-bar">
-      <div class="title">Line Counter</div>
+      <div class="title">Motion Cam</div>
       <div class="status">
         <div class="dot" id="dot"></div>
         <span id="status-text">Starting…</span>
       </div>
     </div>
 
-    <div class="counter-card">
-      <div class="count-box" id="count-box">
-        <div class="count-label">Passed</div>
-        <div class="count-value" id="count">0</div>
-      </div>
-      <div class="btn-row">
-        <button class="btn-reset" id="btn-reset">Reset</button>
-        <button class="btn-start" id="btn-toggle">Pause</button>
-      </div>
+    <div class="bottom-bar">
+      <button id="btn-toggle" class="active">Detecting</button>
     </div>
   </div>
 
   <div id="overlay">
     <h1>Camera access needed</h1>
-    <p>Allow the back camera so the counter can see objects crossing the red line.</p>
+    <p>Allow the back camera to detect moving objects.</p>
     <button id="btn-allow">Enable Camera</button>
   </div>
 </div>
@@ -281,32 +179,26 @@
   const video = document.getElementById('video');
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  const countEl = document.getElementById('count');
-  const countBox = document.getElementById('count-box');
   const statusText = document.getElementById('status-text');
   const dot = document.getElementById('dot');
   const overlay = document.getElementById('overlay');
   const btnAllow = document.getElementById('btn-allow');
-  const btnReset = document.getElementById('btn-reset');
   const btnToggle = document.getElementById('btn-toggle');
 
   let stream = null;
-  let counting = true;
-  let count = 0;
+  let detecting = true;
   let animId = null;
-  let prevBand = null;
-  let prevFull = null;
-  let cooldown = 0;
-  let crossing = false;       // currently in a crossing event
-  let stillFrames = 0;
+  let prevGray = null;
 
-  // Tuning
-  const COOLDOWN_FRAMES = 45;     // longer lockout after a count (prevents spam on long objects)
-  const LINE_BAND = 16;           // pixels above/below the line
-  const SENSITIVITY = 32;
-  const MIN_MOTION = 0.045;       // % of band pixels that must change
-  const GLOBAL_MOTION_MAX = 0.12; // if whole frame moves more than this → camera shake, ignore
-  const STILL_RESET = 10;         // frames of low motion before allowing next count
+  // Detection settings
+  const DOWNSCALE = 0.35;        // process smaller for speed
+  const THRESH = 30;             // pixel difference threshold
+  const MIN_BLOB = 80;           // min changed pixels in a cell to consider
+  const GRID = 12;               // grid size for blob grouping
+  const BOX_PAD = 8;
+  const SMOOTH = 0.55;           // box smoothing
+
+  let lastBoxes = [];
 
   function setStatus(text, live) {
     statusText.textContent = text;
@@ -315,9 +207,7 @@
 
   async function startCamera() {
     try {
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-      }
+      if (stream) stream.getTracks().forEach(t => t.stop());
       stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
@@ -348,94 +238,218 @@
     }
   }
 
-  function motionRatio(curr, prev, step) {
-    if (!prev || curr.length !== prev.length) return 0;
-    let changed = 0;
-    let total = 0;
-    for (let i = 0; i < curr.length; i += step) {
-      const dr = Math.abs(curr[i] - prev[i]);
-      const dg = Math.abs(curr[i + 1] - prev[i + 1]);
-      const db = Math.abs(curr[i + 2] - prev[i + 2]);
-      if (dr + dg + db > SENSITIVITY * 3) changed++;
-      total++;
+  function toGray(data, w, h, scale) {
+    const sw = Math.max(1, Math.floor(w * scale));
+    const sh = Math.max(1, Math.floor(h * scale));
+    const gray = new Uint8Array(sw * sh);
+    const xRatio = w / sw;
+    const yRatio = h / sh;
+    for (let y = 0; y < sh; y++) {
+      for (let x = 0; x < sw; x++) {
+        const sx = Math.floor(x * xRatio);
+        const sy = Math.floor(y * yRatio);
+        const i = (sy * w + sx) * 4;
+        // simple luminance
+        gray[y * sw + x] = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) | 0;
+      }
     }
-    return total ? changed / total : 0;
+    return { gray, sw, sh };
+  }
+
+  function findBoxes(curr, prev, sw, sh, fullW, fullH) {
+    if (!prev || prev.length !== curr.length) return [];
+
+    const cellW = Math.ceil(sw / GRID);
+    const cellH = Math.ceil(sh / GRID);
+    const active = [];
+
+    for (let gy = 0; gy < GRID; gy++) {
+      for (let gx = 0; gx < GRID; gx++) {
+        let changed = 0;
+        const x0 = gx * cellW;
+        const y0 = gy * cellH;
+        const x1 = Math.min(sw, x0 + cellW);
+        const y1 = Math.min(sh, y0 + cellH);
+
+        for (let y = y0; y < y1; y++) {
+          for (let x = x0; x < x1; x++) {
+            const i = y * sw + x;
+            if (Math.abs(curr[i] - prev[i]) > THRESH) changed++;
+          }
+        }
+
+        if (changed > MIN_BLOB) {
+          active.push({ gx, gy, x0, y0, x1, y1 });
+        }
+      }
+    }
+
+    if (!active.length) return [];
+
+    // Merge nearby active cells into groups
+    const used = new Array(active.length).fill(false);
+    const groups = [];
+
+    for (let i = 0; i < active.length; i++) {
+      if (used[i]) continue;
+      const queue = [i];
+      used[i] = true;
+      let minX = active[i].x0, minY = active[i].y0;
+      let maxX = active[i].x1, maxY = active[i].y1;
+
+      while (queue.length) {
+        const idx = queue.pop();
+        const a = active[idx];
+        for (let j = 0; j < active.length; j++) {
+          if (used[j]) continue;
+          const b = active[j];
+          // adjacent cells (including diagonal)
+          if (Math.abs(a.gx - b.gx) <= 1 && Math.abs(a.gy - b.gy) <= 1) {
+            used[j] = true;
+            queue.push(j);
+            minX = Math.min(minX, b.x0);
+            minY = Math.min(minY, b.y0);
+            maxX = Math.max(maxX, b.x1);
+            maxY = Math.max(maxY, b.y1);
+          }
+        }
+      }
+
+      // Map back to full resolution
+      const scaleX = fullW / sw;
+      const scaleY = fullH / sh;
+      groups.push({
+        x: Math.max(0, minX * scaleX - BOX_PAD),
+        y: Math.max(0, minY * scaleY - BOX_PAD),
+        w: Math.min(fullW, (maxX - minX) * scaleX + BOX_PAD * 2),
+        h: Math.min(fullH, (maxY - minY) * scaleY + BOX_PAD * 2)
+      });
+    }
+
+    // Filter tiny boxes
+    return groups.filter(b => b.w > 30 && b.h > 30);
+  }
+
+  function smoothBoxes(newBoxes) {
+    if (!lastBoxes.length) {
+      lastBoxes = newBoxes;
+      return newBoxes;
+    }
+
+    const smoothed = [];
+    const matched = new Array(lastBoxes.length).fill(false);
+
+    for (const nb of newBoxes) {
+      let best = -1;
+      let bestDist = 99999;
+      for (let i = 0; i < lastBoxes.length; i++) {
+        if (matched[i]) continue;
+        const lb = lastBoxes[i];
+        const cx1 = nb.x + nb.w / 2;
+        const cy1 = nb.y + nb.h / 2;
+        const cx2 = lb.x + lb.w / 2;
+        const cy2 = lb.y + lb.h / 2;
+        const d = Math.hypot(cx1 - cx2, cy1 - cy2);
+        if (d < bestDist && d < 120) {
+          bestDist = d;
+          best = i;
+        }
+      }
+
+      if (best >= 0) {
+        matched[best] = true;
+        const lb = lastBoxes[best];
+        smoothed.push({
+          x: lb.x * SMOOTH + nb.x * (1 - SMOOTH),
+          y: lb.y * SMOOTH + nb.y * (1 - SMOOTH),
+          w: lb.w * SMOOTH + nb.w * (1 - SMOOTH),
+          h: lb.h * SMOOTH + nb.h * (1 - SMOOTH)
+        });
+      } else {
+        smoothed.push(nb);
+      }
+    }
+
+    lastBoxes = smoothed;
+    return smoothed;
+  }
+
+  function drawBoxes(boxes) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#30d158';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = 'rgba(48, 209, 88, 0.6)';
+    ctx.shadowBlur = 8;
+
+    for (const b of boxes) {
+      ctx.strokeRect(b.x, b.y, b.w, b.h);
+
+      // corner accents
+      const len = 14;
+      ctx.beginPath();
+      // top-left
+      ctx.moveTo(b.x, b.y + len);
+      ctx.lineTo(b.x, b.y);
+      ctx.lineTo(b.x + len, b.y);
+      // top-right
+      ctx.moveTo(b.x + b.w - len, b.y);
+      ctx.lineTo(b.x + b.w, b.y);
+      ctx.lineTo(b.x + b.w, b.y + len);
+      // bottom-left
+      ctx.moveTo(b.x, b.y + b.h - len);
+      ctx.lineTo(b.x, b.y + b.h);
+      ctx.lineTo(b.x + len, b.y + b.h);
+      // bottom-right
+      ctx.moveTo(b.x + b.w - len, b.y + b.h);
+      ctx.lineTo(b.x + b.w, b.y + b.h);
+      ctx.lineTo(b.x + b.w, b.y + b.h - len);
+      ctx.stroke();
+    }
+
+    ctx.shadowBlur = 0;
   }
 
   function loop() {
     animId = requestAnimationFrame(loop);
-    if (!counting || video.readyState < 2) return;
+    if (!detecting || video.readyState < 2) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
 
     const w = canvas.width;
     const h = canvas.height;
     if (!w || !h) return;
 
+    // Draw current frame to offscreen logic via getImageData
     ctx.drawImage(video, 0, 0, w, h);
+    const frame = ctx.getImageData(0, 0, w, h);
 
-    // Full frame (downsampled) to detect camera movement
-    const full = ctx.getImageData(0, 0, w, h).data;
-    const globalMotion = motionRatio(full, prevFull, 4 * 24);
+    const { gray, sw, sh } = toGray(frame.data, w, h, DOWNSCALE);
 
-    // Band around the red line
-    const midY = Math.floor(h / 2);
-    const y0 = Math.max(0, midY - LINE_BAND);
-    const bandH = LINE_BAND * 2;
-    const band = ctx.getImageData(0, y0, w, bandH).data;
-    const lineMotion = motionRatio(band, prevBand, 4 * 2);
+    const boxes = findBoxes(gray, prevGray, sw, sh, w, h);
+    prevGray = gray;
 
-    prevFull = new Uint8ClampedArray(full);
-    prevBand = new Uint8ClampedArray(band);
-
-    if (cooldown > 0) {
-      cooldown--;
-      return;
-    }
-
-    // Camera is shaking / panning → ignore
-    if (globalMotion > GLOBAL_MOTION_MAX) {
-      crossing = false;
-      stillFrames = 0;
-      return;
-    }
-
-    if (lineMotion >= MIN_MOTION) {
-      // Significant motion on the line
-      if (!crossing) {
-        // New crossing started
-        crossing = true;
-        count++;
-        countEl.textContent = count;
-        countBox.classList.remove('flash');
-        void countBox.offsetWidth;
-        countBox.classList.add('flash');
-        cooldown = COOLDOWN_FRAMES;
-        stillFrames = 0;
-      }
-    } else {
-      // Low motion
-      stillFrames++;
-      if (stillFrames >= STILL_RESET) {
-        crossing = false;
-      }
-    }
+    const smooth = smoothBoxes(boxes);
+    // Clear and only draw boxes (video is under the canvas)
+    ctx.clearRect(0, 0, w, h);
+    drawBoxes(smooth);
   }
 
   btnAllow.addEventListener('click', startCamera);
-  btnReset.addEventListener('click', () => {
-    count = 0;
-    countEl.textContent = '0';
-  });
   btnToggle.addEventListener('click', () => {
-    counting = !counting;
-    btnToggle.textContent = counting ? 'Pause' : 'Resume';
-    btnToggle.classList.toggle('running', !counting);
-    setStatus(counting ? 'Live' : 'Paused', counting);
+    detecting = !detecting;
+    btnToggle.textContent = detecting ? 'Detecting' : 'Paused';
+    btnToggle.classList.toggle('active', detecting);
+    setStatus(detecting ? 'Live' : 'Paused', detecting);
+    if (!detecting) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      lastBoxes = [];
+    }
   });
 
   window.addEventListener('resize', resize);
   video.addEventListener('loadedmetadata', resize);
 
-  // Auto-try camera on load
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     startCamera();
   } else {
