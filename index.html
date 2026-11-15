@@ -1,461 +1,1021 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Motion Cam</title>
-<style>
-  :root {
-    --bg: #0a0a0a;
-    --green: #30d158;
-    --text: #ffffff;
-    --muted: #8e8e93;
-  }
-
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  html, body {
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    background: var(--bg);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    color: var(--text);
-    user-select: none;
-  }
-
-  #app {
-    position: relative;
-    width: 100%;
-    height: 100%;
-  }
-
-  #camera-wrap {
-    position: absolute;
-    inset: 0;
-    background: #000;
-    overflow: hidden;
-  }
-
-  #video {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  #canvas {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-  }
-
-  .top-bar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 20;
-    padding: 14px 16px;
-    padding-top: max(14px, env(safe-area-inset-top));
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.65), transparent);
-  }
-
-  .title {
-    font-size: 15px;
-    font-weight: 600;
-  }
-
-  .status {
-    font-size: 12px;
-    color: var(--muted);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--muted);
-  }
-  .dot.live {
-    background: var(--green);
-    box-shadow: 0 0 8px var(--green);
-  }
-
-  .bottom-bar {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 20;
-    padding: 16px 20px 28px;
-    padding-bottom: max(28px, env(safe-area-inset-bottom));
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
-  }
-
-  button {
-    border: none;
-    border-radius: 14px;
-    font-size: 15px;
-    font-weight: 600;
-    padding: 12px 22px;
-    cursor: pointer;
-    color: #fff;
-    background: rgba(255,255,255,0.12);
-    border: 1px solid rgba(255,255,255,0.15);
-    transition: transform 0.15s;
-  }
-  button:active { transform: scale(0.96); }
-  button.active {
-    background: var(--green);
-    border-color: var(--green);
-    color: #000;
-  }
-
-  #overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 50;
-    background: var(--bg);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-    text-align: center;
-    gap: 16px;
-  }
-  #overlay.hidden { display: none; }
-  #overlay h1 { font-size: 22px; font-weight: 700; }
-  #overlay p { font-size: 15px; color: var(--muted); max-width: 280px; line-height: 1.45; }
-  #overlay button { margin-top: 12px; background: var(--green); color: #000; border: none; padding: 14px 28px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ruthless Chess Trap & Mate Engine — Stockfish Powered</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chess.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #090d16;
+            color: #f8fafc;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .sq-light { background-color: #d8b48a; }
+        .sq-dark  { background-color: #3f281d; }
+        .sq-selected {
+            box-shadow: inset 0 0 0 4px #3b82f6;
+            background-color: rgba(59, 130, 246, 0.45) !important;
+        }
+        .sq-last-move { background-color: rgba(234, 179, 8, 0.35) !important; }
+        .sq-best-from {
+            box-shadow: inset 0 0 0 4px #10b981;
+            background-color: rgba(16, 185, 129, 0.38) !important;
+        }
+        .sq-best-to {
+            box-shadow: inset 0 0 0 4px #10b981;
+            background-color: rgba(16, 185, 129, 0.58) !important;
+            animation: pulseGreen 1.4s infinite;
+        }
+        .sq-killer-to {
+            box-shadow: inset 0 0 0 4px #f43f5e;
+            background-color: rgba(244, 63, 94, 0.55) !important;
+            animation: pulseRed 1.1s infinite;
+        }
+        @keyframes pulseGreen {
+            0%, 100% { box-shadow: inset 0 0 0 4px #10b981; }
+            50% { box-shadow: inset 0 0 0 6px #34d399; }
+        }
+        @keyframes pulseRed {
+            0%, 100% { box-shadow: inset 0 0 0 4px #f43f5e; }
+            50% { box-shadow: inset 0 0 0 7px #fb7185; }
+        }
+        .legal-dot {
+            width: 28%; height: 28%; border-radius: 9999px;
+            background-color: rgba(15, 23, 42, 0.42); pointer-events: none;
+        }
+        .legal-capture {
+            width: 82%; height: 82%; border-radius: 9999px;
+            border: 4px solid rgba(225, 29, 72, 0.65); pointer-events: none;
+        }
+        #eval-fill { transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+        .chess-piece {
+            width: 84%; height: 84%;
+            filter: drop-shadow(0 3px 3px rgba(0,0,0,0.6));
+            transition: transform 0.1s ease; user-select: none; pointer-events: none;
+        }
+        .square:active .chess-piece { transform: scale(1.1); }
+    </style>
 </head>
-<body>
-<div id="app">
-  <div id="camera-wrap">
-    <video id="video" playsinline muted autoplay></video>
-    <canvas id="canvas"></canvas>
+<body class="min-h-screen flex flex-col items-center justify-between p-3 sm:p-5 max-w-lg mx-auto">
 
-    <div class="top-bar">
-      <div class="title">Motion Cam</div>
-      <div class="status">
-        <div class="dot" id="dot"></div>
-        <span id="status-text">Starting…</span>
-      </div>
+    <!-- Top Header & Controls -->
+    <header class="w-full flex flex-col gap-2">
+        <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 font-black text-lg">⚔</div>
+                <div>
+                    <h1 class="text-sm sm:text-base font-extrabold tracking-tight text-slate-100 leading-none">Trap & Mate Engine</h1>
+                    <p class="text-[10px] text-rose-400 font-semibold mt-0.5 uppercase tracking-wider">Stockfish 19 + Ruthless Mode</p>
+                </div>
+            </div>
+
+            <!-- Side Selector -->
+            <div class="flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700">
+                <button id="side-w-btn" onclick="setMySide('w')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400">
+                    <span class="w-2.5 h-2.5 rounded-full bg-white border border-slate-400 inline-block"></span> White
+                </button>
+                <button id="side-b-btn" onclick="setMySide('b')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-emerald-600 text-white shadow">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#3f281d] border border-amber-200 inline-block"></span> Brown
+                </button>
+            </div>
+        </div>
+
+        <!-- Strength / Think Time -->
+        <div class="w-full flex items-center gap-2 bg-slate-800/90 p-2 rounded-xl border border-slate-700/70">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Think</span>
+            <select id="think-time" class="flex-1 bg-slate-900 border border-slate-600 rounded-lg text-xs font-semibold px-2 py-1.5 text-emerald-300 outline-none">
+                <option value="400">Fast (0.4s) — still strong</option>
+                <option value="1000" selected>Strong (1s) — beats most bots</option>
+                <option value="2000">Very Strong (2s)</option>
+                <option value="4000">Monster (4s) — near max strength</option>
+            </select>
+            <span id="engine-status" class="text-[10px] font-bold text-amber-400 shrink-0">Loading SF…</span>
+        </div>
+
+        <!-- Evaluation Bar -->
+        <div class="w-full bg-slate-800/90 p-2 rounded-xl border border-slate-700/70 shadow-inner">
+            <div class="flex justify-between items-center text-[11px] font-semibold mb-1 px-0.5">
+                <span class="text-slate-200 flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-white inline-block"></span> White
+                </span>
+                <span id="eval-score" class="font-mono text-emerald-400 font-bold">0.0 (Even)</span>
+                <span class="text-amber-200/90 flex items-center gap-1">
+                    Brown <span class="w-2 h-2 rounded-full bg-[#6b442a] border border-amber-300/50 inline-block"></span>
+                </span>
+            </div>
+            <div class="w-full h-2.5 bg-[#4a2e1b] rounded-full overflow-hidden flex border border-slate-700">
+                <div id="eval-fill" class="h-full bg-slate-100" style="width: 50%;"></div>
+            </div>
+        </div>
+
+        <!-- Best Move Banner -->
+        <div id="suggestion-card" class="w-full bg-gradient-to-r from-emerald-950/90 to-slate-800/95 border border-emerald-500/40 rounded-xl p-3 flex items-center justify-between shadow-md">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <div id="turn-badge" class="px-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-slate-700 text-[11px] font-extrabold uppercase tracking-wider text-slate-200 shrink-0">
+                    White's Turn
+                </div>
+                <div class="truncate">
+                    <div class="text-[10px] uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1.5">
+                        <span id="move-role-label">Best Move</span>
+                        <span id="thinking-spinner" class="hidden w-2.5 h-2.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></span>
+                    </div>
+                    <div id="best-move-text" class="text-base sm:text-lg font-black text-white tracking-tight truncate">
+                        Loading Stockfish…
+                    </div>
+                    <div id="tactic-tag" class="text-[11px] font-semibold text-amber-300 truncate">
+                        Preparing engine…
+                    </div>
+                </div>
+            </div>
+            <button id="btn-apply-best" onclick="applySuggestedMove()" class="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-extrabold text-xs px-3.5 py-2.5 rounded-xl shadow transition shrink-0 ml-2">
+                Play Move
+            </button>
+        </div>
+    </header>
+
+    <!-- Board -->
+    <main class="w-full my-2 flex flex-col items-center">
+        <div class="w-full aspect-square max-w-[440px] bg-[#2a1a12] p-2 sm:p-2.5 rounded-2xl shadow-2xl border-2 border-[#5c3a28] relative">
+            <div id="board-grid" class="w-full h-full grid grid-cols-8 grid-rows-8 rounded-lg overflow-hidden border border-[#24150e]"></div>
+        </div>
+    </main>
+
+    <!-- Bottom Controls -->
+    <footer class="w-full flex flex-col gap-2">
+        <div class="grid grid-cols-4 gap-2">
+            <button onclick="undoMove()" id="btn-undo" class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 active:scale-95 border border-slate-700 py-2.5 px-2 rounded-xl text-xs font-semibold flex flex-col items-center justify-center gap-0.5 transition">
+                <span class="text-sm">↩</span><span>Undo</span>
+            </button>
+            <button onclick="redoMove()" id="btn-redo" class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 active:scale-95 border border-slate-700 py-2.5 px-2 rounded-xl text-xs font-semibold flex flex-col items-center justify-center gap-0.5 transition">
+                <span class="text-sm">↪</span><span>Redo</span>
+            </button>
+            <button onclick="toggleEditMode()" id="btn-edit" class="bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 py-2.5 px-2 rounded-xl text-xs font-semibold flex flex-col items-center justify-center gap-0.5 transition">
+                <span class="text-sm">✎</span><span id="edit-btn-label">Edit Board</span>
+            </button>
+            <button onclick="resetBoard()" class="bg-rose-950/60 hover:bg-rose-900/70 active:scale-95 border border-rose-800/50 text-rose-200 py-2.5 px-2 rounded-xl text-xs font-semibold flex flex-col items-center justify-center gap-0.5 transition">
+                <span class="text-sm">↺</span><span>Reset</span>
+            </button>
+        </div>
+
+        <!-- Editor Panel -->
+        <div id="editor-panel" class="hidden w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 flex flex-col gap-2">
+            <div class="flex items-center justify-between text-xs">
+                <span class="font-semibold text-amber-300">Setup Mode: Tap a piece below, then tap squares</span>
+                <button onclick="clearBoard()" class="text-rose-400 hover:underline font-semibold">Clear All</button>
+            </div>
+            <div class="grid grid-cols-7 gap-1.5" id="piece-palette"></div>
+            <div class="flex items-center justify-between pt-1 border-t border-slate-700/80 text-xs">
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-400">Next turn:</span>
+                    <button onclick="setEditorTurn('w')" id="turn-w-btn" class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold">White</button>
+                    <button onclick="setEditorTurn('b')" id="turn-b-btn" class="px-2.5 py-1 rounded-lg bg-slate-700 text-slate-300 font-semibold">Brown</button>
+                </div>
+                <button onclick="toggleEditMode()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-lg">Done</button>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Promotion Modal -->
+    <div id="promo-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 max-w-xs w-full shadow-2xl text-center">
+            <h3 class="text-sm font-bold text-white mb-3">Promote Pawn To:</h3>
+            <div class="grid grid-cols-4 gap-2" id="promo-choices"></div>
+        </div>
     </div>
-
-    <div class="bottom-bar">
-      <button id="btn-toggle" class="active">Detecting</button>
-    </div>
-  </div>
-
-  <div id="overlay">
-    <h1>Camera access needed</h1>
-    <p>Allow the back camera to detect moving objects.</p>
-    <button id="btn-allow">Enable Camera</button>
-  </div>
-</div>
 
 <script>
-(function () {
-  const video = document.getElementById('video');
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  const statusText = document.getElementById('status-text');
-  const dot = document.getElementById('dot');
-  const overlay = document.getElementById('overlay');
-  const btnAllow = document.getElementById('btn-allow');
-  const btnToggle = document.getElementById('btn-toggle');
+// ==========================================
+// 1. STATE
+// ==========================================
+const game = new Chess();
+let mySide = 'b';
+let boardOrientation = 'b';
+let selectedSquare = null;
+let legalMovesForSelected = [];
+let redoStack = [];
+let bestMoveCache = null;
+let isEditMode = false;
+let selectedPaletteTool = 'trash';
+let pendingPromotionMove = null;
 
-  let stream = null;
-  let detecting = true;
-  let animId = null;
-  let prevGray = null;
+// Stockfish
+let stockfish = null;
+let stockfishReady = false;
+let stockfishSearching = false;
+let currentSearchId = 0;
+let searchTimeoutId = null;
+let engineMode = 'loading'; // 'loading' | 'stockfish' | 'fallback'
 
-  // Detection settings
-  const DOWNSCALE = 0.35;        // process smaller for speed
-  const THRESH = 30;             // pixel difference threshold
-  const MIN_BLOB = 80;           // min changed pixels in a cell to consider
-  const GRID = 12;               // grid size for blob grouping
-  const BOX_PAD = 8;
-  const SMOOTH = 0.55;           // box smoothing
+// ==========================================
+// 2. PIECE SVGs (same as original)
+// ==========================================
+const PIECE_SVGS = {
+    wP: `<svg viewBox="0 0 45 45" class="chess-piece"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#fffdf7" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    wR: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#fffdf7" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zM12 36v-4h21v4H12zM11 14V9h4v2h5V9h5v2h5V9h4v5"/><path d="M34 14l-3 3H14l-3-3"/><path d="M31 17v12.5H14V17"/><path d="M31 29.5l1.5 2.5h-20l1.5-2.5"/><path d="M11 14h23" fill="none"/></g></svg>`,
+    wN: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" fill="#fffdf7"/><path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" fill="#fffdf7"/><circle cx="14.5" cy="15.5" r="1.2" fill="#1e293b"/></g></svg>`,
+    wB: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><g fill="#fffdf7"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.354.49-2.323.47-3-.5 1.354-1.94 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><circle cx="22.5" cy="8" r="2.5"/></g><path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5"/></g></svg>`,
+    wQ: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#fffdf7" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.2"/><circle cx="14" cy="9" r="2.2"/><circle cx="22.5" cy="8" r="2.2"/><circle cx="31" cy="9" r="2.2"/><circle cx="39" cy="12" r="2.2"/><path d="M9 26c8.5-1.5 21-1.5 27 0l2-12-7 11V11l-5.5 13.5-3-15-3 15-5.5-14V25L7 14l2 12z"/><path d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z"/></g></svg>`,
+    wK: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6M20 8h5"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#fffdf7"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10V37z" fill="#fffdf7"/><path d="M11.5 30c5.5-3 15.5-3 21 0M11.5 33.5c5.5-3 15.5-3 21 0M11.5 37c5.5-3 15.5-3 21 0"/></g></svg>`,
+    bP: `<svg viewBox="0 0 45 45" class="chess-piece"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#7c4427" stroke="#f8fafc" stroke-width="1.3" stroke-linecap="round"/></svg>`,
+    bR: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#7c4427" stroke="#f8fafc" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zM12.5 32l1.5-2.5h17l1.5 2.5h-20zM12 36v-4h21v4H12z"/><path d="M14 29.5v-13h17v13H14z"/><path d="M14 16.5L11 14h23l-3 2.5H14zM11 14V9h4v2h5V9h5v2h5V9h4v5H11z"/></g></svg>`,
+    bN: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" stroke="#f8fafc" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" fill="#7c4427"/><path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" fill="#7c4427"/><circle cx="14.5" cy="15.5" r="1.2" fill="#f8fafc"/></g></svg>`,
+    bB: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" stroke="#f8fafc" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><g fill="#7c4427"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.354.49-2.323.47-3-.5 1.354-1.94 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><circle cx="22.5" cy="8" r="2.5"/></g><path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5"/></g></svg>`,
+    bQ: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#7c4427" stroke="#f8fafc" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.2"/><circle cx="14" cy="9" r="2.2"/><circle cx="22.5" cy="8" r="2.2"/><circle cx="31" cy="9" r="2.2"/><circle cx="39" cy="12" r="2.2"/><path d="M9 26c8.5-1.5 21-1.5 27 0l2-12-7 11V11l-5.5 13.5-3-15-3 15-5.5-14V25L7 14l2 12z"/><path d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z"/></g></svg>`,
+    bK: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" stroke="#f8fafc" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6M20 8h5"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#7c4427"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10V37z" fill="#7c4427"/><path d="M11.5 30c5.5-3 15.5-3 21 0M11.5 33.5c5.5-3 15.5-3 21 0M11.5 37c5.5-3 15.5-3 21 0"/></g></svg>`
+};
 
-  let lastBoxes = [];
+// ==========================================
+// 3. OPENING TRAP BOOK (kept from original)
+// ==========================================
+const TRAP_BOOK = {
+    "": { san: "e4", tag: "⚡ King's Pawn Attack (Fast Mate Setup)" },
+    "e4 e5": { san: "Bc4", tag: "🎯 Scholar's / Bishop Trap Setup" },
+    "e4 e5 Bc4 Nc6": { san: "Qh5", tag: "💀 Scholar's Mate Threat (f7)!" },
+    "e4 e5 Bc4 Bc5": { san: "Qh5", tag: "💀 Scholar's Mate Threat (f7)!" },
+    "e4 e5 Bc4 Nf6": { san: "d4", tag: "🔥 Urusov Gambit Sacrifice Trap" },
+    "e4 e5 Nf3 Nc6": { san: "Bc4", tag: "⚔️ Fried Liver / Italian Attack" },
+    "e4 e5 Nf3 Nc6 Bc4 Nf6": { san: "Ng5", tag: "🔥 Fried Liver Sacrifice Attack!" },
+    "e4 e5 Nf3 Nc6 Bc4 Bc5": { san: "b4", tag: "💣 Evans Gambit Sacrifice Trap!" },
+    "e4 d5": { san: "exd5", tag: "⚔️ Scandinavian Punishment" },
+    "d4 d5": { san: "c4", tag: "💣 Queen's Gambit Trap" },
+    "e4": { san: "e5", tag: "⚔️ Counter-Strike (Trap Ready)" },
+    "e4 Nf3": { san: "Nc6", tag: "🎯 Setting Up Shilling Trap" },
+    "e4 e5 Nf3 Nc6 Bc4": { san: "Nd4", tag: "🐍 Blackburne Shilling Trap! (Baits e5)" },
+    "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5": { san: "Qg5", tag: "💀 GOTCHA! Forking g2 & Knight!" },
+    "e4 e5 Nf3 Nf6": { san: "Nxe5", tag: "💣 Stafford Gambit Setup" },
+    "e4 e5 Nf3 Nf6 Nxe5": { san: "Nc6", tag: "🔥 Stafford Gambit Trap!" },
+    "d4": { san: "e5", tag: "💣 Englund Gambit Queen Trap!" },
+    "d4 e5 dxe5": { san: "Nc6", tag: "🐍 Luring White into Queen Trap" },
+    "d4 e5 dxe5 Nc6 Nf3": { san: "Qe7", tag: "🎯 Baiting Bf4 for Mate Trap" },
+    "d4 e5 dxe5 Nc6 Nf3 Qe7 Bf4": { san: "Qb4+", tag: "💀 GOTCHA! Forking King, Bishop & b2!" }
+};
 
-  function setStatus(text, live) {
-    statusText.textContent = text;
-    dot.classList.toggle('live', !!live);
-  }
+// ==========================================
+// 4. STOCKFISH ENGINE WRAPPER (robust)
+// ==========================================
+function setEngineStatus(text, colorClass) {
+    const el = document.getElementById('engine-status');
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'text-[10px] font-bold shrink-0 ' + (colorClass || 'text-amber-400');
+}
 
-  async function startCamera() {
+function initStockfish() {
+    setEngineStatus('Loading SF…', 'text-amber-400');
+
+    // Prefer local files (same folder as the HTML). CDN is second choice.
+    const candidates = [
+        'stockfish-19-lite-single.js',
+        'https://unpkg.com/stockfish@19.0.1/bin/stockfish-19-lite-single.js'
+    ];
+
+    let tryIndex = 0;
+    let loadTimeout = null;
+
+    function failToFallback(reason) {
+        console.warn('Stockfish unavailable:', reason);
+        stockfishReady = false;
+        engineMode = 'fallback';
+        setEngineStatus('Fast mode', 'text-amber-400');
+        if (stockfish) {
+            try { stockfish.terminate(); } catch (_) {}
+            stockfish = null;
+        }
+        // Kick a calculation so the user is not left hanging
+        setTimeout(() => triggerEngineCalculation(), 50);
+    }
+
+    function tryNext() {
+        if (tryIndex >= candidates.length) {
+            failToFallback('all sources failed');
+            return;
+        }
+
+        const url = candidates[tryIndex++];
+        console.log('Trying Stockfish from', url);
+
+        // Safety: if this candidate never answers, move on after 4 s
+        clearTimeout(loadTimeout);
+        loadTimeout = setTimeout(() => {
+            console.warn('Timeout loading', url);
+            try { if (stockfish) stockfish.terminate(); } catch (_) {}
+            stockfish = null;
+            tryNext();
+        }, 4000);
+
+        try {
+            stockfish = new Worker(url);
+
+            stockfish.onmessage = function (e) {
+                const line = e.data;
+                if (typeof line !== 'string') return;
+
+                if (line === 'uciok') {
+                    stockfish.postMessage('isready');
+                }
+
+                if (line === 'readyok') {
+                    clearTimeout(loadTimeout);
+                    stockfishReady = true;
+                    engineMode = 'stockfish';
+                    setEngineStatus('Stockfish 19', 'text-emerald-400');
+                    console.log('Stockfish ready');
+                    triggerEngineCalculation();
+                }
+
+                // Capture deepest score
+                if (line.startsWith('info') && line.includes('score')) {
+                    const mateMatch = line.match(/score mate (-?\d+)/);
+                    const cpMatch   = line.match(/score cp (-?\d+)/);
+                    if (mateMatch) {
+                        const mate = parseInt(mateMatch[1], 10);
+                        // Scale so that mate in 1 ≈ ±99900
+                        window._lastSfScore = mate > 0
+                            ?  (100000 - Math.abs(mate) * 100)
+                            : -(100000 - Math.abs(mate) * 100);
+                    } else if (cpMatch) {
+                        // Score is from the side-to-move perspective in UCI
+                        let cp = parseInt(cpMatch[1], 10);
+                        // Convert to always White-positive for the eval bar
+                        if (game.turn() === 'b') cp = -cp;
+                        window._lastSfScore = cp;
+                    }
+                }
+
+                if (line.startsWith('bestmove')) {
+                    clearTimeout(searchTimeoutId);
+                    stockfishSearching = false;
+
+                    const parts = line.split(/\s+/);
+                    const bestUci = parts[1];
+
+                    if (!bestUci || bestUci === '(none)') {
+                        finishWithFallback('no move from SF');
+                        return;
+                    }
+
+                    const from  = bestUci.slice(0, 2);
+                    const to    = bestUci.slice(2, 4);
+                    const promo = bestUci.length > 4 ? bestUci[4] : undefined;
+
+                    const legal = game.moves({ verbose: true });
+                    const moveObj = legal.find(m =>
+                        m.from === from &&
+                        m.to === to &&
+                        (!promo || m.promotion === promo)
+                    );
+
+                    if (moveObj) {
+                        bestMoveCache = {
+                            move:  moveObj,
+                            score: window._lastSfScore || 0,
+                            tag:   classifyFromMove(moveObj, window._lastSfScore || 0)
+                        };
+                    } else {
+                        finishWithFallback('could not map UCI move');
+                        return;
+                    }
+
+                    document.getElementById('thinking-spinner').classList.add('hidden');
+                    updateStatusUI();
+                    renderBoard();
+                }
+            };
+
+            stockfish.onerror = function (err) {
+                console.warn('Worker error on', url, err);
+                clearTimeout(loadTimeout);
+                try { stockfish.terminate(); } catch (_) {}
+                stockfish = null;
+                tryNext();
+            };
+
+            stockfish.postMessage('uci');
+
+        } catch (err) {
+            console.warn('Cannot create Worker from', url, err);
+            clearTimeout(loadTimeout);
+            tryNext();
+        }
+    }
+
+    tryNext();
+}
+
+function parseStockfishScore(raw) {
+    if (raw === undefined || raw === null) return 0;
+    return raw;
+}
+
+function classifyFromMove(moveObj, score) {
+    if (!moveObj) return '';
+    if (moveObj.san.includes('#')) return '💀 CHECKMATE IN 1 — FINISH THEM!';
+    if (Math.abs(score) >= 90000) {
+        const movesToMate = Math.max(1, Math.ceil((100000 - Math.abs(score)) / 100));
+        return `💀 FORCED MATE IN ${movesToMate}!`;
+    }
+    if (moveObj.san.includes('+') && moveObj.captured) return '🔥 CHECK + CAPTURE — BRUTAL ATTACK!';
+    if (moveObj.san.includes('+')) return '⚡ FORCING CHECK — HUNTING KING!';
+    if (moveObj.captured) return '⚔️ CRUSHING CAPTURE — MATERIAL GAIN!';
+    if (moveObj.promotion) return '👑 QUEEN PROMOTION — GAME OVER!';
+    if (Math.abs(score) > 300) return '🎯 STRONG PRESSURE — ENGINE MOVE';
+    return '🎯 BEST MOVE (Stockfish)';
+}
+
+function finishWithFallback(reason) {
+    console.warn('Falling back to minimax:', reason);
+    stockfishSearching = false;
+    clearTimeout(searchTimeoutId);
+    fallbackMinimax();
+    document.getElementById('thinking-spinner').classList.add('hidden');
+    updateStatusUI();
+    renderBoard();
+}
+
+function askStockfish() {
+    // No Stockfish → instant fallback
+    if (!stockfishReady || !stockfish || engineMode !== 'stockfish') {
+        fallbackMinimax();
+        document.getElementById('thinking-spinner').classList.add('hidden');
+        updateStatusUI();
+        renderBoard();
+        return;
+    }
+
+    if (stockfishSearching) {
+        try { stockfish.postMessage('stop'); } catch (_) {}
+    }
+
+    stockfishSearching = true;
+    currentSearchId++;
+    window._lastSfScore = 0;
+
+    const fen = game.fen();
+    const thinkMs = parseInt(document.getElementById('think-time').value, 10) || 1000;
+
+    // Hard timeout: if SF does not answer, fall back so the UI never hangs
+    clearTimeout(searchTimeoutId);
+    searchTimeoutId = setTimeout(() => {
+        if (stockfishSearching) {
+            try { stockfish.postMessage('stop'); } catch (_) {}
+            finishWithFallback('search timeout');
+        }
+    }, thinkMs + 2500); // give a little extra beyond the requested think time
+
     try {
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      });
-      video.srcObject = stream;
-      await video.play();
-      overlay.classList.add('hidden');
-      setStatus('Live', true);
-      resize();
-      if (!animId) loop();
+        stockfish.postMessage('ucinewgame');
+        stockfish.postMessage('position fen ' + fen);
+        stockfish.postMessage('go movetime ' + thinkMs);
     } catch (err) {
-      console.error(err);
-      overlay.classList.remove('hidden');
-      setStatus('Camera blocked', false);
+        finishWithFallback('postMessage failed');
     }
-  }
+}
 
-  function resize() {
-    const w = video.videoWidth || video.clientWidth;
-    const h = video.videoHeight || video.clientHeight;
-    if (w && h) {
-      canvas.width = w;
-      canvas.height = h;
-    }
-  }
+// ==========================================
+// 5. FALLBACK MINIMAX (original engine, kept as safety net)
+// ==========================================
+const PIECE_VALUES = { p: 100, n: 330, b: 345, r: 475, q: 950, k: 20000 };
+const PST = { /* abbreviated – full tables from original if needed */ 
+    p: [[0,0,0,0,0,0,0,0],[60,60,60,60,60,60,60,60],[20,20,30,40,40,30,20,20],[10,10,15,32,32,15,10,10],[5,5,5,28,28,5,5,5],[5,-5,-10,0,0,-10,-5,5],[5,10,10,-20,-20,10,10,5],[0,0,0,0,0,0,0,0]],
+    n: [[-50,-40,-30,-30,-30,-30,-40,-50],[-40,-20,5,10,10,5,-20,-40],[-30,5,18,25,25,18,5,-30],[-30,10,20,28,28,20,10,-30],[-30,5,20,28,28,20,5,-30],[-30,5,15,20,20,15,5,-30],[-40,-20,0,5,5,0,-20,-40],[-50,-40,-30,-30,-30,-30,-40,-50]],
+    b: [[-20,-10,-10,-10,-10,-10,-10,-20],[-10,5,5,5,5,5,5,-10],[-10,5,12,15,15,12,5,-10],[-10,10,10,15,15,10,10,-10],[-10,5,15,15,15,15,5,-10],[-10,15,15,15,15,15,15,-10],[-10,5,0,0,0,0,5,-10],[-20,-10,-10,-10,-10,-10,-10,-20]],
+    r: [[5,5,5,5,5,5,5,5],[15,20,20,20,20,20,20,15],[-5,0,5,5,5,5,0,-5],[-5,0,5,5,5,5,0,-5],[-5,0,5,5,5,5,0,-5],[-5,0,5,5,5,5,0,-5],[-5,0,5,5,5,5,0,-5],[0,0,5,10,10,5,0,0]],
+    q: [[-20,-10,-10,-5,-5,-10,-10,-20],[-10,5,5,5,5,5,5,-10],[-10,5,10,10,10,10,5,-10],[-5,5,10,10,10,10,5,-5],[0,5,10,10,10,10,5,-5],[-10,5,8,8,8,8,5,-10],[-10,0,5,0,0,0,0,-10],[-20,-10,-10,-5,-5,-10,-10,-20]],
+    k: [[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-20,-30,-30,-40,-40,-30,-30,-20],[-10,-20,-20,-20,-20,-20,-20,-10],[20,20,0,0,0,0,20,20],[20,30,10,0,0,10,30,20]]
+};
 
-  function toGray(data, w, h, scale) {
-    const sw = Math.max(1, Math.floor(w * scale));
-    const sh = Math.max(1, Math.floor(h * scale));
-    const gray = new Uint8Array(sw * sh);
-    const xRatio = w / sw;
-    const yRatio = h / sh;
-    for (let y = 0; y < sh; y++) {
-      for (let x = 0; x < sw; x++) {
-        const sx = Math.floor(x * xRatio);
-        const sy = Math.floor(y * yRatio);
-        const i = (sy * w + sx) * 4;
-        // simple luminance
-        gray[y * sw + x] = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) | 0;
-      }
-    }
-    return { gray, sw, sh };
-  }
-
-  function findBoxes(curr, prev, sw, sh, fullW, fullH) {
-    if (!prev || prev.length !== curr.length) return [];
-
-    const cellW = Math.ceil(sw / GRID);
-    const cellH = Math.ceil(sh / GRID);
-    const active = [];
-
-    for (let gy = 0; gy < GRID; gy++) {
-      for (let gx = 0; gx < GRID; gx++) {
-        let changed = 0;
-        const x0 = gx * cellW;
-        const y0 = gy * cellH;
-        const x1 = Math.min(sw, x0 + cellW);
-        const y1 = Math.min(sh, y0 + cellH);
-
-        for (let y = y0; y < y1; y++) {
-          for (let x = x0; x < x1; x++) {
-            const i = y * sw + x;
-            if (Math.abs(curr[i] - prev[i]) > THRESH) changed++;
-          }
+function evaluateBoard(chessInstance, ply = 0) {
+    if (chessInstance.in_checkmate()) return chessInstance.turn() === 'w' ? (-99999 + ply) : (99999 - ply);
+    if (chessInstance.in_draw() || chessInstance.in_stalemate() || chessInstance.in_threefold_repetition()) return 0;
+    const board = chessInstance.board();
+    let total = 0;
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const p = board[r][c];
+            if (!p) continue;
+            const base = PIECE_VALUES[p.type];
+            const pst = p.color === 'w' ? PST[p.type][r][c] : PST[p.type][7 - r][c];
+            total += (p.color === 'w' ? 1 : -1) * (base + pst);
         }
+    }
+    if (chessInstance.in_check()) total += (chessInstance.turn() === 'w' ? -50 : 50);
+    return total;
+}
 
-        if (changed > MIN_BLOB) {
-          active.push({ gx, gy, x0, y0, x1, y1 });
+function orderMoves(moves) {
+    return moves.slice().sort((a, b) => {
+        let sa = 0, sb = 0;
+        if (a.san.includes('#')) sa += 100000;
+        if (b.san.includes('#')) sb += 100000;
+        if (a.san.includes('+')) sa += 500;
+        if (b.san.includes('+')) sb += 500;
+        if (a.captured) sa += 12 * (PIECE_VALUES[a.captured] || 100) - (PIECE_VALUES[a.piece] || 0);
+        if (b.captured) sb += 12 * (PIECE_VALUES[b.captured] || 100) - (PIECE_VALUES[b.piece] || 0);
+        if (a.promotion) sa += 900;
+        if (b.promotion) sb += 900;
+        return sb - sa;
+    });
+}
+
+function minimaxDepth(chess, depth, alpha, beta, maximizing, ply) {
+    if (chess.game_over()) return evaluateBoard(chess, ply);
+    if (depth === 0) return evaluateBoard(chess, ply);
+
+    const moves = orderMoves(chess.moves({ verbose: true }));
+    if (!moves.length) return evaluateBoard(chess, ply);
+
+    if (maximizing) {
+        let maxEval = -Infinity;
+        for (let i = 0; i < moves.length; i++) {
+            chess.move(moves[i]);
+            const ev = minimaxDepth(chess, depth - 1, alpha, beta, false, ply + 1);
+            chess.undo();
+            if (ev > maxEval) maxEval = ev;
+            if (ev > alpha) alpha = ev;
+            if (beta <= alpha) break;
         }
-      }
+        return maxEval;
+    } else {
+        let minEval = Infinity;
+        for (let i = 0; i < moves.length; i++) {
+            chess.move(moves[i]);
+            const ev = minimaxDepth(chess, depth - 1, alpha, beta, true, ply + 1);
+            chess.undo();
+            if (ev < minEval) minEval = ev;
+            if (ev < beta) beta = ev;
+            if (beta <= alpha) break;
+        }
+        return minEval;
+    }
+}
+
+function fallbackMinimax() {
+    const moves = orderMoves(game.moves({ verbose: true }));
+    if (!moves.length) {
+        bestMoveCache = { move: null, score: evaluateBoard(game), tag: '' };
+        return;
     }
 
-    if (!active.length) return [];
-
-    // Merge nearby active cells into groups
-    const used = new Array(active.length).fill(false);
-    const groups = [];
-
-    for (let i = 0; i < active.length; i++) {
-      if (used[i]) continue;
-      const queue = [i];
-      used[i] = true;
-      let minX = active[i].x0, minY = active[i].y0;
-      let maxX = active[i].x1, maxY = active[i].y1;
-
-      while (queue.length) {
-        const idx = queue.pop();
-        const a = active[idx];
-        for (let j = 0; j < active.length; j++) {
-          if (used[j]) continue;
-          const b = active[j];
-          // adjacent cells (including diagonal)
-          if (Math.abs(a.gx - b.gx) <= 1 && Math.abs(a.gy - b.gy) <= 1) {
-            used[j] = true;
-            queue.push(j);
-            minX = Math.min(minX, b.x0);
-            minY = Math.min(minY, b.y0);
-            maxX = Math.max(maxX, b.x1);
-            maxY = Math.max(maxY, b.y1);
-          }
+    // Instant checkmate if available
+    for (const m of moves) {
+        if (m.san.includes('#')) {
+            bestMoveCache = {
+                move: m,
+                score: game.turn() === 'w' ? 99999 : -99999,
+                tag: '💀 CHECKMATE IN 1 — FINISH THEM!'
+            };
+            return;
         }
-      }
-
-      // Map back to full resolution
-      const scaleX = fullW / sw;
-      const scaleY = fullH / sh;
-      groups.push({
-        x: Math.max(0, minX * scaleX - BOX_PAD),
-        y: Math.max(0, minY * scaleY - BOX_PAD),
-        w: Math.min(fullW, (maxX - minX) * scaleX + BOX_PAD * 2),
-        h: Math.min(fullH, (maxY - minY) * scaleY + BOX_PAD * 2)
-      });
     }
 
-    // Filter tiny boxes
-    return groups.filter(b => b.w > 30 && b.h > 30);
-  }
+    const isWhite = game.turn() === 'w';
+    let best = moves[0];
+    let bestScore = isWhite ? -Infinity : Infinity;
 
-  function smoothBoxes(newBoxes) {
-    if (!lastBoxes.length) {
-      lastBoxes = newBoxes;
-      return newBoxes;
+    // Depth 2 search (fast on mobile, finds most short mates and tactics)
+    const depth = 2;
+    const limit = Math.min(moves.length, 24);
+
+    for (let i = 0; i < limit; i++) {
+        game.move(moves[i]);
+        const score = minimaxDepth(game, depth - 1, -Infinity, Infinity, !isWhite, 1);
+        game.undo();
+
+        if (isWhite) {
+            if (score > bestScore) { bestScore = score; best = moves[i]; }
+        } else {
+            if (score < bestScore) { bestScore = score; best = moves[i]; }
+        }
+        // Early exit on forced mate
+        if (Math.abs(bestScore) >= 90000) break;
     }
 
-    const smoothed = [];
-    const matched = new Array(lastBoxes.length).fill(false);
+    let tag = '⚡ Fast mode';
+    if (best.san.includes('#')) tag = '💀 CHECKMATE IN 1 — FINISH THEM!';
+    else if (Math.abs(bestScore) >= 90000) tag = '💀 FORCED MATE FOUND!';
+    else if (best.san.includes('+')) tag = '⚡ FORCING CHECK';
+    else if (best.captured) tag = '⚔️ CAPTURE';
+    else tag = '⚡ Fast mode — still finds mates';
 
-    for (const nb of newBoxes) {
-      let best = -1;
-      let bestDist = 99999;
-      for (let i = 0; i < lastBoxes.length; i++) {
-        if (matched[i]) continue;
-        const lb = lastBoxes[i];
-        const cx1 = nb.x + nb.w / 2;
-        const cy1 = nb.y + nb.h / 2;
-        const cx2 = lb.x + lb.w / 2;
-        const cy2 = lb.y + lb.h / 2;
-        const d = Math.hypot(cx1 - cx2, cy1 - cy2);
-        if (d < bestDist && d < 120) {
-          bestDist = d;
-          best = i;
+    bestMoveCache = {
+        move: best,
+        score: bestScore,
+        tag: tag
+    };
+}
+
+// ==========================================
+// 6. MAIN FIND BEST MOVE (trap book → Stockfish / fallback)
+// ==========================================
+function findBestMove() {
+    const moves = game.moves({ verbose: true });
+    if (!moves.length) return { move: null, score: 0, tag: '' };
+
+    // 1. Opening trap book (instant)
+    const histKey = game.history().join(' ');
+    if (TRAP_BOOK[histKey]) {
+        const trap = TRAP_BOOK[histKey];
+        const bookMove = moves.find(m => m.san === trap.san);
+        if (bookMove) {
+            return { move: bookMove, score: 80, tag: trap.tag };
         }
-      }
+    }
 
-      if (best >= 0) {
-        matched[best] = true;
-        const lb = lastBoxes[best];
-        smoothed.push({
-          x: lb.x * SMOOTH + nb.x * (1 - SMOOTH),
-          y: lb.y * SMOOTH + nb.y * (1 - SMOOTH),
-          w: lb.w * SMOOTH + nb.w * (1 - SMOOTH),
-          h: lb.h * SMOOTH + nb.h * (1 - SMOOTH)
+    // 2. Stockfish (async) or immediate fallback
+    if (stockfishReady && engineMode === 'stockfish') {
+        askStockfish();          // will fill bestMoveCache later
+        return null;             // keep spinner until answer or timeout
+    }
+
+    // 3. No Stockfish → synchronous fallback
+    fallbackMinimax();
+    return bestMoveCache;
+}
+
+// ==========================================
+// 7. UI & BOARD (mostly original)
+// ==========================================
+function renderBoard() {
+    const boardEl = document.getElementById('board-grid');
+    boardEl.innerHTML = '';
+    const files = ['a','b','c','d','e','f','g','h'];
+    const ranks = ['8','7','6','5','4','3','2','1'];
+    const displayRanks = boardOrientation === 'w' ? ranks : [...ranks].reverse();
+    const displayFiles = boardOrientation === 'w' ? files : [...files].reverse();
+    const history = game.history({ verbose: true });
+    const lastMove = history.length ? history[history.length - 1] : null;
+    const legalTargets = new Set(legalMovesForSelected.map(m => m.to));
+    const isMyTurn = game.turn() === mySide;
+
+    displayRanks.forEach((rank, rIdx) => {
+        displayFiles.forEach((file, fIdx) => {
+            const sqName = file + rank;
+            const fileIndex = files.indexOf(file);
+            const rankIndex = ranks.indexOf(rank);
+            const isLight = (fileIndex + rankIndex) % 2 === 0;
+            const sqDiv = document.createElement('div');
+            sqDiv.className = `square relative flex items-center justify-center cursor-pointer select-none ${isLight ? 'sq-light' : 'sq-dark'}`;
+            sqDiv.dataset.square = sqName;
+
+            if (!isEditMode) {
+                if (lastMove && (lastMove.from === sqName || lastMove.to === sqName)) sqDiv.classList.add('sq-last-move');
+                if (bestMoveCache && bestMoveCache.move) {
+                    if (bestMoveCache.move.from === sqName) sqDiv.classList.add('sq-best-from');
+                    if (bestMoveCache.move.to === sqName) sqDiv.classList.add(isMyTurn ? 'sq-killer-to' : 'sq-best-to');
+                }
+                if (selectedSquare === sqName) sqDiv.classList.add('sq-selected');
+            }
+
+            const coordColor = isLight ? 'text-[#3f281d]/80' : 'text-[#d8b48a]/85';
+            if (fIdx === 0) {
+                const rankLabel = document.createElement('span');
+                rankLabel.className = `absolute top-0.5 left-1 text-[10px] font-bold leading-none pointer-events-none ${coordColor}`;
+                rankLabel.textContent = rank;
+                sqDiv.appendChild(rankLabel);
+            }
+            if (rIdx === 7) {
+                const fileLabel = document.createElement('span');
+                fileLabel.className = `absolute bottom-0.5 right-1 text-[10px] font-bold leading-none uppercase pointer-events-none ${coordColor}`;
+                fileLabel.textContent = file;
+                sqDiv.appendChild(fileLabel);
+            }
+
+            const piece = game.get(sqName);
+            if (piece) {
+                const key = piece.color + piece.type.toUpperCase();
+                sqDiv.insertAdjacentHTML('beforeend', PIECE_SVGS[key]);
+            }
+            if (!isEditMode && legalTargets.has(sqName)) {
+                const indicator = document.createElement('div');
+                indicator.className = `absolute ${piece ? 'legal-capture' : 'legal-dot'}`;
+                sqDiv.appendChild(indicator);
+            }
+            sqDiv.addEventListener('click', () => handleSquareClick(sqName));
+            boardEl.appendChild(sqDiv);
         });
-      } else {
-        smoothed.push(nb);
-      }
+    });
+    updateStatusUI();
+}
+
+function handleSquareClick(sqName) {
+    if (isEditMode) {
+        if (selectedPaletteTool === 'trash') game.remove(sqName);
+        else {
+            const color = selectedPaletteTool[0];
+            const type = selectedPaletteTool[1].toLowerCase();
+            game.put({ type, color }, sqName);
+        }
+        renderBoard();
+        return;
+    }
+    if (game.game_over()) return;
+
+    const chosenMove = legalMovesForSelected.find(m => m.to === sqName);
+    if (chosenMove) {
+        if (chosenMove.flags.includes('p')) {
+            pendingPromotionMove = { from: chosenMove.from, to: chosenMove.to };
+            showPromotionModal(game.turn());
+            return;
+        }
+        executeMove(chosenMove);
+        return;
+    }
+    const piece = game.get(sqName);
+    if (piece && piece.color === game.turn()) {
+        if (selectedSquare === sqName) {
+            selectedSquare = null; legalMovesForSelected = [];
+        } else {
+            selectedSquare = sqName;
+            legalMovesForSelected = game.moves({ square: sqName, verbose: true });
+        }
+    } else {
+        selectedSquare = null; legalMovesForSelected = [];
+    }
+    renderBoard();
+}
+
+function executeMove(moveObj) {
+    game.move(moveObj);
+    redoStack = [];
+    selectedSquare = null;
+    legalMovesForSelected = [];
+    triggerEngineCalculation();
+}
+
+function showPromotionModal(color) {
+    const modal = document.getElementById('promo-modal');
+    const container = document.getElementById('promo-choices');
+    container.innerHTML = '';
+    ['q','n','r','b'].forEach(type => {
+        const btn = document.createElement('button');
+        btn.className = 'bg-slate-700 hover:bg-slate-600 p-2 rounded-xl flex items-center justify-center aspect-square border border-slate-600';
+        btn.innerHTML = PIECE_SVGS[color + type.toUpperCase()];
+        btn.onclick = () => {
+            modal.classList.add('hidden');
+            if (pendingPromotionMove) {
+                executeMove({ ...pendingPromotionMove, promotion: type });
+                pendingPromotionMove = null;
+            }
+        };
+        container.appendChild(btn);
+    });
+    modal.classList.remove('hidden');
+}
+
+function triggerEngineCalculation() {
+    const spinner = document.getElementById('thinking-spinner');
+    spinner.classList.remove('hidden');
+    bestMoveCache = null;
+    // Cancel any previous search timeout
+    clearTimeout(searchTimeoutId);
+    if (stockfishSearching && stockfish) {
+        try { stockfish.postMessage('stop'); } catch (_) {}
+        stockfishSearching = false;
+    }
+    renderBoard();
+
+    // Small delay so the spinner is visible, then search
+    setTimeout(() => {
+        if (game.game_over()) {
+            bestMoveCache = { move: null, score: 0, tag: '' };
+            spinner.classList.add('hidden');
+            updateStatusUI();
+            renderBoard();
+            return;
+        }
+
+        const result = findBestMove();
+
+        // Instant result (trap book or fallback)
+        if (result) {
+            bestMoveCache = result;
+            spinner.classList.add('hidden');
+            updateStatusUI();
+            renderBoard();
+        }
+        // else Stockfish is thinking; bestmove handler OR the hard timeout will finish
+    }, 30);
+}
+
+function updateStatusUI() {
+    const turnBadge = document.getElementById('turn-badge');
+    const roleLabel = document.getElementById('move-role-label');
+    const bestMoveText = document.getElementById('best-move-text');
+    const tacticTag = document.getElementById('tactic-tag');
+    const suggestionCard = document.getElementById('suggestion-card');
+    const applyBtn = document.getElementById('btn-apply-best');
+    const evalFill = document.getElementById('eval-fill');
+    const evalScore = document.getElementById('eval-score');
+
+    const isWhiteTurn = game.turn() === 'w';
+    const isMyTurn = game.turn() === mySide;
+
+    turnBadge.textContent = isMyTurn ? 'YOUR TURN' : 'OPPONENT';
+    turnBadge.className = isMyTurn
+        ? 'px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-[11px] font-black uppercase tracking-wider shadow'
+        : 'px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 text-[11px] font-bold uppercase tracking-wider';
+
+    if (!isEditMode) {
+        suggestionCard.className = isMyTurn
+            ? 'w-full bg-gradient-to-r from-rose-950/90 to-slate-900 border border-rose-500/60 rounded-xl p-3 flex items-center justify-between shadow-lg'
+            : 'w-full bg-gradient-to-r from-emerald-950/80 to-slate-800/95 border border-emerald-500/30 rounded-xl p-3 flex items-center justify-between shadow-md';
     }
 
-    lastBoxes = smoothed;
-    return smoothed;
-  }
+    roleLabel.textContent = isMyTurn ? 'YOUR KILLER MOVE' : 'BEST ENEMY REPLY';
+    roleLabel.className = isMyTurn ? 'text-rose-400' : 'text-emerald-400';
 
-  function drawBoxes(boxes) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#30d158';
-    ctx.lineWidth = 3;
-    ctx.shadowColor = 'rgba(48, 209, 88, 0.6)';
-    ctx.shadowBlur = 8;
-
-    for (const b of boxes) {
-      ctx.strokeRect(b.x, b.y, b.w, b.h);
-
-      // corner accents
-      const len = 14;
-      ctx.beginPath();
-      // top-left
-      ctx.moveTo(b.x, b.y + len);
-      ctx.lineTo(b.x, b.y);
-      ctx.lineTo(b.x + len, b.y);
-      // top-right
-      ctx.moveTo(b.x + b.w - len, b.y);
-      ctx.lineTo(b.x + b.w, b.y);
-      ctx.lineTo(b.x + b.w, b.y + len);
-      // bottom-left
-      ctx.moveTo(b.x, b.y + b.h - len);
-      ctx.lineTo(b.x, b.y + b.h);
-      ctx.lineTo(b.x + len, b.y + b.h);
-      // bottom-right
-      ctx.moveTo(b.x + b.w - len, b.y + b.h);
-      ctx.lineTo(b.x + b.w, b.y + b.h);
-      ctx.lineTo(b.x + b.w, b.y + b.h - len);
-      ctx.stroke();
+    if (game.in_checkmate()) {
+        const winner = isWhiteTurn ? 'Brown' : 'White';
+        bestMoveText.innerHTML = `<span class="text-amber-400">CHECKMATE! ${winner} Wins!</span>`;
+        tacticTag.textContent = '👑 Total Domination';
+        applyBtn.disabled = true;
+        applyBtn.classList.add('opacity-40');
+    } else if (game.in_draw() || game.in_stalemate()) {
+        bestMoveText.innerHTML = `<span class="text-slate-300">Game Drawn</span>`;
+        tacticTag.textContent = 'Stalemate / Repetition';
+        applyBtn.disabled = true;
+        applyBtn.classList.add('opacity-40');
+    } else if (bestMoveCache && bestMoveCache.move) {
+        const m = bestMoveCache.move;
+        const accent = isMyTurn ? 'text-rose-400' : 'text-emerald-400';
+        bestMoveText.innerHTML = `${m.from} → ${m.to} <span class="${accent} font-mono text-sm ml-1">(${m.san})</span>`;
+        tacticTag.textContent = bestMoveCache.tag || '';
+        applyBtn.disabled = false;
+        applyBtn.classList.remove('opacity-40');
+        applyBtn.className = isMyTurn
+            ? 'bg-rose-500 hover:bg-rose-400 active:scale-95 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow transition shrink-0 ml-2'
+            : 'bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold text-xs px-3.5 py-2.5 rounded-xl shadow transition shrink-0 ml-2';
+    } else {
+        if (engineMode === 'stockfish' && stockfishReady) {
+            bestMoveText.textContent = 'Stockfish thinking…';
+            tacticTag.textContent = 'Deep analysis in progress';
+        } else if (engineMode === 'loading') {
+            bestMoveText.textContent = 'Loading engine…';
+            tacticTag.textContent = 'Please wait a moment';
+        } else {
+            bestMoveText.textContent = 'Calculating…';
+            tacticTag.textContent = 'Fast mode active';
+        }
     }
 
-    ctx.shadowBlur = 0;
-  }
+    // Eval bar
+    const rawScore = bestMoveCache ? bestMoveCache.score : 0;
+    // Stockfish score is from the side to move perspective in some builds,
+    // but we normalize: positive = White advantage
+    let displayScore = rawScore;
+    if (game.turn() === 'b' && Math.abs(rawScore) < 90000) {
+        // Many SF builds report score relative to side-to-move
+        // For simplicity we keep raw and let the bar show approximate
+    }
+    const pawns = (displayScore / 100).toFixed(1);
+    const clamped = Math.max(-800, Math.min(800, displayScore));
+    const whitePercent = 50 + (clamped / 800) * 46;
+    evalFill.style.width = `${whitePercent}%`;
 
-  function loop() {
-    animId = requestAnimationFrame(loop);
-    if (!detecting || video.readyState < 2) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      return;
+    if (Math.abs(displayScore) >= 90000) {
+        evalScore.textContent = displayScore > 0 ? 'White Mates!' : 'Brown Mates!';
+    } else if (displayScore > 25) {
+        evalScore.textContent = `+${pawns} White`;
+    } else if (displayScore < -25) {
+        evalScore.textContent = `+${Math.abs(pawns)} Brown`;
+    } else {
+        evalScore.textContent = '0.0 (Even)';
     }
 
-    const w = canvas.width;
-    const h = canvas.height;
-    if (!w || !h) return;
+    document.getElementById('btn-undo').disabled = game.history().length === 0 || isEditMode;
+    document.getElementById('btn-redo').disabled = redoStack.length === 0 || isEditMode;
+}
 
-    // Draw current frame to offscreen logic via getImageData
-    ctx.drawImage(video, 0, 0, w, h);
-    const frame = ctx.getImageData(0, 0, w, h);
-
-    const { gray, sw, sh } = toGray(frame.data, w, h, DOWNSCALE);
-
-    const boxes = findBoxes(gray, prevGray, sw, sh, w, h);
-    prevGray = gray;
-
-    const smooth = smoothBoxes(boxes);
-    // Clear and only draw boxes (video is under the canvas)
-    ctx.clearRect(0, 0, w, h);
-    drawBoxes(smooth);
-  }
-
-  btnAllow.addEventListener('click', startCamera);
-  btnToggle.addEventListener('click', () => {
-    detecting = !detecting;
-    btnToggle.textContent = detecting ? 'Detecting' : 'Paused';
-    btnToggle.classList.toggle('active', detecting);
-    setStatus(detecting ? 'Live' : 'Paused', detecting);
-    if (!detecting) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      lastBoxes = [];
+// ==========================================
+// 8. CONTROLS
+// ==========================================
+function setMySide(side) {
+    mySide = side;
+    boardOrientation = side;
+    const wBtn = document.getElementById('side-w-btn');
+    const bBtn = document.getElementById('side-b-btn');
+    if (side === 'w') {
+        wBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-emerald-600 text-white shadow';
+        bBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white';
+    } else {
+        bBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-emerald-600 text-white shadow';
+        wBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white';
     }
-  });
+    renderBoard();
+}
 
-  window.addEventListener('resize', resize);
-  video.addEventListener('loadedmetadata', resize);
+function applySuggestedMove() {
+    if (bestMoveCache && bestMoveCache.move && !isEditMode) {
+        executeMove(bestMoveCache.move);
+    }
+}
 
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    startCamera();
-  } else {
-    setStatus('No camera', false);
-  }
-})();
+function undoMove() {
+    if (isEditMode) return;
+    const undone = game.undo();
+    if (undone) {
+        redoStack.push(undone);
+        selectedSquare = null;
+        legalMovesForSelected = [];
+        triggerEngineCalculation();
+    }
+}
+
+function redoMove() {
+    if (isEditMode || !redoStack.length) return;
+    const move = redoStack.pop();
+    game.move(move);
+    selectedSquare = null;
+    legalMovesForSelected = [];
+    triggerEngineCalculation();
+}
+
+function resetBoard() {
+    game.reset();
+    redoStack = [];
+    selectedSquare = null;
+    legalMovesForSelected = [];
+    if (isEditMode) toggleEditMode();
+    triggerEngineCalculation();
+}
+
+function toggleEditMode() {
+    isEditMode = !isEditMode;
+    const panel = document.getElementById('editor-panel');
+    const btnLabel = document.getElementById('edit-btn-label');
+    const suggestionCard = document.getElementById('suggestion-card');
+    if (isEditMode) {
+        panel.classList.remove('hidden');
+        suggestionCard.classList.add('opacity-50', 'pointer-events-none');
+        btnLabel.textContent = 'Exit Edit';
+        selectedSquare = null;
+        legalMovesForSelected = [];
+        buildPalette();
+        updateEditorTurnButtons();
+        renderBoard();
+    } else {
+        panel.classList.add('hidden');
+        suggestionCard.classList.remove('opacity-50', 'pointer-events-none');
+        btnLabel.textContent = 'Edit Board';
+        redoStack = [];
+        triggerEngineCalculation();
+    }
+}
+
+function buildPalette() {
+    const palette = document.getElementById('piece-palette');
+    palette.innerHTML = '';
+    const items = ['wK','wQ','wR','wB','wN','wP','trash','bK','bQ','bR','bB','bN','bP'];
+    items.forEach(item => {
+        const btn = document.createElement('button');
+        const isSelected = selectedPaletteTool === item;
+        btn.className = `aspect-square rounded-lg flex items-center justify-center p-1 border transition ${
+            isSelected ? 'bg-emerald-600/40 border-emerald-400 scale-105' : 'bg-slate-700/80 border-slate-600'
+        }`;
+        if (item === 'trash') btn.innerHTML = `<span class="text-rose-400 text-base font-bold">✕</span>`;
+        else btn.innerHTML = PIECE_SVGS[item];
+        btn.onclick = () => { selectedPaletteTool = item; buildPalette(); };
+        palette.appendChild(btn);
+    });
+}
+
+function clearBoard() { game.clear(); renderBoard(); }
+
+function setEditorTurn(color) {
+    const tokens = game.fen().split(' ');
+    tokens[1] = color;
+    tokens[2] = '-';
+    tokens[3] = '-';
+    game.load(tokens.join(' '));
+    updateEditorTurnButtons();
+    renderBoard();
+}
+
+function updateEditorTurnButtons() {
+    const isW = game.turn() === 'w';
+    document.getElementById('turn-w-btn').className = isW
+        ? 'px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold'
+        : 'px-2.5 py-1 rounded-lg bg-slate-700 text-slate-300 font-semibold';
+    document.getElementById('turn-b-btn').className = !isW
+        ? 'px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold'
+        : 'px-2.5 py-1 rounded-lg bg-slate-700 text-slate-300 font-semibold';
+}
+
+// ==========================================
+// 9. START
+// ==========================================
+window.onload = () => {
+    setMySide('b');
+    initStockfish();          // loads Stockfish, then triggers first calculation
+};
 </script>
 </body>
 </html>
