@@ -301,10 +301,12 @@ function setPlayMode(mode) {
 function initStockfish() {
     setEngineStatus('Loading SF…', 'text-amber-400');
 
-    // Prefer local files (same folder as the HTML). CDN is second choice.
+    // Strongest first → fall back. Full single-thread ~94MB is the best that works without special headers.
     const candidates = [
-        'stockfish-19-lite-single.js',
-        'https://unpkg.com/stockfish@19.0.1/bin/stockfish-19-lite-single.js'
+        'stockfish-19-single.js',                                           // full local
+        'https://unpkg.com/stockfish@19.0.1/bin/stockfish-19-single.js',   // full CDN
+        'stockfish-19-lite-single.js',                                      // lite local
+        'https://unpkg.com/stockfish@19.0.1/bin/stockfish-19-lite-single.js' // lite CDN
     ];
 
     let tryIndex = 0;
@@ -332,14 +334,15 @@ function initStockfish() {
         const url = candidates[tryIndex++];
         console.log('Trying Stockfish from', url);
 
-        // Safety: if this candidate never answers, move on after 4 s
+        // Full engine is huge — give it more time to load
+        const isFull = url.includes('stockfish-19-single') && !url.includes('lite');
         clearTimeout(loadTimeout);
         loadTimeout = setTimeout(() => {
             console.warn('Timeout loading', url);
             try { if (stockfish) stockfish.terminate(); } catch (_) {}
             stockfish = null;
             tryNext();
-        }, 4000);
+        }, isFull ? 25000 : 6000);
 
         try {
             stockfish = new Worker(url);
@@ -357,7 +360,7 @@ function initStockfish() {
                     stockfishReady = true;
                     engineMode = 'stockfish';
                     setEngineStatus('Stockfish 19', 'text-emerald-400');
-                    console.log('Stockfish ready');
+                    console.log('Stockfish ready from', url);
                     triggerEngineCalculation();
                 }
 
