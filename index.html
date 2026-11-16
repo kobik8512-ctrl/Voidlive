@@ -88,16 +88,29 @@
             </div>
         </div>
 
-        <!-- Strength / Think Time -->
-        <div class="w-full flex items-center gap-2 bg-slate-800/90 p-2 rounded-xl border border-slate-700/70">
-            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Think</span>
-            <select id="think-time" class="flex-1 bg-slate-900 border border-slate-600 rounded-lg text-xs font-semibold px-2 py-1.5 text-emerald-300 outline-none">
-                <option value="400">Fast (0.4s) — still strong</option>
-                <option value="1000" selected>Strong (1s) — beats most bots</option>
-                <option value="2000">Very Strong (2s)</option>
-                <option value="4000">Monster (4s) — near max strength</option>
-            </select>
-            <span id="engine-status" class="text-[10px] font-bold text-amber-400 shrink-0">Loading SF…</span>
+        <!-- Strength / Think Time + Style -->
+        <div class="w-full flex flex-col gap-1.5 bg-slate-800/90 p-2 rounded-xl border border-slate-700/70">
+            <div class="flex items-center gap-2">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Think</span>
+                <select id="think-time" class="flex-1 bg-slate-900 border border-slate-600 rounded-lg text-xs font-semibold px-2 py-1.5 text-emerald-300 outline-none">
+                    <option value="400">Fast (0.4s)</option>
+                    <option value="1000" selected>Strong (1s)</option>
+                    <option value="2000">Very Strong (2s)</option>
+                    <option value="4000">Monster (4s)</option>
+                </select>
+                <span id="engine-status" class="text-[10px] font-bold text-amber-400 shrink-0">Loading SF…</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Mode</span>
+                <div class="flex-1 flex rounded-lg overflow-hidden border border-slate-600">
+                    <button id="mode-balanced" onclick="setPlayMode('balanced')" class="flex-1 px-2 py-1.5 text-[11px] font-bold bg-emerald-600 text-white">
+                        Balanced
+                    </button>
+                    <button id="mode-aggressive" onclick="setPlayMode('aggressive')" class="flex-1 px-2 py-1.5 text-[11px] font-bold bg-slate-900 text-slate-300">
+                        ⚡ Aggressive
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- Evaluation Bar -->
@@ -213,6 +226,8 @@ let stockfishSearching = false;
 let currentSearchId = 0;
 let searchTimeoutId = null;
 let engineMode = 'loading'; // 'loading' | 'stockfish' | 'fallback'
+let playMode = 'balanced'; // 'balanced' | 'aggressive'
+let multipvLines = []; // for aggressive mode selection
 
 // ==========================================
 // 2. PIECE SVGs (same as original)
@@ -266,6 +281,21 @@ function setEngineStatus(text, colorClass) {
     if (!el) return;
     el.textContent = text;
     el.className = 'text-[10px] font-bold shrink-0 ' + (colorClass || 'text-amber-400');
+}
+
+function setPlayMode(mode) {
+    playMode = mode;
+    const bal = document.getElementById('mode-balanced');
+    const agg = document.getElementById('mode-aggressive');
+    if (mode === 'aggressive') {
+        bal.className = 'flex-1 px-2 py-1.5 text-[11px] font-bold bg-slate-900 text-slate-300';
+        agg.className = 'flex-1 px-2 py-1.5 text-[11px] font-bold bg-rose-600 text-white';
+    } else {
+        bal.className = 'flex-1 px-2 py-1.5 text-[11px] font-bold bg-emerald-600 text-white';
+        agg.className = 'flex-1 px-2 py-1.5 text-[11px] font-bold bg-slate-900 text-slate-300';
+    }
+    // Re-calculate with new style
+    if (!isEditMode && !game.game_over()) triggerEngineCalculation();
 }
 
 function initStockfish() {
@@ -331,23 +361,33 @@ function initStockfish() {
                     triggerEngineCalculation();
                 }
 
-                // Capture deepest score
-                if (line.startsWith('info') && line.includes('score')) {
+                // Capture MultiPV lines + score
+                if (line.startsWith('info') && line.includes('score') && line.includes(' pv ')) {
+                    const multipvMatch = line.match(/multipv (\d+)/);
+                    const pvIndex = multipvMatch ? parseInt(multipvMatch[1], 10) : 1;
                     const mateMatch = line.match(/score mate (-?\d+)/);
                     const cpMatch   = line.match(/score cp (-?\d+)/);
+                    const pvMatch   = line.match(/ pv ([a-h][1-8][a-h][1-8][qrbn]?)/);
+
+                    let score = 0;
                     if (mateMatch) {
                         const mate = parseInt(mateMatch[1], 10);
-                        // Scale so that mate in 1 ≈ ±99900
-                        window._lastSfScore = mate > 0
+                        score = mate > 0
                             ?  (100000 - Math.abs(mate) * 100)
                             : -(100000 - Math.abs(mate) * 100);
                     } else if (cpMatch) {
-                        // Score is from the side-to-move perspective in UCI
                         let cp = parseInt(cpMatch[1], 10);
-                        // Convert to always White-positive for the eval bar
                         if (game.turn() === 'b') cp = -cp;
-                        window._lastSfScore = cp;
+                        score = cp;
                     }
+
+                    if (pvMatch) {
+                        const uci = pvMatch[1];
+                        multipvLines[pvIndex - 1] = { uci, score, raw: line };
+                    }
+
+                    // Keep overall best score for the bar (multipv 1)
+                    if (pvIndex === 1) window._lastSfScore = score;
                 }
 
                 if (line.startsWith('bestmove')) {
@@ -355,11 +395,16 @@ function initStockfish() {
                     stockfishSearching = false;
 
                     const parts = line.split(/\s+/);
-                    const bestUci = parts[1];
+                    let bestUci = parts[1];
 
                     if (!bestUci || bestUci === '(none)') {
                         finishWithFallback('no move from SF');
                         return;
+                    }
+
+                    // Aggressive mode: pick the most forcing line among top MultiPV candidates
+                    if (playMode === 'aggressive' && multipvLines.length > 0) {
+                        bestUci = pickAggressiveMove(multipvLines, bestUci);
                     }
 
                     const from  = bestUci.slice(0, 2);
@@ -374,16 +419,22 @@ function initStockfish() {
                     );
 
                     if (moveObj) {
+                        const finalScore = window._lastSfScore || 0;
+                        let tag = classifyFromMove(moveObj, finalScore);
+                        if (playMode === 'aggressive' && !tag.includes('MATE') && !tag.includes('CHECK')) {
+                            tag = '⚡ AGGRESSIVE STRIKE';
+                        }
                         bestMoveCache = {
                             move:  moveObj,
-                            score: window._lastSfScore || 0,
-                            tag:   classifyFromMove(moveObj, window._lastSfScore || 0)
+                            score: finalScore,
+                            tag:   tag
                         };
                     } else {
                         finishWithFallback('could not map UCI move');
                         return;
                     }
 
+                    multipvLines = [];
                     document.getElementById('thinking-spinner').classList.add('hidden');
                     updateStatusUI();
                     renderBoard();
@@ -440,6 +491,58 @@ function finishWithFallback(reason) {
     renderBoard();
 }
 
+function aggressionScore(uci, score) {
+    // Higher = more aggressive. Prefer fast mates, checks, captures.
+    const legal = game.moves({ verbose: true });
+    const from = uci.slice(0, 2);
+    const to   = uci.slice(2, 4);
+    const promo = uci.length > 4 ? uci[4] : undefined;
+    const m = legal.find(mv => mv.from === from && mv.to === to && (!promo || mv.promotion === promo));
+    if (!m) return -999999;
+
+    let s = 0;
+    if (m.san.includes('#')) s += 500000;          // mate in 1
+    else if (Math.abs(score) >= 90000) s += 300000; // forced mate
+    if (m.san.includes('+')) s += 8000;             // check
+    if (m.captured) {
+        s += 40 * (PIECE_VALUES[m.captured] || 100);
+        if (m.san.includes('+')) s += 5000;         // check + capture
+    }
+    if (m.promotion) s += 6000;
+    // Prefer closer mates (higher absolute mate score)
+    if (Math.abs(score) >= 90000) s += Math.abs(score);
+    // Small preference for material gains that are still good
+    s += Math.min(Math.abs(score), 800);
+    return s;
+}
+
+function pickAggressiveMove(lines, defaultUci) {
+    if (!lines || !lines.length) return defaultUci;
+
+    // Only consider lines that are not much worse than the best (within ~1.2 pawns or any mate)
+    const bestScore = lines[0] ? lines[0].score : 0;
+    const isMateBest = Math.abs(bestScore) >= 90000;
+
+    let bestUci = defaultUci;
+    let bestAgg = -Infinity;
+
+    for (const line of lines) {
+        if (!line || !line.uci) continue;
+        const diff = Math.abs(line.score - bestScore);
+        // Allow more deviation if we're hunting mates
+        const margin = isMateBest || Math.abs(line.score) >= 90000 ? 50000 : 120;
+        if (diff > margin && line.score * bestScore < 0) continue; // opposite sign and far
+        if (!isMateBest && Math.abs(line.score) < 90000 && line.score < bestScore - 150) continue;
+
+        const agg = aggressionScore(line.uci, line.score);
+        if (agg > bestAgg) {
+            bestAgg = agg;
+            bestUci = line.uci;
+        }
+    }
+    return bestUci;
+}
+
 function askStockfish() {
     // No Stockfish → instant fallback
     if (!stockfishReady || !stockfish || engineMode !== 'stockfish') {
@@ -457,21 +560,28 @@ function askStockfish() {
     stockfishSearching = true;
     currentSearchId++;
     window._lastSfScore = 0;
+    multipvLines = [];
 
     const fen = game.fen();
     const thinkMs = parseInt(document.getElementById('think-time').value, 10) || 1000;
 
-    // Hard timeout: if SF does not answer, fall back so the UI never hangs
+    // Hard timeout
     clearTimeout(searchTimeoutId);
     searchTimeoutId = setTimeout(() => {
         if (stockfishSearching) {
             try { stockfish.postMessage('stop'); } catch (_) {}
             finishWithFallback('search timeout');
         }
-    }, thinkMs + 2500); // give a little extra beyond the requested think time
+    }, thinkMs + 3000);
 
     try {
         stockfish.postMessage('ucinewgame');
+        // Aggressive: ask for top 3 lines so we can pick the most forcing one
+        if (playMode === 'aggressive') {
+            stockfish.postMessage('setoption name MultiPV value 3');
+        } else {
+            stockfish.postMessage('setoption name MultiPV value 1');
+        }
         stockfish.postMessage('position fen ' + fen);
         stockfish.postMessage('go movetime ' + thinkMs);
     } catch (err) {
@@ -603,7 +713,8 @@ function fallbackMinimax() {
     else if (Math.abs(bestScore) >= 90000) tag = '💀 FORCED MATE FOUND!';
     else if (best.san.includes('+')) tag = '⚡ FORCING CHECK';
     else if (best.captured) tag = '⚔️ CAPTURE';
-    else tag = '⚡ Fast mode — still finds mates';
+    else if (playMode === 'aggressive') tag = '⚡ AGGRESSIVE STRIKE';
+    else tag = '⚡ Fast mode';
 
     bestMoveCache = {
         move: best,
