@@ -3,1138 +3,1588 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ruthless Chess Trap & Mate Engine — Stockfish Powered</title>
-    <!-- Tailwind CSS -->
+    <title>LUBA STUDIOS — Translated Movies & Serials</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chess.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #090d16;
-            color: #f8fafc;
-            touch-action: manipulation;
+        * {
+            box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
         }
-        .sq-light { background-color: #d8b48a; }
-        .sq-dark  { background-color: #3f281d; }
-        .sq-selected {
-            box-shadow: inset 0 0 0 4px #3b82f6;
-            background-color: rgba(59, 130, 246, 0.45) !important;
+
+        body {
+            background-color: #07080c;
+            color: #f8fafc;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow-x: hidden;
+            margin: 0;
         }
-        .sq-last-move { background-color: rgba(234, 179, 8, 0.35) !important; }
-        .sq-best-from {
-            box-shadow: inset 0 0 0 4px #10b981;
-            background-color: rgba(16, 185, 129, 0.38) !important;
+
+        /* Glass Surfaces */
+        .glass-header {
+            background: rgba(7, 8, 12, 0.85);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border-bottom: 1px solid rgba(56, 189, 248, 0.14);
         }
-        .sq-best-to {
-            box-shadow: inset 0 0 0 4px #10b981;
-            background-color: rgba(16, 185, 129, 0.58) !important;
-            animation: pulseGreen 1.4s infinite;
+
+        .glass-modal {
+            background: rgba(13, 17, 28, 0.96);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(56, 189, 248, 0.25);
         }
-        .sq-killer-to {
-            box-shadow: inset 0 0 0 4px #f43f5e;
-            background-color: rgba(244, 63, 94, 0.55) !important;
-            animation: pulseRed 1.1s infinite;
+
+        .glass-dock {
+            background: rgba(11, 15, 25, 0.94);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(56, 189, 248, 0.35);
         }
-        @keyframes pulseGreen {
-            0%, 100% { box-shadow: inset 0 0 0 4px #10b981; }
-            50% { box-shadow: inset 0 0 0 6px #34d399; }
+
+        /* Modal Visibility States - Strictly prevents invisible overlays from blocking clicks */
+        .modal-backdrop {
+            display: none;
+            pointer-events: none;
         }
-        @keyframes pulseRed {
-            0%, 100% { box-shadow: inset 0 0 0 4px #f43f5e; }
-            50% { box-shadow: inset 0 0 0 7px #fb7185; }
+        .modal-backdrop.is-open {
+            display: flex;
+            pointer-events: auto;
         }
-        .legal-dot {
-            width: 28%; height: 28%; border-radius: 9999px;
-            background-color: rgba(15, 23, 42, 0.42); pointer-events: none;
+
+        /* Sideways 90-degree Landscape Cinema Rotation */
+        .cinema-stage-sideways {
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            width: 100vh !important;
+            height: 100vw !important;
+            transform: translate(-50%, -50%) rotate(90deg) !important;
+            transform-origin: center center !important;
         }
-        .legal-capture {
-            width: 82%; height: 82%; border-radius: 9999px;
-            border: 4px solid rgba(225, 29, 72, 0.65); pointer-events: none;
+
+        /* HUD Auto-hide Transition */
+        .hud-layer {
+            transition: opacity 0.35s ease;
         }
-        #eval-fill { transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
-        .chess-piece {
-            width: 84%; height: 84%;
-            filter: drop-shadow(0 3px 3px rgba(0,0,0,0.6));
-            transition: transform 0.1s ease; user-select: none; pointer-events: none;
+        .hud-hidden {
+            opacity: 0 !important;
+            pointer-events: none !important;
         }
-        .square:active .chess-piece { transform: scale(1.1); }
+
+        /* Custom Video Range Slider */
+        input[type="range"].video-scrubber {
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.22);
+            height: 6px;
+            border-radius: 999px;
+            cursor: pointer;
+        }
+        input[type="range"].video-scrubber::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.9);
+            cursor: pointer;
+        }
+
+        /* Error Shake Animation */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
+        }
+        .animate-shake {
+            animation: shake 0.28s ease-in-out;
+        }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-between p-3 sm:p-5 max-w-lg mx-auto">
+<body class="min-h-screen pb-28">
 
-    <!-- Top Header & Controls -->
-    <header class="w-full flex flex-col gap-2">
-        <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 font-black text-lg">⚔</div>
+    <!-- =================================================================== -->
+    <!-- TOP HEADER                                                          -->
+    <!-- =================================================================== -->
+    <header class="sticky top-0 z-30 glass-header">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between gap-3">
+            <!-- Brand Logo -->
+            <button type="button" id="brandResetBtn" class="flex items-center gap-3 text-left min-h-[44px] focus:outline-none">
+                <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-600 to-indigo-900 p-[2px] shadow-lg shadow-cyan-500/20 shrink-0">
+                    <div class="w-full h-full bg-[#07080c] rounded-[10px] flex items-center justify-center">
+                        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="9" stroke="#38bdf8" stroke-width="1.8" stroke-opacity="0.45"/>
+                            <path d="M5 15L10 10L13 13L19 7" stroke="#00d2ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M15 7H19V11" stroke="#00d2ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <polygon points="10,14.5 10,18.5 13.5,16.5" fill="#f59e0b"/>
+                        </svg>
+                    </div>
+                </div>
                 <div>
-                    <h1 class="text-sm sm:text-base font-extrabold tracking-tight text-slate-100 leading-none">Trap & Mate Engine</h1>
-                    <p class="text-[10px] text-rose-400 font-semibold mt-0.5 uppercase tracking-wider">Stockfish 19 + Ruthless Mode</p>
-                </div>
-            </div>
-
-            <!-- Side Selector -->
-            <div class="flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700">
-                <button id="side-w-btn" onclick="setMySide('w')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400">
-                    <span class="w-2.5 h-2.5 rounded-full bg-white border border-slate-400 inline-block"></span> White
-                </button>
-                <button id="side-b-btn" onclick="setMySide('b')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-emerald-600 text-white shadow">
-                    <span class="w-2.5 h-2.5 rounded-full bg-[#3f281d] border border-amber-200 inline-block"></span> Brown
-                </button>
-            </div>
-        </div>
-
-        <!-- Strength / Think Time + Style -->
-        <div class="w-full flex flex-col gap-1.5 bg-slate-800/90 p-2 rounded-xl border border-slate-700/70">
-            <div class="flex items-center gap-2">
-                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Think</span>
-                <select id="think-time" class="flex-1 bg-slate-900 border border-slate-600 rounded-lg text-xs font-semibold px-2 py-1.5 text-emerald-300 outline-none">
-                    <option value="400">Fast (0.4s)</option>
-                    <option value="1000" selected>Strong (1s)</option>
-                    <option value="2000">Very Strong (2s)</option>
-                    <option value="4000">Monster (4s)</option>
-                </select>
-                <span id="engine-status" class="text-[10px] font-bold text-amber-400 shrink-0">Loading SF…</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Mode</span>
-                <div class="flex-1 flex rounded-lg overflow-hidden border border-slate-600">
-                    <button id="mode-balanced" onclick="setPlayMode('balanced')" class="flex-1 px-2 py-1.5 text-[11px] font-bold bg-emerald-600 text-white">
-                        Balanced
-                    </button>
-                    <button id="mode-aggressive" onclick="setPlayMode('aggressive')" class="flex-1 px-2 py-1.5 text-[11px] font-bold bg-slate-900 text-slate-300">
-                        ⚡ Aggressive
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Evaluation Bar -->
-        <div class="w-full bg-slate-800/90 p-2 rounded-xl border border-slate-700/70 shadow-inner">
-            <div class="flex justify-between items-center text-[11px] font-semibold mb-1 px-0.5">
-                <span class="text-slate-200 flex items-center gap-1">
-                    <span class="w-2 h-2 rounded-full bg-white inline-block"></span> White
-                </span>
-                <span id="eval-score" class="font-mono text-emerald-400 font-bold">0.0 (Even)</span>
-                <span class="text-amber-200/90 flex items-center gap-1">
-                    Brown <span class="w-2 h-2 rounded-full bg-[#6b442a] border border-amber-300/50 inline-block"></span>
-                </span>
-            </div>
-            <div class="w-full h-2.5 bg-[#4a2e1b] rounded-full overflow-hidden flex border border-slate-700">
-                <div id="eval-fill" class="h-full bg-slate-100" style="width: 50%;"></div>
-            </div>
-        </div>
-
-        <!-- Best Move Banner -->
-        <div id="suggestion-card" class="w-full bg-gradient-to-r from-emerald-950/90 to-slate-800/95 border border-emerald-500/40 rounded-xl p-3 flex items-center justify-between shadow-md">
-            <div class="flex items-center gap-2.5 min-w-0">
-                <div id="turn-badge" class="px-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-slate-700 text-[11px] font-extrabold uppercase tracking-wider text-slate-200 shrink-0">
-                    White's Turn
-                </div>
-                <div class="truncate">
-                    <div class="text-[10px] uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1.5">
-                        <span id="move-role-label">Best Move</span>
-                        <span id="thinking-spinner" class="hidden w-2.5 h-2.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-lg sm:text-xl font-black tracking-wider text-white">LUBA</span>
+                        <span class="text-xs sm:text-sm font-extrabold tracking-widest text-cyan-400 uppercase">STUDIOS</span>
                     </div>
-                    <div id="best-move-text" class="text-base sm:text-lg font-black text-white tracking-tight truncate">
-                        Loading Stockfish…
-                    </div>
-                    <div id="tactic-tag" class="text-[11px] font-semibold text-amber-300 truncate">
-                        Preparing engine…
-                    </div>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">Translated Movies & Serials</p>
                 </div>
-            </div>
-            <button id="btn-apply-best" onclick="applySuggestedMove()" class="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-extrabold text-xs px-3.5 py-2.5 rounded-xl shadow transition shrink-0 ml-2">
-                Play Move
             </button>
+
+            <!-- Search Input -->
+            <div class="flex-1 max-w-md">
+                <div class="relative">
+                    <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+                    </svg>
+                    <input
+                        id="searchInput"
+                        type="search"
+                        placeholder="Search movies or serials..."
+                        class="w-full min-h-[42px] bg-slate-900/90 border border-slate-800 focus:border-cyan-400 rounded-full pl-10 pr-4 text-xs sm:text-sm text-white placeholder-slate-500 outline-none transition-colors"
+                    >
+                </div>
+            </div>
+
+            <!-- Studio Unlocked Indicator -->
+            <div id="studioUnlockedPill" class="hidden items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Studio Active</span>
+            </div>
         </div>
     </header>
 
-    <!-- Board -->
-    <main class="w-full my-2 flex flex-col items-center">
-        <div class="w-full aspect-square max-w-[440px] bg-[#2a1a12] p-2 sm:p-2.5 rounded-2xl shadow-2xl border-2 border-[#5c3a28] relative">
-            <div id="board-grid" class="w-full h-full grid grid-cols-8 grid-rows-8 rounded-lg overflow-hidden border border-[#24150e]"></div>
+    <!-- =================================================================== -->
+    <!-- MAIN CATALOG CONTENT                                                -->
+    <!-- =================================================================== -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+
+        <!-- Category Filter Bar -->
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+            <div class="flex items-center gap-2">
+                <button type="button" data-filter="all" class="filter-btn min-h-[44px] px-5 rounded-full text-xs sm:text-sm font-bold bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-lg shadow-cyan-500/20 transition-all">
+                    All
+                </button>
+                <button type="button" data-filter="movie" class="filter-btn min-h-[44px] px-5 rounded-full text-xs sm:text-sm font-bold bg-slate-900 text-slate-300 hover:text-white border border-slate-800 transition-all">
+                    Movies
+                </button>
+                <button type="button" data-filter="serial" class="filter-btn min-h-[44px] px-5 rounded-full text-xs sm:text-sm font-bold bg-slate-900 text-slate-300 hover:text-white border border-slate-800 transition-all">
+                    Serials
+                </button>
+            </div>
+
+            <span id="catalogCountLabel" class="text-xs font-semibold text-slate-400">0 releases</span>
+        </div>
+
+        <!-- Releases Grid -->
+        <div id="catalogGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <!-- Cards rendered dynamically -->
+        </div>
+
+        <!-- Clean Empty State (Default when 0 videos uploaded) -->
+        <div id="emptyStateBox" class="py-24 px-4 text-center space-y-4">
+            <div class="w-20 h-20 rounded-3xl bg-slate-900/90 border border-cyan-500/25 mx-auto flex items-center justify-center shadow-xl">
+                <svg class="w-10 h-10 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+            </div>
+            <h2 id="emptyStateHeading" class="text-xl sm:text-2xl font-extrabold text-white">No movies or serials uploaded yet</h2>
+            <p id="emptyStateDesc" class="text-xs sm:text-sm text-slate-400 max-w-sm mx-auto leading-relaxed">
+                Tap <span class="text-cyan-400 font-bold">+ New</span> below to add your first translated video from your gallery.
+            </p>
         </div>
     </main>
 
-    <!-- Bottom Controls -->
-    <footer class="w-full flex flex-col gap-2">
-        <div class="grid grid-cols-4 gap-2">
-            <button onclick="undoMove()" id="btn-undo" class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 active:scale-95 border border-slate-700 py-2.5 px-2 rounded-xl text-xs font-semibold flex flex-col items-center justify-center gap-0.5 transition">
-                <span class="text-sm">↩</span><span>Undo</span>
-            </button>
-            <button onclick="redoMove()" id="btn-redo" class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 active:scale-95 border border-slate-700 py-2.5 px-2 rounded-xl text-xs font-semibold flex flex-col items-center justify-center gap-0.5 transition">
-                <span class="text-sm">↪</span><span>Redo</span>
-            </button>
-            <button onclick="toggleEditMode()" id="btn-edit" class="bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 py-2.5 px-2 rounded-xl text-xs font-semibold flex flex-col items-center justify-center gap-0.5 transition">
-                <span class="text-sm">✎</span><span id="edit-btn-label">Edit Board</span>
-            </button>
-            <button onclick="resetBoard()" class="bg-rose-950/60 hover:bg-rose-900/70 active:scale-95 border border-rose-800/50 text-rose-200 py-2.5 px-2 rounded-xl text-xs font-semibold flex flex-col items-center justify-center gap-0.5 transition">
-                <span class="text-sm">↺</span><span>Reset</span>
-            </button>
-        </div>
+    <!-- =================================================================== -->
+    <!-- BOTTOM FLOATING DOCK WITH "+ NEW" BUTTON                            -->
+    <!-- =================================================================== -->
+    <nav class="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 p-2 rounded-full glass-dock shadow-2xl shadow-black/90">
+        <button type="button" id="dockHomeBtn" class="min-h-[44px] px-5 rounded-full text-xs sm:text-sm font-bold text-slate-200 hover:bg-slate-800 active:scale-95 transition-all flex items-center gap-2">
+            <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+            </svg>
+            <span>Home</span>
+        </button>
 
-        <!-- Editor Panel -->
-        <div id="editor-panel" class="hidden w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 flex flex-col gap-2">
-            <div class="flex items-center justify-between text-xs">
-                <span class="font-semibold text-amber-300">Setup Mode: Tap a piece below, then tap squares</span>
-                <button onclick="clearBoard()" class="text-rose-400 hover:underline font-semibold">Clear All</button>
+        <button type="button" id="dockNewBtn" class="min-h-[44px] px-7 rounded-full text-xs sm:text-sm font-black tracking-wide bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 shadow-lg shadow-cyan-500/30 active:scale-95 transition-all flex items-center gap-2">
+            <svg class="w-4 h-4 stroke-[2.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            <span>New</span>
+        </button>
+    </nav>
+
+    <!-- =================================================================== -->
+    <!-- PASSWORD MODAL (Password: blue123)                                  -->
+    <!-- =================================================================== -->
+    <div id="passwordModal" class="modal-backdrop fixed inset-0 z-50 items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+        <div id="passwordModalCard" class="w-full max-w-md rounded-3xl glass-modal p-6 sm:p-8 shadow-2xl relative">
+            <button type="button" id="closePasswordBtn" class="absolute top-4 right-4 w-11 h-11 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors" aria-label="Close">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+
+            <div class="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mb-4">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
             </div>
-            <div class="grid grid-cols-7 gap-1.5" id="piece-palette"></div>
-            <div class="flex items-center justify-between pt-1 border-t border-slate-700/80 text-xs">
-                <div class="flex items-center gap-2">
-                    <span class="text-slate-400">Next turn:</span>
-                    <button onclick="setEditorTurn('w')" id="turn-w-btn" class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold">White</button>
-                    <button onclick="setEditorTurn('b')" id="turn-b-btn" class="px-2.5 py-1 rounded-lg bg-slate-700 text-slate-300 font-semibold">Brown</button>
+
+            <h2 class="text-xl font-black text-white">LUBA STUDIOS Creator Gate</h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">Enter studio password to upload movies or serial episodes.</p>
+
+            <form id="passwordForm" class="mt-5 space-y-4">
+                <div>
+                    <label for="studioPasswordInput" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Password</label>
+                    <input
+                        id="studioPasswordInput"
+                        type="password"
+                        autocomplete="off"
+                        placeholder="Enter password..."
+                        class="w-full min-h-[48px] bg-slate-950 border border-slate-700 focus:border-cyan-400 rounded-xl px-4 text-sm text-white outline-none transition-colors"
+                    >
+                    <p id="passwordErrorText" class="hidden text-xs text-rose-400 font-semibold mt-2">
+                        Wrong password. Please try again.
+                    </p>
                 </div>
-                <button onclick="toggleEditMode()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-lg">Done</button>
-            </div>
-        </div>
-    </footer>
 
-    <!-- Promotion Modal -->
-    <div id="promo-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 max-w-xs w-full shadow-2xl text-center">
-            <h3 class="text-sm font-bold text-white mb-3">Promote Pawn To:</h3>
-            <div class="grid grid-cols-4 gap-2" id="promo-choices"></div>
+                <div class="flex items-center gap-3 pt-1">
+                    <button type="button" id="cancelPasswordBtn" class="flex-1 min-h-[46px] rounded-xl text-sm font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 min-h-[46px] rounded-xl text-sm font-extrabold bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-lg shadow-cyan-500/25 transition-all">
+                        Unlock
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
-<script>
-// ==========================================
-// 1. STATE
-// ==========================================
-const game = new Chess();
-let mySide = 'b';
-let boardOrientation = 'b';
-let selectedSquare = null;
-let legalMovesForSelected = [];
-let redoStack = [];
-let bestMoveCache = null;
-let isEditMode = false;
-let selectedPaletteTool = 'trash';
-let pendingPromotionMove = null;
+    <!-- =================================================================== -->
+    <!-- UPLOAD STUDIO MODAL (Mobile Gallery Video Picker + Movie/Serial)    -->
+    <!-- =================================================================== -->
+    <div id="uploadModal" class="modal-backdrop fixed inset-0 z-50 items-center justify-center p-3 sm:p-6 bg-black/90 backdrop-blur-md overflow-y-auto">
+        <div class="w-full max-w-2xl rounded-3xl glass-modal p-5 sm:p-7 shadow-2xl my-auto max-h-[92vh] overflow-y-auto">
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-5">
+                <div>
+                    <span class="text-[11px] font-extrabold uppercase tracking-widest text-cyan-400">LUBA STUDIOS UPLOADER</span>
+                    <h2 class="text-xl sm:text-2xl font-black text-white">Post New Video</h2>
+                </div>
+                <button type="button" id="closeUploadBtn" class="w-11 h-11 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors" aria-label="Close">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
 
-// Stockfish
-let stockfish = null;
-let stockfishReady = false;
-let stockfishSearching = false;
-let currentSearchId = 0;
-let searchTimeoutId = null;
-let engineMode = 'loading'; // 'loading' | 'stockfish' | 'fallback'
-let playMode = 'balanced'; // 'balanced' | 'aggressive'
-let multipvLines = []; // for aggressive mode selection
+            <!-- Content Type Switch: Movie vs Serial -->
+            <div class="mb-5">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">1. Choose Format</label>
+                <div class="grid grid-cols-2 gap-3">
+                    <button type="button" id="chooseMovieBtn" class="min-h-[54px] p-3.5 rounded-2xl border-2 border-cyan-400 bg-cyan-500/15 text-left transition-all">
+                        <div class="text-sm font-extrabold text-white">Movie</div>
+                        <div class="text-[11px] text-slate-400">Single full-length film</div>
+                    </button>
+                    <button type="button" id="chooseSerialBtn" class="min-h-[54px] p-3.5 rounded-2xl border-2 border-slate-800 bg-slate-900/80 text-left transition-all">
+                        <div class="text-sm font-extrabold text-white">Serial (Series)</div>
+                        <div class="text-[11px] text-slate-400">Seasons & episodes</div>
+                    </button>
+                </div>
+            </div>
 
-// ==========================================
-// 2. PIECE SVGs (same as original)
-// ==========================================
-const PIECE_SVGS = {
-    wP: `<svg viewBox="0 0 45 45" class="chess-piece"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#fffdf7" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round"/></svg>`,
-    wR: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#fffdf7" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zM12 36v-4h21v4H12zM11 14V9h4v2h5V9h5v2h5V9h4v5"/><path d="M34 14l-3 3H14l-3-3"/><path d="M31 17v12.5H14V17"/><path d="M31 29.5l1.5 2.5h-20l1.5-2.5"/><path d="M11 14h23" fill="none"/></g></svg>`,
-    wN: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" fill="#fffdf7"/><path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" fill="#fffdf7"/><circle cx="14.5" cy="15.5" r="1.2" fill="#1e293b"/></g></svg>`,
-    wB: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><g fill="#fffdf7"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.354.49-2.323.47-3-.5 1.354-1.94 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><circle cx="22.5" cy="8" r="2.5"/></g><path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5"/></g></svg>`,
-    wQ: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#fffdf7" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.2"/><circle cx="14" cy="9" r="2.2"/><circle cx="22.5" cy="8" r="2.2"/><circle cx="31" cy="9" r="2.2"/><circle cx="39" cy="12" r="2.2"/><path d="M9 26c8.5-1.5 21-1.5 27 0l2-12-7 11V11l-5.5 13.5-3-15-3 15-5.5-14V25L7 14l2 12z"/><path d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z"/></g></svg>`,
-    wK: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6M20 8h5"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#fffdf7"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10V37z" fill="#fffdf7"/><path d="M11.5 30c5.5-3 15.5-3 21 0M11.5 33.5c5.5-3 15.5-3 21 0M11.5 37c5.5-3 15.5-3 21 0"/></g></svg>`,
-    bP: `<svg viewBox="0 0 45 45" class="chess-piece"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#7c4427" stroke="#f8fafc" stroke-width="1.3" stroke-linecap="round"/></svg>`,
-    bR: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#7c4427" stroke="#f8fafc" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zM12.5 32l1.5-2.5h17l1.5 2.5h-20zM12 36v-4h21v4H12z"/><path d="M14 29.5v-13h17v13H14z"/><path d="M14 16.5L11 14h23l-3 2.5H14zM11 14V9h4v2h5V9h5v2h5V9h4v5H11z"/></g></svg>`,
-    bN: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" stroke="#f8fafc" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" fill="#7c4427"/><path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" fill="#7c4427"/><circle cx="14.5" cy="15.5" r="1.2" fill="#f8fafc"/></g></svg>`,
-    bB: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" stroke="#f8fafc" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><g fill="#7c4427"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.354.49-2.323.47-3-.5 1.354-1.94 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><circle cx="22.5" cy="8" r="2.5"/></g><path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5"/></g></svg>`,
-    bQ: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#7c4427" stroke="#f8fafc" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.2"/><circle cx="14" cy="9" r="2.2"/><circle cx="22.5" cy="8" r="2.2"/><circle cx="31" cy="9" r="2.2"/><circle cx="39" cy="12" r="2.2"/><path d="M9 26c8.5-1.5 21-1.5 27 0l2-12-7 11V11l-5.5 13.5-3-15-3 15-5.5-14V25L7 14l2 12z"/><path d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z"/></g></svg>`,
-    bK: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" stroke="#f8fafc" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6M20 8h5"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#7c4427"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10V37z" fill="#7c4427"/><path d="M11.5 30c5.5-3 15.5-3 21 0M11.5 33.5c5.5-3 15.5-3 21 0M11.5 37c5.5-3 15.5-3 21 0"/></g></svg>`
-};
+            <!-- Serial Action Mode (New Serial vs Attach to Existing) -->
+            <div id="serialOptionsPanel" class="hidden mb-5 p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
+                <div class="grid grid-cols-2 gap-2.5">
+                    <button type="button" id="serialCreateNewBtn" class="min-h-[44px] px-3 rounded-xl text-xs font-extrabold bg-cyan-400 text-slate-950 transition-all">
+                        + Create New Serial
+                    </button>
+                    <button type="button" id="serialAttachExistingBtn" class="min-h-[44px] px-3 rounded-xl text-xs font-extrabold bg-slate-800 text-slate-300 transition-all">
+                        Attach to Existing Serial
+                    </button>
+                </div>
 
-// ==========================================
-// 3. OPENING TRAP BOOK (kept from original)
-// ==========================================
-const TRAP_BOOK = {
-    "": { san: "e4", tag: "⚡ King's Pawn Attack (Fast Mate Setup)" },
-    "e4 e5": { san: "Bc4", tag: "🎯 Scholar's / Bishop Trap Setup" },
-    "e4 e5 Bc4 Nc6": { san: "Qh5", tag: "💀 Scholar's Mate Threat (f7)!" },
-    "e4 e5 Bc4 Bc5": { san: "Qh5", tag: "💀 Scholar's Mate Threat (f7)!" },
-    "e4 e5 Bc4 Nf6": { san: "d4", tag: "🔥 Urusov Gambit Sacrifice Trap" },
-    "e4 e5 Nf3 Nc6": { san: "Bc4", tag: "⚔️ Fried Liver / Italian Attack" },
-    "e4 e5 Nf3 Nc6 Bc4 Nf6": { san: "Ng5", tag: "🔥 Fried Liver Sacrifice Attack!" },
-    "e4 e5 Nf3 Nc6 Bc4 Bc5": { san: "b4", tag: "💣 Evans Gambit Sacrifice Trap!" },
-    "e4 d5": { san: "exd5", tag: "⚔️ Scandinavian Punishment" },
-    "d4 d5": { san: "c4", tag: "💣 Queen's Gambit Trap" },
-    "e4": { san: "e5", tag: "⚔️ Counter-Strike (Trap Ready)" },
-    "e4 Nf3": { san: "Nc6", tag: "🎯 Setting Up Shilling Trap" },
-    "e4 e5 Nf3 Nc6 Bc4": { san: "Nd4", tag: "🐍 Blackburne Shilling Trap! (Baits e5)" },
-    "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5": { san: "Qg5", tag: "💀 GOTCHA! Forking g2 & Knight!" },
-    "e4 e5 Nf3 Nf6": { san: "Nxe5", tag: "💣 Stafford Gambit Setup" },
-    "e4 e5 Nf3 Nf6 Nxe5": { san: "Nc6", tag: "🔥 Stafford Gambit Trap!" },
-    "d4": { san: "e5", tag: "💣 Englund Gambit Queen Trap!" },
-    "d4 e5 dxe5": { san: "Nc6", tag: "🐍 Luring White into Queen Trap" },
-    "d4 e5 dxe5 Nc6 Nf3": { san: "Qe7", tag: "🎯 Baiting Bf4 for Mate Trap" },
-    "d4 e5 dxe5 Nc6 Nf3 Qe7 Bf4": { san: "Qb4+", tag: "💀 GOTCHA! Forking King, Bishop & b2!" }
-};
+                <!-- Dropdown for Existing Serials -->
+                <div id="existingSerialContainer" class="hidden">
+                    <label for="existingSerialSelect" class="block text-xs font-bold text-slate-300 mb-1.5">Select Serial *</label>
+                    <select id="existingSerialSelect" class="w-full min-h-[46px] bg-slate-950 border border-slate-700 focus:border-cyan-400 rounded-xl px-3.5 text-sm text-white outline-none"></select>
+                </div>
+            </div>
 
-// ==========================================
-// 4. STOCKFISH ENGINE WRAPPER (robust)
-// ==========================================
-function setEngineStatus(text, colorClass) {
-    const el = document.getElementById('engine-status');
-    if (!el) return;
-    el.textContent = text;
-    el.className = 'text-[10px] font-bold shrink-0 ' + (colorClass || 'text-amber-400');
-}
+            <!-- Upload Form -->
+            <form id="publishVideoForm" class="space-y-4">
+                <!-- Title (for Movie or New Serial) -->
+                <div id="titleInputGroup">
+                    <label id="titleInputLabel" for="videoTitleInput" class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">Movie Title *</label>
+                    <input id="videoTitleInput" type="text" placeholder="Enter title..." class="w-full min-h-[46px] bg-slate-950 border border-slate-700 focus:border-cyan-400 rounded-xl px-4 text-sm text-white outline-none">
+                </div>
 
-function setPlayMode(mode) {
-    playMode = mode;
-    const bal = document.getElementById('mode-balanced');
-    const agg = document.getElementById('mode-aggressive');
-    if (mode === 'aggressive') {
-        bal.className = 'flex-1 px-2 py-1.5 text-[11px] font-bold bg-slate-900 text-slate-300';
-        agg.className = 'flex-1 px-2 py-1.5 text-[11px] font-bold bg-rose-600 text-white';
-    } else {
-        bal.className = 'flex-1 px-2 py-1.5 text-[11px] font-bold bg-emerald-600 text-white';
-        agg.className = 'flex-1 px-2 py-1.5 text-[11px] font-bold bg-slate-900 text-slate-300';
-    }
-    // Re-calculate with new style
-    if (!isEditMode && !game.game_over()) triggerEngineCalculation();
-}
+                <!-- Total Planned Seasons & Episodes (New Serial only) -->
+                <div id="serialTotalsGroup" class="hidden grid-cols-2 gap-3">
+                    <div>
+                        <label for="plannedSeasonsInput" class="block text-xs font-bold text-slate-300 mb-1.5">Total Seasons</label>
+                        <input id="plannedSeasonsInput" type="number" min="1" max="50" value="1" class="w-full min-h-[46px] bg-slate-950 border border-slate-700 focus:border-cyan-400 rounded-xl px-4 text-sm text-white outline-none">
+                    </div>
+                    <div>
+                        <label for="plannedEpisodesInput" class="block text-xs font-bold text-slate-300 mb-1.5">Total Series (Episodes)</label>
+                        <input id="plannedEpisodesInput" type="number" min="1" max="500" value="10" class="w-full min-h-[46px] bg-slate-950 border border-slate-700 focus:border-cyan-400 rounded-xl px-4 text-sm text-white outline-none">
+                    </div>
+                </div>
 
-function initStockfish() {
-    setEngineStatus('Loading SF…', 'text-amber-400');
+                <!-- Specific Season & Series Number for This Video (All Serial uploads) -->
+                <div id="episodeNumberGroup" class="hidden p-4 rounded-2xl bg-slate-900/75 border border-cyan-500/25 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-extrabold uppercase tracking-wider text-cyan-400">Episode Info</span>
+                        <span id="episodePreviewPill" class="text-xs font-bold text-slate-300">Season 1 • Series 1</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label for="seasonNumberInput" class="block text-xs font-semibold text-slate-300 mb-1">Season # *</label>
+                            <input id="seasonNumberInput" type="number" min="1" max="50" value="1" class="w-full min-h-[44px] bg-slate-950 border border-slate-700 focus:border-cyan-400 rounded-xl px-3.5 text-sm text-white outline-none">
+                        </div>
+                        <div>
+                            <label for="seriesNumberInput" class="block text-xs font-semibold text-slate-300 mb-1">Series (Episode) # *</label>
+                            <input id="seriesNumberInput" type="number" min="1" max="500" value="1" class="w-full min-h-[44px] bg-slate-950 border border-slate-700 focus:border-cyan-400 rounded-xl px-3.5 text-sm text-white outline-none">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="episodeCustomTitleInput" class="block text-xs font-semibold text-slate-300 mb-1">Episode Name (Optional)</label>
+                        <input id="episodeCustomTitleInput" type="text" placeholder="e.g., Episode 1" class="w-full min-h-[44px] bg-slate-950 border border-slate-700 focus:border-cyan-400 rounded-xl px-3.5 text-sm text-white outline-none">
+                    </div>
+                </div>
 
-    // Full 99MB engine is too heavy for most phones — skip it on mobile.
-    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-    const candidates = isMobile ? [
-        'stockfish-19-lite-single.js',
-        'https://unpkg.com/stockfish@19.0.1/bin/stockfish-19-lite-single.js'
-    ] : [
-        'stockfish-19-single.js',
-        'https://unpkg.com/stockfish@19.0.1/bin/stockfish-19-single.js',
-        'stockfish-19-lite-single.js',
-        'https://unpkg.com/stockfish@19.0.1/bin/stockfish-19-lite-single.js'
-    ];
+                <!-- Translation Badge & Description -->
+                <div id="metaDetailsGroup" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="sm:col-span-2">
+                        <label for="videoDescInput" class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">Description (Optional)</label>
+                        <textarea id="videoDescInput" rows="2" placeholder="Write description or notes..." class="w-full bg-slate-950 border border-slate-700 focus:border-cyan-400 rounded-xl px-4 py-2.5 text-sm text-white outline-none resize-none"></textarea>
+                    </div>
+                    <div>
+                        <label for="translationBadgeInput" class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">Language / Dub</label>
+                        <input id="translationBadgeInput" type="text" value="Georgian Dub" placeholder="e.g., Georgian Dub" class="w-full min-h-[46px] bg-slate-950 border border-slate-700 focus:border-cyan-400 rounded-xl px-3.5 text-sm text-white outline-none">
+                    </div>
+                </div>
 
-    let tryIndex = 0;
-    let loadTimeout = null;
+                <!-- MOBILE GALLERY VIDEO PICKER -->
+                <div class="p-4 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-3">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-xs font-extrabold uppercase tracking-wider text-cyan-400">Select Video *</span>
+                        <div class="flex rounded-lg bg-slate-900 p-0.5 border border-slate-800">
+                            <button type="button" id="modeGalleryBtn" class="min-h-[32px] px-3 rounded-md text-xs font-bold bg-cyan-400 text-slate-950">Phone Gallery</button>
+                            <button type="button" id="modeLinkBtn" class="min-h-[32px] px-3 rounded-md text-xs font-bold text-slate-400">Video Link</button>
+                        </div>
+                    </div>
 
-    function failToFallback(reason) {
-        console.warn('Stockfish unavailable:', reason);
-        stockfishReady = false;
-        engineMode = 'fallback';
-        setEngineStatus('Fast mode', 'text-amber-400');
-        if (stockfish) {
-            try { stockfish.terminate(); } catch (_) {}
-            stockfish = null;
-        }
-        setTimeout(() => triggerEngineCalculation(), 50);
-    }
+                    <!-- Gallery File Input Box -->
+                    <div id="galleryPickerBox">
+                        <input
+                            id="galleryVideoInput"
+                            type="file"
+                            accept="video/*,video/mp4,video/webm,video/quicktime,video/x-matroska"
+                            class="hidden"
+                        >
+                        <button
+                            type="button"
+                            id="triggerGalleryVideoBtn"
+                            class="w-full min-h-[96px] p-4 rounded-2xl border-2 border-dashed border-cyan-500/40 hover:border-cyan-400 bg-slate-900/70 active:bg-slate-800 flex flex-col items-center justify-center text-center gap-1.5 transition-all"
+                        >
+                            <svg class="w-7 h-7 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                            <span id="galleryVideoFileLabel" class="text-xs sm:text-sm font-bold text-white">Tap to Select Video from Gallery / Device</span>
+                            <span id="galleryVideoSubLabel" class="text-[11px] text-slate-400">Supports MP4, MOV, WebM, MKV from your phone</span>
+                        </button>
+                    </div>
 
-    function tryNext() {
-        if (tryIndex >= candidates.length) {
-            failToFallback('all sources failed');
-            return;
-        }
+                    <!-- Direct Link Input Box -->
+                    <div id="linkInputBox" class="hidden">
+                        <input id="directVideoUrlInput" type="url" placeholder="https://example.com/video.mp4" class="w-full min-h-[46px] bg-slate-900 border border-slate-700 focus:border-cyan-400 rounded-xl px-4 text-sm text-white outline-none">
+                    </div>
+                </div>
 
-        const url = candidates[tryIndex++];
-        console.log('Trying Stockfish from', url);
-        setEngineStatus('Loading SF…', 'text-amber-400');
+                <!-- Optional Cover Photo from Gallery -->
+                <div id="coverImageGroup">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">Cover Photo (Optional — auto-captures from video if empty)</label>
+                    <input id="galleryCoverInput" type="file" accept="image/*" class="hidden">
+                    <button type="button" id="triggerGalleryCoverBtn" class="w-full min-h-[46px] px-4 rounded-xl border border-slate-700 hover:border-cyan-400 bg-slate-900/80 text-xs sm:text-sm font-semibold text-slate-200 flex items-center justify-center gap-2 transition-colors">
+                        <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        <span id="galleryCoverLabel">Choose Cover Image from Gallery</span>
+                    </button>
+                </div>
 
-        clearTimeout(loadTimeout);
-        loadTimeout = setTimeout(() => {
-            console.warn('Timeout loading', url);
-            try { if (stockfish) stockfish.terminate(); } catch (_) {}
-            stockfish = null;
-            tryNext();
-        }, 8000);
+                <!-- Form Submit Buttons -->
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                    <button type="button" id="cancelUploadBtn" class="min-h-[46px] px-5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" id="publishSubmitBtn" class="min-h-[46px] px-7 rounded-xl text-xs sm:text-sm font-black bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-lg shadow-cyan-500/25 active:scale-95 transition-all">
+                        Publish Video
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-        try {
-            stockfish = new Worker(url);
+    <!-- =================================================================== -->
+    <!-- FULLSCREEN SIDEWAYS CINEMA VIDEO PLAYER                             -->
+    <!-- =================================================================== -->
+    <div id="cinemaPlayerModal" class="modal-backdrop fixed inset-0 z-[9999] bg-black items-center justify-center overflow-hidden select-none">
+        <!-- Rotatable Cinema Stage -->
+        <div id="cinemaStage" class="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
+            <video
+                id="cinemaVideoEl"
+                class="w-full h-full object-contain bg-black"
+                playsinline
+                webkit-playsinline
+                preload="auto"
+            ></video>
 
-            stockfish.onmessage = function (e) {
-                const line = e.data;
-                if (typeof line !== 'string') return;
+            <!-- Top HUD Bar -->
+            <div id="playerTopHud" class="hud-layer absolute top-0 inset-x-0 z-30 p-3 sm:p-5 bg-gradient-to-b from-black/90 via-black/50 to-transparent flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <button type="button" id="closePlayerBtn" class="w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center shrink-0 active:scale-95 transition-all" aria-label="Close Player">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                    <div class="min-w-0">
+                        <h2 id="playerTitleText" class="text-sm sm:text-base font-extrabold text-white truncate">Title</h2>
+                        <p id="playerSubtitleText" class="text-[11px] font-semibold text-cyan-300 truncate hidden"></p>
+                    </div>
+                </div>
 
-                if (line === 'uciok') {
-                    stockfish.postMessage('isready');
-                }
+                <div class="flex items-center gap-2 shrink-0">
+                    <!-- Episodes Drawer Button (Serials only) -->
+                    <button type="button" id="toggleEpisodesDrawerBtn" class="hidden min-h-[42px] px-3.5 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-xs font-extrabold items-center gap-1.5 active:scale-95 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                        <span>Episodes</span>
+                    </button>
 
-                if (line === 'readyok') {
-                    clearTimeout(loadTimeout);
-                    stockfishReady = true;
-                    engineMode = 'stockfish';
-                    setEngineStatus('Stockfish 19', 'text-emerald-400');
-                    console.log('Stockfish ready from', url);
-                    triggerEngineCalculation();
-                }
+                    <!-- Sideways Rotation Toggle Button -->
+                    <button type="button" id="toggleSidewaysBtn" class="min-h-[42px] px-3.5 rounded-xl bg-white/15 border border-white/20 text-white text-xs font-extrabold flex items-center gap-1.5 active:scale-95 transition-all">
+                        <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        <span id="sidewaysBtnText">Sideways</span>
+                    </button>
+                </div>
+            </div>
 
-                // Capture MultiPV lines + score
-                if (line.startsWith('info') && line.includes('score') && line.includes(' pv ')) {
-                    const multipvMatch = line.match(/multipv (\d+)/);
-                    const pvIndex = multipvMatch ? parseInt(multipvMatch[1], 10) : 1;
-                    const mateMatch = line.match(/score mate (-?\d+)/);
-                    const cpMatch   = line.match(/score cp (-?\d+)/);
-                    const pvMatch   = line.match(/ pv ([a-h][1-8][a-h][1-8][qrbn]?)/);
+            <!-- Center Transport Controls (-10s, Play/Pause, +10s) -->
+            <div id="playerCenterHud" class="hud-layer absolute inset-0 z-20 flex items-center justify-center gap-6 sm:gap-10 pointer-events-none">
+                <button type="button" id="rewind10Btn" class="pointer-events-auto w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/55 border border-white/20 text-white text-xs font-extrabold flex items-center justify-center active:scale-90 transition-transform">
+                    -10s
+                </button>
 
-                    let score = 0;
-                    if (mateMatch) {
-                        const mate = parseInt(mateMatch[1], 10);
-                        score = mate > 0
-                            ?  (100000 - Math.abs(mate) * 100)
-                            : -(100000 - Math.abs(mate) * 100);
-                    } else if (cpMatch) {
-                        let cp = parseInt(cpMatch[1], 10);
-                        if (game.turn() === 'b') cp = -cp;
-                        score = cp;
-                    }
+                <button type="button" id="centerPlayPauseBtn" class="pointer-events-auto w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-cyan-400/90 text-slate-950 shadow-2xl flex items-center justify-center active:scale-90 transition-transform" aria-label="Play or Pause">
+                    <svg id="centerPlaySvg" class="w-8 h-8 sm:w-10 sm:h-10 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                </button>
 
-                    if (pvMatch) {
-                        const uci = pvMatch[1];
-                        multipvLines[pvIndex - 1] = { uci, score, raw: line };
-                    }
+                <button type="button" id="forward10Btn" class="pointer-events-auto w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/55 border border-white/20 text-white text-xs font-extrabold flex items-center justify-center active:scale-90 transition-transform">
+                    +10s
+                </button>
+            </div>
 
-                    // Keep overall best score for the bar (multipv 1)
-                    if (pvIndex === 1) window._lastSfScore = score;
-                }
+            <!-- Serial Episodes Selector Drawer -->
+            <div id="playerEpisodesDrawer" class="hidden absolute top-16 right-3 sm:right-5 z-40 w-72 sm:w-80 max-h-[65%] rounded-2xl glass-modal shadow-2xl flex-col overflow-hidden">
+                <div class="p-3 border-b border-slate-800 flex items-center justify-between gap-2 bg-slate-950/70">
+                    <select id="playerSeasonPicker" class="min-h-[38px] bg-slate-900 border border-slate-700 rounded-lg px-2.5 text-xs font-bold text-cyan-300 outline-none"></select>
+                    <button type="button" id="closeEpisodesDrawerBtn" class="w-9 h-9 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div id="playerEpisodesList" class="p-2.5 overflow-y-auto space-y-1.5"></div>
+            </div>
 
-                if (line.startsWith('bestmove')) {
-                    clearTimeout(searchTimeoutId);
-                    stockfishSearching = false;
+            <!-- Bottom HUD Bar (Scrubber, Mute, Fullscreen) -->
+            <div id="playerBottomHud" class="hud-layer absolute bottom-0 inset-x-0 z-30 p-3 sm:p-5 bg-gradient-to-t from-black/95 via-black/65 to-transparent space-y-2">
+                <div class="flex items-center gap-3">
+                    <span id="timeCurrentText" class="text-[11px] sm:text-xs font-mono text-slate-200 w-11 text-right">00:00</span>
+                    <input id="videoScrubberInput" type="range" min="0" max="100" step="0.1" value="0" class="video-scrubber flex-1">
+                    <span id="timeTotalText" class="text-[11px] sm:text-xs font-mono text-slate-400 w-11">00:00</span>
+                </div>
 
-                    const parts = line.split(/\s+/);
-                    let bestUci = parts[1];
+                <div class="flex items-center justify-between">
+                    <button type="button" id="muteToggleBtn" class="min-h-[42px] px-3 rounded-xl bg-white/10 text-white text-xs font-bold flex items-center gap-1.5 active:scale-95">
+                        <svg id="muteSvg" class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                        </svg>
+                        <span id="muteLabelText">Sound</span>
+                    </button>
 
-                    if (!bestUci || bestUci === '(none)') {
-                        finishWithFallback('no move from SF');
+                    <button type="button" id="fullscreenToggleBtn" class="min-h-[42px] px-3.5 rounded-xl bg-white/10 text-white text-xs font-bold flex items-center gap-1.5 active:scale-95">
+                        <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+                        </svg>
+                        <span>Fullscreen</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Banner -->
+    <div id="toastBanner" class="fixed top-20 left-1/2 -translate-x-1/2 z-[10000] hidden px-5 py-3 rounded-2xl glass-modal text-xs sm:text-sm font-bold text-cyan-300 shadow-2xl pointer-events-none text-center max-w-[90vw]"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            /* ===============================================================
+               1. INDEXEDDB + IN-MEMORY BLOB CACHE FOR GALLERY VIDEOS
+               =============================================================== */
+            const DB_NAME = 'LubaStudiosGalleryDB';
+            const DB_VERSION = 1;
+            const VIDEO_STORE = 'gallery_videos';
+            const CATALOG_KEY = 'luba_studios_releases_v2';
+            const CREATOR_PASSWORD = 'blue123';
+
+            let db = null;
+            // In-memory session cache guarantees instant playback even if browser storage quota is tight
+            const sessionBlobCache = new Map();
+
+            function openDatabase() {
+                return new Promise((resolve) => {
+                    if (!window.indexedDB) {
+                        resolve(null);
                         return;
                     }
-
-                    // Aggressive mode: pick the most forcing line among top MultiPV candidates
-                    if (playMode === 'aggressive' && multipvLines.length > 0) {
-                        bestUci = pickAggressiveMove(multipvLines, bestUci);
-                    }
-
-                    const from  = bestUci.slice(0, 2);
-                    const to    = bestUci.slice(2, 4);
-                    const promo = bestUci.length > 4 ? bestUci[4] : undefined;
-
-                    const legal = game.moves({ verbose: true });
-                    const moveObj = legal.find(m =>
-                        m.from === from &&
-                        m.to === to &&
-                        (!promo || m.promotion === promo)
-                    );
-
-                    if (moveObj) {
-                        const finalScore = window._lastSfScore || 0;
-                        let tag = classifyFromMove(moveObj, finalScore);
-                        if (playMode === 'aggressive') {
-                            if (moveObj.san.includes('#')) tag = '💀 MATE IN 1 — FINISH HIM';
-                            else if (Math.abs(finalScore) >= 90000) tag = '💀 FORCED MATE — HUNTING';
-                            else if (moveObj.san.includes('+')) tag = '⚡ CHECK — KEEP ATTACKING';
-                            else tag = '⚡ MATE HUNT';
+                    const req = indexedDB.open(DB_NAME, DB_VERSION);
+                    req.onupgradeneeded = (e) => {
+                        const database = e.target.result;
+                        if (!database.objectStoreNames.contains(VIDEO_STORE)) {
+                            database.createObjectStore(VIDEO_STORE);
                         }
-                        bestMoveCache = {
-                            move:  moveObj,
-                            score: finalScore,
-                            tag:   tag
-                        };
-                    } else {
-                        finishWithFallback('could not map UCI move');
+                    };
+                    req.onsuccess = (e) => {
+                        db = e.target.result;
+                        resolve(db);
+                    };
+                    req.onerror = () => resolve(null);
+                });
+            }
+
+            function storeVideoFile(id, fileBlob) {
+                sessionBlobCache.set(id, fileBlob);
+                return new Promise((resolve) => {
+                    if (!db) {
+                        resolve(false);
                         return;
                     }
+                    try {
+                        const tx = db.transaction([VIDEO_STORE], 'readwrite');
+                        const store = tx.objectStore(VIDEO_STORE);
+                        const req = store.put(fileBlob, id);
+                        req.onsuccess = () => resolve(true);
+                        req.onerror = () => resolve(false);
+                    } catch (err) {
+                        resolve(false);
+                    }
+                });
+            }
 
-                    multipvLines = [];
-                    document.getElementById('thinking-spinner').classList.add('hidden');
-                    updateStatusUI();
-                    renderBoard();
+            function retrieveVideoFile(id) {
+                if (sessionBlobCache.has(id)) {
+                    return Promise.resolve(sessionBlobCache.get(id));
                 }
-            };
+                return new Promise((resolve) => {
+                    if (!db) {
+                        resolve(null);
+                        return;
+                    }
+                    try {
+                        const tx = db.transaction([VIDEO_STORE], 'readonly');
+                        const store = tx.objectStore(VIDEO_STORE);
+                        const req = store.get(id);
+                        req.onsuccess = () => resolve(req.result || null);
+                        req.onerror = () => resolve(null);
+                    } catch (err) {
+                        resolve(null);
+                    }
+                });
+            }
 
-            stockfish.onerror = function (err) {
-                console.warn('Worker error on', url, err);
-                clearTimeout(loadTimeout);
-                try { stockfish.terminate(); } catch (_) {}
-                stockfish = null;
-                tryNext();
-            };
+            /* ===============================================================
+               2. APPLICATION STATE (STARTS 100% EMPTY - ZERO RANDOM VIDEOS)
+               =============================================================== */
+            let catalog = [];
+            let isUnlocked = false;
+            let activeFilter = 'all';
+            let searchTerm = '';
 
-            stockfish.postMessage('uci');
+            // Upload state
+            let currentUploadFormat = 'movie';   // 'movie' | 'serial'
+            let currentSerialAction = 'new';     // 'new' | 'attach'
+            let currentSourceType = 'gallery';   // 'gallery' | 'link'
+            let chosenGalleryVideo = null;
+            let chosenCoverDataUrl = null;
 
-        } catch (err) {
-            console.warn('Cannot create Worker from', url, err);
-            clearTimeout(loadTimeout);
-            tryNext();
-        }
-    }
+            // Player state
+            let playingItem = null;
+            let playingEpisodeIdx = 0;
+            let selectedDrawerSeason = 1;
+            let currentBlobUrl = null;
+            let isSideways = false;
+            let hudVisible = true;
+            let hudHideTimer = null;
 
-    tryNext();
-}
-
-function parseStockfishScore(raw) {
-    if (raw === undefined || raw === null) return 0;
-    return raw;
-}
-
-function classifyFromMove(moveObj, score) {
-    if (!moveObj) return '';
-    if (moveObj.san.includes('#')) return '💀 CHECKMATE IN 1 — FINISH THEM!';
-    if (Math.abs(score) >= 90000) {
-        const movesToMate = Math.max(1, Math.ceil((100000 - Math.abs(score)) / 100));
-        return `💀 FORCED MATE IN ${movesToMate}!`;
-    }
-    if (moveObj.san.includes('+') && moveObj.captured) return '🔥 CHECK + CAPTURE — BRUTAL ATTACK!';
-    if (moveObj.san.includes('+')) return '⚡ FORCING CHECK — HUNTING KING!';
-    if (moveObj.captured) return '⚔️ CRUSHING CAPTURE — MATERIAL GAIN!';
-    if (moveObj.promotion) return '👑 QUEEN PROMOTION — GAME OVER!';
-    if (Math.abs(score) > 300) return '🎯 STRONG PRESSURE — ENGINE MOVE';
-    return '🎯 BEST MOVE (Stockfish)';
-}
-
-function finishWithFallback(reason) {
-    console.warn('Falling back to minimax:', reason);
-    stockfishSearching = false;
-    clearTimeout(searchTimeoutId);
-    fallbackMinimax();
-    document.getElementById('thinking-spinner').classList.add('hidden');
-    updateStatusUI();
-    renderBoard();
-}
-
-function aggressionScore(uci, score) {
-    // Pure mate-hunter. Material is almost irrelevant. Fastest checkmate wins.
-    const legal = game.moves({ verbose: true });
-    const from = uci.slice(0, 2);
-    const to   = uci.slice(2, 4);
-    const promo = uci.length > 4 ? uci[4] : undefined;
-    const m = legal.find(mv => mv.from === from && mv.to === to && (!promo || mv.promotion === promo));
-    if (!m) return -999999;
-
-    // Mate in 1 is absolute top priority
-    if (m.san.includes('#')) return 10_000_000;
-
-    // Any forced mate — prefer the shortest one
-    if (Math.abs(score) >= 90000) {
-        // score is higher when mate is closer (100000 - moves*100)
-        let s = 5_000_000 + Math.abs(score);
-        if (m.san.includes('+')) s += 80_000;
-        return s;
-    }
-
-    // No forced mate yet → still force the king
-    let s = 0;
-    if (m.san.includes('+')) s += 120_000;          // check
-    if (m.captured) {
-        s += m.san.includes('+') ? 40_000 : 3_000;
-        s += 4 * (PIECE_VALUES[m.captured] || 100);
-    }
-    if (m.promotion) s += 30_000;
-    // tiny eval so we don't play total nonsense when quiet
-    s += Math.min(Math.max(score, -300), 600);
-    return s;
-}
-
-function pickAggressiveMove(lines, defaultUci) {
-    if (!lines || !lines.length) return defaultUci;
-
-    let bestUci = defaultUci;
-    let bestAgg = -Infinity;
-
-    // Accept any line that delivers faster mate or stronger attack.
-    // No material safety net — we only care about ending the game.
-    for (const line of lines) {
-        if (!line || !line.uci) continue;
-        const agg = aggressionScore(line.uci, line.score);
-        if (agg > bestAgg) {
-            bestAgg = agg;
-            bestUci = line.uci;
-        }
-    }
-    return bestUci;
-}
-
-function askStockfish() {
-    // No Stockfish → instant fallback
-    if (!stockfishReady || !stockfish || engineMode !== 'stockfish') {
-        fallbackMinimax();
-        document.getElementById('thinking-spinner').classList.add('hidden');
-        updateStatusUI();
-        renderBoard();
-        return;
-    }
-
-    if (stockfishSearching) {
-        try { stockfish.postMessage('stop'); } catch (_) {}
-    }
-
-    stockfishSearching = true;
-    currentSearchId++;
-    window._lastSfScore = 0;
-    multipvLines = [];
-
-    const fen = game.fen();
-    const thinkMs = parseInt(document.getElementById('think-time').value, 10) || 1000;
-
-    // Hard timeout
-    clearTimeout(searchTimeoutId);
-    searchTimeoutId = setTimeout(() => {
-        if (stockfishSearching) {
-            try { stockfish.postMessage('stop'); } catch (_) {}
-            finishWithFallback('search timeout');
-        }
-    }, thinkMs + 3000);
-
-    try {
-        stockfish.postMessage('ucinewgame');
-        // Aggressive: top 5 lines so we can pick the fastest mate / strongest attack
-        if (playMode === 'aggressive') {
-            stockfish.postMessage('setoption name MultiPV value 5');
-        } else {
-            stockfish.postMessage('setoption name MultiPV value 1');
-        }
-        stockfish.postMessage('position fen ' + fen);
-        stockfish.postMessage('go movetime ' + thinkMs);
-    } catch (err) {
-        finishWithFallback('postMessage failed');
-    }
-}
-
-// ==========================================
-// 5. FALLBACK MINIMAX (original engine, kept as safety net)
-// ==========================================
-const PIECE_VALUES = { p: 100, n: 330, b: 345, r: 475, q: 950, k: 20000 };
-const PST = { /* abbreviated – full tables from original if needed */ 
-    p: [[0,0,0,0,0,0,0,0],[60,60,60,60,60,60,60,60],[20,20,30,40,40,30,20,20],[10,10,15,32,32,15,10,10],[5,5,5,28,28,5,5,5],[5,-5,-10,0,0,-10,-5,5],[5,10,10,-20,-20,10,10,5],[0,0,0,0,0,0,0,0]],
-    n: [[-50,-40,-30,-30,-30,-30,-40,-50],[-40,-20,5,10,10,5,-20,-40],[-30,5,18,25,25,18,5,-30],[-30,10,20,28,28,20,10,-30],[-30,5,20,28,28,20,5,-30],[-30,5,15,20,20,15,5,-30],[-40,-20,0,5,5,0,-20,-40],[-50,-40,-30,-30,-30,-30,-40,-50]],
-    b: [[-20,-10,-10,-10,-10,-10,-10,-20],[-10,5,5,5,5,5,5,-10],[-10,5,12,15,15,12,5,-10],[-10,10,10,15,15,10,10,-10],[-10,5,15,15,15,15,5,-10],[-10,15,15,15,15,15,15,-10],[-10,5,0,0,0,0,5,-10],[-20,-10,-10,-10,-10,-10,-10,-20]],
-    r: [[5,5,5,5,5,5,5,5],[15,20,20,20,20,20,20,15],[-5,0,5,5,5,5,0,-5],[-5,0,5,5,5,5,0,-5],[-5,0,5,5,5,5,0,-5],[-5,0,5,5,5,5,0,-5],[-5,0,5,5,5,5,0,-5],[0,0,5,10,10,5,0,0]],
-    q: [[-20,-10,-10,-5,-5,-10,-10,-20],[-10,5,5,5,5,5,5,-10],[-10,5,10,10,10,10,5,-10],[-5,5,10,10,10,10,5,-5],[0,5,10,10,10,10,5,-5],[-10,5,8,8,8,8,5,-10],[-10,0,5,0,0,0,0,-10],[-20,-10,-10,-5,-5,-10,-10,-20]],
-    k: [[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-30,-40,-40,-50,-50,-40,-40,-30],[-20,-30,-30,-40,-40,-30,-30,-20],[-10,-20,-20,-20,-20,-20,-20,-10],[20,20,0,0,0,0,20,20],[20,30,10,0,0,10,30,20]]
-};
-
-function evaluateBoard(chessInstance, ply = 0) {
-    if (chessInstance.in_checkmate()) return chessInstance.turn() === 'w' ? (-99999 + ply) : (99999 - ply);
-    if (chessInstance.in_draw() || chessInstance.in_stalemate() || chessInstance.in_threefold_repetition()) return 0;
-    const board = chessInstance.board();
-    let total = 0;
-    for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-            const p = board[r][c];
-            if (!p) continue;
-            const base = PIECE_VALUES[p.type];
-            const pst = p.color === 'w' ? PST[p.type][r][c] : PST[p.type][7 - r][c];
-            total += (p.color === 'w' ? 1 : -1) * (base + pst);
-        }
-    }
-    if (chessInstance.in_check()) total += (chessInstance.turn() === 'w' ? -50 : 50);
-    return total;
-}
-
-function orderMoves(moves) {
-    return moves.slice().sort((a, b) => {
-        let sa = 0, sb = 0;
-        if (a.san.includes('#')) sa += 100000;
-        if (b.san.includes('#')) sb += 100000;
-        if (a.san.includes('+')) sa += 500;
-        if (b.san.includes('+')) sb += 500;
-        if (a.captured) sa += 12 * (PIECE_VALUES[a.captured] || 100) - (PIECE_VALUES[a.piece] || 0);
-        if (b.captured) sb += 12 * (PIECE_VALUES[b.captured] || 100) - (PIECE_VALUES[b.piece] || 0);
-        if (a.promotion) sa += 900;
-        if (b.promotion) sb += 900;
-        return sb - sa;
-    });
-}
-
-function minimaxDepth(chess, depth, alpha, beta, maximizing, ply) {
-    if (chess.game_over()) return evaluateBoard(chess, ply);
-    if (depth === 0) return evaluateBoard(chess, ply);
-
-    const moves = orderMoves(chess.moves({ verbose: true }));
-    if (!moves.length) return evaluateBoard(chess, ply);
-
-    if (maximizing) {
-        let maxEval = -Infinity;
-        for (let i = 0; i < moves.length; i++) {
-            chess.move(moves[i]);
-            const ev = minimaxDepth(chess, depth - 1, alpha, beta, false, ply + 1);
-            chess.undo();
-            if (ev > maxEval) maxEval = ev;
-            if (ev > alpha) alpha = ev;
-            if (beta <= alpha) break;
-        }
-        return maxEval;
-    } else {
-        let minEval = Infinity;
-        for (let i = 0; i < moves.length; i++) {
-            chess.move(moves[i]);
-            const ev = minimaxDepth(chess, depth - 1, alpha, beta, true, ply + 1);
-            chess.undo();
-            if (ev < minEval) minEval = ev;
-            if (ev < beta) beta = ev;
-            if (beta <= alpha) break;
-        }
-        return minEval;
-    }
-}
-
-function fallbackMinimax() {
-    const moves = orderMoves(game.moves({ verbose: true }));
-    if (!moves.length) {
-        bestMoveCache = { move: null, score: evaluateBoard(game), tag: '' };
-        return;
-    }
-
-    // Instant checkmate if available
-    for (const m of moves) {
-        if (m.san.includes('#')) {
-            bestMoveCache = {
-                move: m,
-                score: game.turn() === 'w' ? 99999 : -99999,
-                tag: '💀 CHECKMATE IN 1 — FINISH THEM!'
-            };
-            return;
-        }
-    }
-
-    const isWhite = game.turn() === 'w';
-    let best = moves[0];
-    let bestScore = isWhite ? -Infinity : Infinity;
-
-    // Depth 2 search (fast on mobile, finds most short mates and tactics)
-    const depth = 2;
-    const limit = Math.min(moves.length, 24);
-
-    for (let i = 0; i < limit; i++) {
-        game.move(moves[i]);
-        const score = minimaxDepth(game, depth - 1, -Infinity, Infinity, !isWhite, 1);
-        game.undo();
-
-        if (isWhite) {
-            if (score > bestScore) { bestScore = score; best = moves[i]; }
-        } else {
-            if (score < bestScore) { bestScore = score; best = moves[i]; }
-        }
-        // Early exit on forced mate
-        if (Math.abs(bestScore) >= 90000) break;
-    }
-
-    let tag = '⚡ Fast mode';
-    if (best.san.includes('#')) tag = '💀 CHECKMATE IN 1 — FINISH THEM!';
-    else if (Math.abs(bestScore) >= 90000) tag = '💀 FORCED MATE FOUND!';
-    else if (best.san.includes('+')) tag = '⚡ FORCING CHECK';
-    else if (best.captured) tag = '⚔️ CAPTURE';
-    else if (playMode === 'aggressive') tag = '⚡ AGGRESSIVE STRIKE';
-    else tag = '⚡ Fast mode';
-
-    bestMoveCache = {
-        move: best,
-        score: bestScore,
-        tag: tag
-    };
-}
-
-// ==========================================
-// 6. MAIN FIND BEST MOVE (trap book → Stockfish / fallback)
-// ==========================================
-function findBestMove() {
-    const moves = game.moves({ verbose: true });
-    if (!moves.length) return { move: null, score: 0, tag: '' };
-
-    // 1. Opening trap book (instant)
-    const histKey = game.history().join(' ');
-    if (TRAP_BOOK[histKey]) {
-        const trap = TRAP_BOOK[histKey];
-        const bookMove = moves.find(m => m.san === trap.san);
-        if (bookMove) {
-            return { move: bookMove, score: 80, tag: trap.tag };
-        }
-    }
-
-    // 2. Stockfish (async) or immediate fallback
-    if (stockfishReady && engineMode === 'stockfish') {
-        askStockfish();          // will fill bestMoveCache later
-        return null;             // keep spinner until answer or timeout
-    }
-
-    // 3. No Stockfish → synchronous fallback
-    fallbackMinimax();
-    return bestMoveCache;
-}
-
-// ==========================================
-// 7. UI & BOARD (mostly original)
-// ==========================================
-function renderBoard() {
-    const boardEl = document.getElementById('board-grid');
-    boardEl.innerHTML = '';
-    const files = ['a','b','c','d','e','f','g','h'];
-    const ranks = ['8','7','6','5','4','3','2','1'];
-    const displayRanks = boardOrientation === 'w' ? ranks : [...ranks].reverse();
-    const displayFiles = boardOrientation === 'w' ? files : [...files].reverse();
-    const history = game.history({ verbose: true });
-    const lastMove = history.length ? history[history.length - 1] : null;
-    const legalTargets = new Set(legalMovesForSelected.map(m => m.to));
-    const isMyTurn = game.turn() === mySide;
-
-    displayRanks.forEach((rank, rIdx) => {
-        displayFiles.forEach((file, fIdx) => {
-            const sqName = file + rank;
-            const fileIndex = files.indexOf(file);
-            const rankIndex = ranks.indexOf(rank);
-            const isLight = (fileIndex + rankIndex) % 2 === 0;
-            const sqDiv = document.createElement('div');
-            sqDiv.className = `square relative flex items-center justify-center cursor-pointer select-none ${isLight ? 'sq-light' : 'sq-dark'}`;
-            sqDiv.dataset.square = sqName;
-
-            if (!isEditMode) {
-                if (lastMove && (lastMove.from === sqName || lastMove.to === sqName)) sqDiv.classList.add('sq-last-move');
-                if (bestMoveCache && bestMoveCache.move) {
-                    if (bestMoveCache.move.from === sqName) sqDiv.classList.add('sq-best-from');
-                    if (bestMoveCache.move.to === sqName) sqDiv.classList.add(isMyTurn ? 'sq-killer-to' : 'sq-best-to');
+            function loadSavedCatalog() {
+                try {
+                    const raw = localStorage.getItem(CATALOG_KEY);
+                    catalog = raw ? JSON.parse(raw) : [];
+                    if (!Array.isArray(catalog)) catalog = [];
+                } catch (e) {
+                    catalog = [];
                 }
-                if (selectedSquare === sqName) sqDiv.classList.add('sq-selected');
             }
 
-            const coordColor = isLight ? 'text-[#3f281d]/80' : 'text-[#d8b48a]/85';
-            if (fIdx === 0) {
-                const rankLabel = document.createElement('span');
-                rankLabel.className = `absolute top-0.5 left-1 text-[10px] font-bold leading-none pointer-events-none ${coordColor}`;
-                rankLabel.textContent = rank;
-                sqDiv.appendChild(rankLabel);
-            }
-            if (rIdx === 7) {
-                const fileLabel = document.createElement('span');
-                fileLabel.className = `absolute bottom-0.5 right-1 text-[10px] font-bold leading-none uppercase pointer-events-none ${coordColor}`;
-                fileLabel.textContent = file;
-                sqDiv.appendChild(fileLabel);
+            function persistCatalog() {
+                try {
+                    localStorage.setItem(CATALOG_KEY, JSON.stringify(catalog));
+                } catch (e) {
+                    showToast('Notice: Browser storage limit reached.');
+                }
             }
 
-            const piece = game.get(sqName);
-            if (piece) {
-                const key = piece.color + piece.type.toUpperCase();
-                sqDiv.insertAdjacentHTML('beforeend', PIECE_SVGS[key]);
+            /* ===============================================================
+               3. AUTOMATIC VIDEO FRAME THUMBNAIL GENERATOR
+               =============================================================== */
+            function captureVideoThumbnail(file) {
+                return new Promise((resolve) => {
+                    try {
+                        const tempUrl = URL.createObjectURL(file);
+                        const tempVideo = document.createElement('video');
+                        tempVideo.preload = 'metadata';
+                        tempVideo.muted = true;
+                        tempVideo.playsInline = true;
+                        tempVideo.src = tempUrl;
+
+                        const cleanup = () => URL.revokeObjectURL(tempUrl);
+
+                        tempVideo.onloadeddata = () => {
+                            tempVideo.currentTime = Math.min(1.5, (tempVideo.duration || 2) * 0.25);
+                        };
+
+                        tempVideo.onseeked = () => {
+                            try {
+                                const canvas = document.createElement('canvas');
+                                canvas.width = 640;
+                                canvas.height = 360;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+                                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                                cleanup();
+                                resolve(dataUrl);
+                            } catch (err) {
+                                cleanup();
+                                resolve(null);
+                            }
+                        };
+
+                        tempVideo.onerror = () => {
+                            cleanup();
+                            resolve(null);
+                        };
+                    } catch (e) {
+                        resolve(null);
+                    }
+                });
             }
-            if (!isEditMode && legalTargets.has(sqName)) {
-                const indicator = document.createElement('div');
-                indicator.className = `absolute ${piece ? 'legal-capture' : 'legal-dot'}`;
-                sqDiv.appendChild(indicator);
+
+            function buildFallbackPoster(title, badge) {
+                const safeTitle = escapeHtml(title).slice(0, 26);
+                const safeBadge = escapeHtml(badge).slice(0, 22);
+                const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+                    <defs>
+                        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#0f172a"/>
+                            <stop offset="50%" stop-color="#1e3a8a"/>
+                            <stop offset="100%" stop-color="#07080c"/>
+                        </linearGradient>
+                    </defs>
+                    <rect width="640" height="360" fill="url(#g)"/>
+                    <rect x="32" y="32" width="150" height="28" rx="14" fill="#38bdf8" fill-opacity="0.2" stroke="#38bdf8"/>
+                    <text x="107" y="50" font-family="sans-serif" font-size="11" font-weight="800" fill="#38bdf8" text-anchor="middle">${safeBadge}</text>
+                    <text x="32" y="295" font-family="sans-serif" font-size="28" font-weight="900" fill="#ffffff">${safeTitle}</text>
+                    <text x="32" y="325" font-family="sans-serif" font-size="13" font-weight="600" fill="#94a3b8">LUBA STUDIOS</text>
+                </svg>`;
+                return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
             }
-            sqDiv.addEventListener('click', () => handleSquareClick(sqName));
-            boardEl.appendChild(sqDiv);
+
+            /* ===============================================================
+               4. RENDER CATALOG GRID & FILTERING
+               =============================================================== */
+            const catalogGrid = document.getElementById('catalogGrid');
+            const emptyStateBox = document.getElementById('emptyStateBox');
+            const catalogCountLabel = document.getElementById('catalogCountLabel');
+
+            function renderCatalog() {
+                const filtered = catalog.filter((item) => {
+                    const typeOk = activeFilter === 'all' || item.type === activeFilter;
+                    const q = searchTerm.toLowerCase().trim();
+                    const searchOk = !q ||
+                        item.title.toLowerCase().includes(q) ||
+                        (item.description && item.description.toLowerCase().includes(q)) ||
+                        (item.language && item.language.toLowerCase().includes(q));
+                    return typeOk && searchOk;
+                });
+
+                catalogCountLabel.textContent = `${filtered.length} ${filtered.length === 1 ? 'release' : 'releases'}`;
+
+                if (filtered.length === 0) {
+                    catalogGrid.innerHTML = '';
+                    emptyStateBox.classList.remove('hidden');
+                    const heading = document.getElementById('emptyStateHeading');
+                    const desc = document.getElementById('emptyStateDesc');
+                    if (catalog.length === 0) {
+                        heading.textContent = 'No movies or serials uploaded yet';
+                        desc.innerHTML = 'Tap <span class="text-cyan-400 font-bold">+ New</span> below to add your first translated video from your gallery.';
+                    } else {
+                        heading.textContent = 'No matching results';
+                        desc.textContent = 'Try another search term or switch category filters.';
+                    }
+                    return;
+                }
+
+                emptyStateBox.classList.add('hidden');
+                catalogGrid.innerHTML = filtered.map((item) => {
+                    const isSerial = item.type === 'serial';
+                    const badge = isSerial
+                        ? `<span class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white">SERIAL • ${item.episodes.length} EP</span>`
+                        : `<span class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase bg-cyan-400 text-slate-950">MOVIE</span>`;
+
+                    const subMeta = isSerial
+                        ? `${item.totalSeasons || 1} Seasons • ${item.totalEpisodes || item.episodes.length} Series`
+                        : 'Full Feature Film';
+
+                    return `
+                    <div class="group rounded-2xl overflow-hidden bg-[#0e1320] border border-slate-800 hover:border-cyan-400/70 transition-all shadow-xl flex flex-col">
+                        <div data-play-id="${item.id}" class="play-card-trigger relative aspect-video bg-slate-950 overflow-hidden cursor-pointer">
+                            <img src="${item.poster}" alt="${escapeHtml(item.title)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                            <div class="absolute inset-0 bg-gradient-to-t from-[#0e1320] via-transparent to-black/30"></div>
+                            <div class="absolute top-3 left-3">${badge}</div>
+                            <div class="absolute top-3 right-3 px-2 py-0.5 rounded-md text-[10px] font-bold bg-black/75 text-cyan-300 border border-white/10">
+                                ${escapeHtml(item.language || 'Translated')}
+                            </div>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <div class="w-13 h-13 w-12 h-12 rounded-full bg-cyan-400/95 text-slate-950 flex items-center justify-center shadow-lg">
+                                    <svg class="w-6 h-6 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-4 flex-1 flex flex-col justify-between space-y-3">
+                            <div data-play-id="${item.id}" class="play-card-trigger cursor-pointer">
+                                <div class="text-[11px] font-bold text-cyan-400 mb-0.5">${subMeta}</div>
+                                <h3 class="text-base font-extrabold text-white line-clamp-1">${escapeHtml(item.title)}</h3>
+                                <p class="text-xs text-slate-400 mt-1 line-clamp-2">${escapeHtml(item.description || 'Watch now on LUBA STUDIOS.')}</p>
+                            </div>
+
+                            <div class="pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                                <button type="button" data-play-id="${item.id}" class="play-card-trigger min-h-[38px] px-3.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 text-xs font-extrabold flex items-center gap-1.5">
+                                    <span>${isSerial ? 'Watch Series' : 'Watch Now'}</span>
+                                </button>
+                                <button type="button" data-delete-id="${item.id}" class="delete-card-trigger min-h-[38px] px-3 rounded-xl bg-slate-900 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 text-xs font-bold transition-colors" title="Delete">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+            }
+
+            // Event delegation for catalog cards (Play & Delete)
+            catalogGrid.addEventListener('click', (e) => {
+                const playTarget = e.target.closest('.play-card-trigger');
+                if (playTarget) {
+                    const id = playTarget.getAttribute('data-play-id');
+                    if (id) openCinemaPlayer(id);
+                    return;
+                }
+
+                const delTarget = e.target.closest('.delete-card-trigger');
+                if (delTarget) {
+                    const id = delTarget.getAttribute('data-delete-id');
+                    if (!id) return;
+                    if (!isUnlocked) {
+                        showToast('Unlock Studio via "+ New" (password) to delete items.');
+                        return;
+                    }
+                    catalog = catalog.filter(item => item.id !== id);
+                    persistCatalog();
+                    renderCatalog();
+                    showToast('Removed from LUBA STUDIOS.');
+                }
+            });
+
+            // Filter Buttons Wiring
+            document.querySelectorAll('.filter-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    activeFilter = btn.getAttribute('data-filter') || 'all';
+                    document.querySelectorAll('.filter-btn').forEach((b) => {
+                        b.className = 'filter-btn min-h-[44px] px-5 rounded-full text-xs sm:text-sm font-bold bg-slate-900 text-slate-300 hover:text-white border border-slate-800 transition-all';
+                    });
+                    btn.className = 'filter-btn min-h-[44px] px-5 rounded-full text-xs sm:text-sm font-bold bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-lg shadow-cyan-500/20 transition-all';
+                    renderCatalog();
+                });
+            });
+
+            // Search Input Wiring
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', (e) => {
+                searchTerm = e.target.value;
+                renderCatalog();
+            });
+
+            // Home & Brand Reset Buttons
+            function resetToHome() {
+                searchTerm = '';
+                searchInput.value = '';
+                activeFilter = 'all';
+                document.querySelectorAll('.filter-btn').forEach((b) => {
+                    const isAll = b.getAttribute('data-filter') === 'all';
+                    b.className = isAll
+                        ? 'filter-btn min-h-[44px] px-5 rounded-full text-xs sm:text-sm font-bold bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-lg shadow-cyan-500/20 transition-all'
+                        : 'filter-btn min-h-[44px] px-5 rounded-full text-xs sm:text-sm font-bold bg-slate-900 text-slate-300 hover:text-white border border-slate-800 transition-all';
+                });
+                renderCatalog();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            document.getElementById('brandResetBtn').addEventListener('click', resetToHome);
+            document.getElementById('dockHomeBtn').addEventListener('click', resetToHome);
+
+            /* ===============================================================
+               5. PASSWORD GATE MODAL (blue123)
+               =============================================================== */
+            const passwordModal = document.getElementById('passwordModal');
+            const passwordModalCard = document.getElementById('passwordModalCard');
+            const studioPasswordInput = document.getElementById('studioPasswordInput');
+            const passwordErrorText = document.getElementById('passwordErrorText');
+
+            function openPasswordGate() {
+                if (isUnlocked) {
+                    openUploadStudio();
+                    return;
+                }
+                studioPasswordInput.value = '';
+                passwordErrorText.classList.add('hidden');
+                passwordModal.classList.add('is-open');
+                setTimeout(() => studioPasswordInput.focus(), 80);
+            }
+
+            function closePasswordGate() {
+                passwordModal.classList.remove('is-open');
+            }
+
+            document.getElementById('dockNewBtn').addEventListener('click', openPasswordGate);
+            document.getElementById('closePasswordBtn').addEventListener('click', closePasswordGate);
+            document.getElementById('cancelPasswordBtn').addEventListener('click', closePasswordGate);
+
+            document.getElementById('passwordForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (studioPasswordInput.value.trim() === CREATOR_PASSWORD) {
+                    isUnlocked = true;
+                    const pill = document.getElementById('studioUnlockedPill');
+                    pill.classList.remove('hidden');
+                    pill.classList.add('flex');
+                    closePasswordGate();
+                    showToast('Studio Unlocked!');
+                    openUploadStudio();
+                } else {
+                    passwordErrorText.classList.remove('hidden');
+                    passwordModalCard.classList.remove('animate-shake');
+                    void passwordModalCard.offsetWidth;
+                    passwordModalCard.classList.add('animate-shake');
+                    studioPasswordInput.focus();
+                }
+            });
+
+            /* ===============================================================
+               6. UPLOAD STUDIO & MOBILE GALLERY VIDEO PICKER
+               =============================================================== */
+            const uploadModal = document.getElementById('uploadModal');
+            const publishVideoForm = document.getElementById('publishVideoForm');
+            const galleryVideoInput = document.getElementById('galleryVideoInput');
+            const galleryCoverInput = document.getElementById('galleryCoverInput');
+
+            function openUploadStudio() {
+                publishVideoForm.reset();
+                chosenGalleryVideo = null;
+                chosenCoverDataUrl = null;
+                document.getElementById('galleryVideoFileLabel').textContent = 'Tap to Select Video from Gallery / Device';
+                document.getElementById('galleryVideoSubLabel').textContent = 'Supports MP4, MOV, WebM, MKV from your phone';
+                document.getElementById('galleryCoverLabel').textContent = 'Choose Cover Image from Gallery';
+                setUploadFormat('movie');
+                setVideoSource('gallery');
+                uploadModal.classList.add('is-open');
+            }
+
+            function closeUploadStudio() {
+                uploadModal.classList.remove('is-open');
+            }
+
+            document.getElementById('closeUploadBtn').addEventListener('click', closeUploadStudio);
+            document.getElementById('cancelUploadBtn').addEventListener('click', closeUploadStudio);
+
+            // Format Toggle: Movie vs Serial
+            function setUploadFormat(format) {
+                currentUploadFormat = format;
+                const movieBtn = document.getElementById('chooseMovieBtn');
+                const serialBtn = document.getElementById('chooseSerialBtn');
+                const serialOptionsPanel = document.getElementById('serialOptionsPanel');
+                const serialTotalsGroup = document.getElementById('serialTotalsGroup');
+                const episodeNumberGroup = document.getElementById('episodeNumberGroup');
+                const titleInputLabel = document.getElementById('titleInputLabel');
+
+                if (format === 'movie') {
+                    movieBtn.className = 'min-h-[54px] p-3.5 rounded-2xl border-2 border-cyan-400 bg-cyan-500/15 text-left transition-all';
+                    serialBtn.className = 'min-h-[54px] p-3.5 rounded-2xl border-2 border-slate-800 bg-slate-900/80 text-left transition-all';
+                    serialOptionsPanel.classList.add('hidden');
+                    serialTotalsGroup.classList.add('hidden');
+                    serialTotalsGroup.classList.remove('grid');
+                    episodeNumberGroup.classList.add('hidden');
+                    document.getElementById('titleInputGroup').classList.remove('hidden');
+                    document.getElementById('metaDetailsGroup').classList.remove('hidden');
+                    document.getElementById('coverImageGroup').classList.remove('hidden');
+                    titleInputLabel.textContent = 'Movie Title *';
+                } else {
+                    serialBtn.className = 'min-h-[54px] p-3.5 rounded-2xl border-2 border-cyan-400 bg-cyan-500/15 text-left transition-all';
+                    movieBtn.className = 'min-h-[54px] p-3.5 rounded-2xl border-2 border-slate-800 bg-slate-900/80 text-left transition-all';
+                    serialOptionsPanel.classList.remove('hidden');
+                    episodeNumberGroup.classList.remove('hidden');
+                    setSerialAction('new');
+                }
+            }
+
+            document.getElementById('chooseMovieBtn').addEventListener('click', () => setUploadFormat('movie'));
+            document.getElementById('chooseSerialBtn').addEventListener('click', () => setUploadFormat('serial'));
+
+            // Serial Action Toggle: Create New vs Attach to Existing
+            function setSerialAction(action) {
+                const existingSerials = catalog.filter(item => item.type === 'serial');
+                if (action === 'attach' && existingSerials.length === 0) {
+                    showToast('Create a Serial first before attaching episodes.');
+                    action = 'new';
+                }
+
+                currentSerialAction = action;
+                const newBtn = document.getElementById('serialCreateNewBtn');
+                const attachBtn = document.getElementById('serialAttachExistingBtn');
+                const existingContainer = document.getElementById('existingSerialContainer');
+                const serialTotalsGroup = document.getElementById('serialTotalsGroup');
+                const titleInputGroup = document.getElementById('titleInputGroup');
+                const metaDetailsGroup = document.getElementById('metaDetailsGroup');
+                const coverImageGroup = document.getElementById('coverImageGroup');
+
+                if (action === 'new') {
+                    newBtn.className = 'min-h-[44px] px-3 rounded-xl text-xs font-extrabold bg-cyan-400 text-slate-950 transition-all';
+                    attachBtn.className = 'min-h-[44px] px-3 rounded-xl text-xs font-extrabold bg-slate-800 text-slate-300 transition-all';
+                    existingContainer.classList.add('hidden');
+                    serialTotalsGroup.classList.remove('hidden');
+                    serialTotalsGroup.classList.add('grid');
+                    titleInputGroup.classList.remove('hidden');
+                    metaDetailsGroup.classList.remove('hidden');
+                    coverImageGroup.classList.remove('hidden');
+                    document.getElementById('titleInputLabel').textContent = 'New Serial Title *';
+                    document.getElementById('seasonNumberInput').value = 1;
+                    document.getElementById('seriesNumberInput').value = 1;
+                    refreshEpisodePreviewPill();
+                } else {
+                    attachBtn.className = 'min-h-[44px] px-3 rounded-xl text-xs font-extrabold bg-cyan-400 text-slate-950 transition-all';
+                    newBtn.className = 'min-h-[44px] px-3 rounded-xl text-xs font-extrabold bg-slate-800 text-slate-300 transition-all';
+                    existingContainer.classList.remove('hidden');
+                    serialTotalsGroup.classList.add('hidden');
+                    serialTotalsGroup.classList.remove('grid');
+                    titleInputGroup.classList.add('hidden');
+                    metaDetailsGroup.classList.add('hidden');
+                    coverImageGroup.classList.add('hidden');
+
+                    const select = document.getElementById('existingSerialSelect');
+                    select.innerHTML = existingSerials.map(s => `<option value="${s.id}">${escapeHtml(s.title)} (${s.episodes.length} episodes)</option>`).join('');
+                    autoFillNextEpisode();
+                }
+            }
+
+            function autoFillNextEpisode() {
+                const selectedId = document.getElementById('existingSerialSelect').value;
+                const serial = catalog.find(s => s.id === selectedId);
+                if (!serial) return;
+                if (serial.episodes.length > 0) {
+                    const last = serial.episodes[serial.episodes.length - 1];
+                    document.getElementById('seasonNumberInput').value = last.season;
+                    document.getElementById('seriesNumberInput').value = last.episode + 1;
+                } else {
+                    document.getElementById('seasonNumberInput').value = 1;
+                    document.getElementById('seriesNumberInput').value = 1;
+                }
+                refreshEpisodePreviewPill();
+            }
+
+            function refreshEpisodePreviewPill() {
+                const s = document.getElementById('seasonNumberInput').value || 1;
+                const e = document.getElementById('seriesNumberInput').value || 1;
+                document.getElementById('episodePreviewPill').textContent = `Season ${s} • Series ${e}`;
+            }
+
+            document.getElementById('serialCreateNewBtn').addEventListener('click', () => setSerialAction('new'));
+            document.getElementById('serialAttachExistingBtn').addEventListener('click', () => setSerialAction('attach'));
+            document.getElementById('existingSerialSelect').addEventListener('change', autoFillNextEpisode);
+            document.getElementById('seasonNumberInput').addEventListener('input', refreshEpisodePreviewPill);
+            document.getElementById('seriesNumberInput').addEventListener('input', refreshEpisodePreviewPill);
+
+            // Source Type Toggle: Phone Gallery vs Direct Video Link
+            function setVideoSource(srcType) {
+                currentSourceType = srcType;
+                const gBtn = document.getElementById('modeGalleryBtn');
+                const lBtn = document.getElementById('modeLinkBtn');
+                const gBox = document.getElementById('galleryPickerBox');
+                const lBox = document.getElementById('linkInputBox');
+
+                if (srcType === 'gallery') {
+                    gBtn.className = 'min-h-[32px] px-3 rounded-md text-xs font-bold bg-cyan-400 text-slate-950';
+                    lBtn.className = 'min-h-[32px] px-3 rounded-md text-xs font-bold text-slate-400';
+                    gBox.classList.remove('hidden');
+                    lBox.classList.add('hidden');
+                } else {
+                    lBtn.className = 'min-h-[32px] px-3 rounded-md text-xs font-bold bg-cyan-400 text-slate-950';
+                    gBtn.className = 'min-h-[32px] px-3 rounded-md text-xs font-bold text-slate-400';
+                    lBox.classList.remove('hidden');
+                    gBox.classList.add('hidden');
+                }
+            }
+
+            document.getElementById('modeGalleryBtn').addEventListener('click', () => setVideoSource('gallery'));
+            document.getElementById('modeLinkBtn').addEventListener('click', () => setVideoSource('link'));
+
+            // Trigger Native Mobile Gallery Video Picker
+            document.getElementById('triggerGalleryVideoBtn').addEventListener('click', () => {
+                galleryVideoInput.click();
+            });
+
+            galleryVideoInput.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                chosenGalleryVideo = file;
+                const mb = (file.size / (1024 * 1024)).toFixed(1);
+                document.getElementById('galleryVideoFileLabel').textContent = file.name;
+                document.getElementById('galleryVideoSubLabel').textContent = `Selected from gallery • ${mb} MB`;
+
+                // Auto-fill title from filename if title is empty
+                const titleField = document.getElementById('videoTitleInput');
+                if (!titleField.value.trim()) {
+                    titleField.value = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ');
+                }
+            });
+
+            // Trigger Native Mobile Gallery Cover Image Picker
+            document.getElementById('triggerGalleryCoverBtn').addEventListener('click', () => {
+                galleryCoverInput.click();
+            });
+
+            galleryCoverInput.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                document.getElementById('galleryCoverLabel').textContent = file.name;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    chosenCoverDataUrl = ev.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+
+            // Publish Video Form Submission
+            publishVideoForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const submitBtn = document.getElementById('publishSubmitBtn');
+                const titleVal = document.getElementById('videoTitleInput').value.trim();
+                const descVal = document.getElementById('videoDescInput').value.trim();
+                const langVal = document.getElementById('translationBadgeInput').value.trim() || 'Georgian Dub';
+                const linkVal = document.getElementById('directVideoUrlInput').value.trim();
+
+                if (currentSourceType === 'gallery' && !chosenGalleryVideo) {
+                    showToast('Please select a video from your gallery first.');
+                    return;
+                }
+                if (currentSourceType === 'link' && !linkVal) {
+                    showToast('Please paste a valid video URL.');
+                    return;
+                }
+                if ((currentUploadFormat === 'movie' || currentSerialAction === 'new') && !titleVal) {
+                    showToast('Please enter a title.');
+                    return;
+                }
+
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Saving...';
+
+                try {
+                    const blobKey = 'vid_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+                    let autoThumb = null;
+
+                    if (currentSourceType === 'gallery' && chosenGalleryVideo) {
+                        await storeVideoFile(blobKey, chosenGalleryVideo);
+                        if (!chosenCoverDataUrl && (currentUploadFormat === 'movie' || currentSerialAction === 'new')) {
+                            autoThumb = await captureVideoThumbnail(chosenGalleryVideo);
+                        }
+                    }
+
+                    if (currentUploadFormat === 'movie') {
+                        const poster = chosenCoverDataUrl || autoThumb || buildFallbackPoster(titleVal, 'MOVIE');
+                        catalog.unshift({
+                            id: 'mov_' + Date.now(),
+                            type: 'movie',
+                            title: titleVal,
+                            description: descVal,
+                            language: langVal,
+                            poster,
+                            sourceType: currentSourceType,
+                            blobKey: currentSourceType === 'gallery' ? blobKey : null,
+                            videoUrl: currentSourceType === 'link' ? linkVal : null
+                        });
+                        persistCatalog();
+                        showToast(`Movie "${titleVal}" published!`);
+                    } else {
+                        const seasonNum = parseInt(document.getElementById('seasonNumberInput').value, 10) || 1;
+                        const seriesNum = parseInt(document.getElementById('seriesNumberInput').value, 10) || 1;
+                        const epCustomTitle = document.getElementById('episodeCustomTitleInput').value.trim() || `Series ${seriesNum}`;
+
+                        const episodeEntry = {
+                            id: 'ep_' + Date.now(),
+                            season: seasonNum,
+                            episode: seriesNum,
+                            title: epCustomTitle,
+                            sourceType: currentSourceType,
+                            blobKey: currentSourceType === 'gallery' ? blobKey : null,
+                            videoUrl: currentSourceType === 'link' ? linkVal : null
+                        };
+
+                        if (currentSerialAction === 'new') {
+                            const totalSeasons = parseInt(document.getElementById('plannedSeasonsInput').value, 10) || 1;
+                            const totalEpisodes = parseInt(document.getElementById('plannedEpisodesInput').value, 10) || 1;
+                            const poster = chosenCoverDataUrl || autoThumb || buildFallbackPoster(titleVal, 'SERIAL');
+
+                            catalog.unshift({
+                                id: 'ser_' + Date.now(),
+                                type: 'serial',
+                                title: titleVal,
+                                description: descVal,
+                                language: langVal,
+                                totalSeasons,
+                                totalEpisodes,
+                                poster,
+                                episodes: [episodeEntry]
+                            });
+                            persistCatalog();
+                            showToast(`Serial "${titleVal}" (S${seasonNum} E${seriesNum}) published!`);
+                        } else {
+                            const targetId = document.getElementById('existingSerialSelect').value;
+                            const serial = catalog.find(s => s.id === targetId);
+                            if (serial) {
+                                serial.episodes.push(episodeEntry);
+                                serial.episodes.sort((a, b) => (a.season - b.season) || (a.episode - b.episode));
+                                if (seasonNum > (serial.totalSeasons || 1)) {
+                                    serial.totalSeasons = seasonNum;
+                                }
+                                persistCatalog();
+                                showToast(`Added S${seasonNum} E${seriesNum} to "${serial.title}"!`);
+                            }
+                        }
+                    }
+
+                    closeUploadStudio();
+                    renderCatalog();
+                } catch (err) {
+                    showToast('Could not save video. Try again.');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Publish Video';
+                }
+            });
+
+            /* ===============================================================
+               7. SIDEWAYS FULLSCREEN CINEMA PLAYER & 5-SECOND HUD AUTO-HIDE
+               =============================================================== */
+            const cinemaPlayerModal = document.getElementById('cinemaPlayerModal');
+            const cinemaStage = document.getElementById('cinemaStage');
+            const cinemaVideoEl = document.getElementById('cinemaVideoEl');
+            const playerTopHud = document.getElementById('playerTopHud');
+            const playerCenterHud = document.getElementById('playerCenterHud');
+            const playerBottomHud = document.getElementById('playerBottomHud');
+            const playerEpisodesDrawer = document.getElementById('playerEpisodesDrawer');
+
+            async function openCinemaPlayer(itemId) {
+                const item = catalog.find(c => c.id === itemId);
+                if (!item) return;
+
+                playingItem = item;
+                cinemaPlayerModal.classList.add('is-open');
+                document.body.style.overflow = 'hidden';
+
+                // Automatically rotate sideways on portrait mobile screens
+                applyInitialSidewaysOrientation();
+
+                const titleEl = document.getElementById('playerTitleText');
+                const subEl = document.getElementById('playerSubtitleText');
+                const epDrawerBtn = document.getElementById('toggleEpisodesDrawerBtn');
+
+                titleEl.textContent = item.title;
+                playerEpisodesDrawer.classList.add('hidden');
+
+                if (item.type === 'movie') {
+                    subEl.classList.add('hidden');
+                    epDrawerBtn.classList.add('hidden');
+                    epDrawerBtn.classList.remove('flex');
+                    await loadSourceIntoVideo(item);
+                } else {
+                    subEl.classList.remove('hidden');
+                    epDrawerBtn.classList.remove('hidden');
+                    epDrawerBtn.classList.add('flex');
+                    playingEpisodeIdx = 0;
+                    const firstEp = item.episodes[0];
+                    selectedDrawerSeason = firstEp ? firstEp.season : 1;
+                    buildSeasonSelector();
+                    renderPlayerEpisodesList();
+                    await playEpisodeAt(0);
+                }
+
+                revealHudWith5SecTimer();
+            }
+
+            function applyInitialSidewaysOrientation() {
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(() => {});
+                }
+                if (window.innerHeight > window.innerWidth) {
+                    setSidewaysState(true);
+                } else {
+                    setSidewaysState(false);
+                }
+            }
+
+            function setSidewaysState(enable) {
+                isSideways = enable;
+                const label = document.getElementById('sidewaysBtnText');
+                if (enable) {
+                    cinemaStage.classList.add('cinema-stage-sideways');
+                    label.textContent = 'Normal';
+                } else {
+                    cinemaStage.classList.remove('cinema-stage-sideways');
+                    label.textContent = 'Sideways';
+                }
+            }
+
+            document.getElementById('toggleSidewaysBtn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                setSidewaysState(!isSideways);
+                revealHudWith5SecTimer();
+            });
+
+            async function loadSourceIntoVideo(sourceObj) {
+                if (currentBlobUrl) {
+                    URL.revokeObjectURL(currentBlobUrl);
+                    currentBlobUrl = null;
+                }
+
+                if (sourceObj.sourceType === 'gallery' && sourceObj.blobKey) {
+                    const blob = await retrieveVideoFile(sourceObj.blobKey);
+                    if (!blob) {
+                        showToast('Video file unavailable.');
+                        return;
+                    }
+                    currentBlobUrl = URL.createObjectURL(blob);
+                    cinemaVideoEl.src = currentBlobUrl;
+                } else {
+                    cinemaVideoEl.src = sourceObj.videoUrl;
+                }
+
+                try {
+                    await cinemaVideoEl.play();
+                } catch (err) {
+                    // User can tap Play button if browser blocks autoplay
+                }
+                syncPlayPauseSvg();
+            }
+
+            function buildSeasonSelector() {
+                if (!playingItem || playingItem.type !== 'serial') return;
+                const seasons = [...new Set(playingItem.episodes.map(ep => ep.season))].sort((a, b) => a - b);
+                const picker = document.getElementById('playerSeasonPicker');
+                picker.innerHTML = seasons.map(s => `<option value="${s}" ${s === selectedDrawerSeason ? 'selected' : ''}>Season ${s}</option>`).join('');
+            }
+
+            function renderPlayerEpisodesList() {
+                if (!playingItem || playingItem.type !== 'serial') return;
+                const list = document.getElementById('playerEpisodesList');
+                const entries = playingItem.episodes
+                    .map((ep, idx) => ({ ep, idx }))
+                    .filter(obj => obj.ep.season === selectedDrawerSeason);
+
+                list.innerHTML = entries.map(({ ep, idx }) => {
+                    const active = idx === playingEpisodeIdx;
+                    return `
+                    <button type="button" data-ep-idx="${idx}" class="player-ep-item w-full min-h-[46px] p-2.5 rounded-xl text-left flex items-center justify-between gap-2 border transition-all ${
+                        active ? 'bg-cyan-500/20 border-cyan-400 text-white' : 'bg-slate-900/90 border-slate-800 text-slate-300'
+                    }">
+                        <div class="min-w-0">
+                            <div class="text-xs font-extrabold ${active ? 'text-cyan-300' : 'text-blue-400'}">Series ${ep.episode}</div>
+                            <div class="text-[11px] truncate">${escapeHtml(ep.title || `Episode ${ep.episode}`)}</div>
+                        </div>
+                        <span class="text-[10px] font-black px-2 py-0.5 rounded ${active ? 'bg-cyan-400 text-slate-950' : 'bg-slate-800 text-slate-400'}">
+                            ${active ? 'PLAYING' : 'PLAY'}
+                        </span>
+                    </button>
+                    `;
+                }).join('');
+            }
+
+            async function playEpisodeAt(idx) {
+                if (!playingItem || playingItem.type !== 'serial') return;
+                if (idx < 0 || idx >= playingItem.episodes.length) return;
+                playingEpisodeIdx = idx;
+                const ep = playingItem.episodes[idx];
+                selectedDrawerSeason = ep.season;
+                document.getElementById('playerSeasonPicker').value = selectedDrawerSeason;
+                document.getElementById('playerSubtitleText').textContent = `Season ${ep.season} • Series ${ep.episode}${ep.title ? ' — ' + ep.title : ''}`;
+                renderPlayerEpisodesList();
+                await loadSourceIntoVideo(ep);
+            }
+
+            // Episodes Drawer Interactions
+            document.getElementById('toggleEpisodesDrawerBtn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isHidden = playerEpisodesDrawer.classList.contains('hidden');
+                if (isHidden) {
+                    renderPlayerEpisodesList();
+                    playerEpisodesDrawer.classList.remove('hidden');
+                    playerEpisodesDrawer.classList.add('flex');
+                    clearTimeout(hudHideTimer);
+                } else {
+                    playerEpisodesDrawer.classList.add('hidden');
+                    playerEpisodesDrawer.classList.remove('flex');
+                    revealHudWith5SecTimer();
+                }
+            });
+
+            document.getElementById('closeEpisodesDrawerBtn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                playerEpisodesDrawer.classList.add('hidden');
+                playerEpisodesDrawer.classList.remove('flex');
+                revealHudWith5SecTimer();
+            });
+
+            document.getElementById('playerSeasonPicker').addEventListener('change', (e) => {
+                selectedDrawerSeason = parseInt(e.target.value, 10);
+                renderPlayerEpisodesList();
+            });
+
+            document.getElementById('playerEpisodesList').addEventListener('click', (e) => {
+                const btn = e.target.closest('.player-ep-item');
+                if (!btn) return;
+                const idx = parseInt(btn.getAttribute('data-ep-idx'), 10);
+                playerEpisodesDrawer.classList.add('hidden');
+                playerEpisodesDrawer.classList.remove('flex');
+                playEpisodeAt(idx);
+                revealHudWith5SecTimer();
+            });
+
+            // Transport Controls (Play/Pause, -10s, +10s, Scrubber, Mute, Fullscreen, Close)
+            function syncPlayPauseSvg() {
+                const svg = document.getElementById('centerPlaySvg');
+                if (cinemaVideoEl.paused) {
+                    svg.innerHTML = '<path d="M8 5v14l11-7z"/>';
+                    svg.classList.add('ml-1');
+                } else {
+                    svg.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+                    svg.classList.remove('ml-1');
+                }
+            }
+
+            function toggleVideoPlayback() {
+                if (cinemaVideoEl.paused) {
+                    cinemaVideoEl.play().catch(() => {});
+                } else {
+                    cinemaVideoEl.pause();
+                }
+                syncPlayPauseSvg();
+                revealHudWith5SecTimer();
+            }
+
+            document.getElementById('centerPlayPauseBtn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleVideoPlayback();
+            });
+
+            document.getElementById('rewind10Btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                cinemaVideoEl.currentTime = Math.max(0, cinemaVideoEl.currentTime - 10);
+                revealHudWith5SecTimer();
+            });
+
+            document.getElementById('forward10Btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                const dur = cinemaVideoEl.duration || 0;
+                cinemaVideoEl.currentTime = Math.min(dur, cinemaVideoEl.currentTime + 10);
+                revealHudWith5SecTimer();
+            });
+
+            const videoScrubberInput = document.getElementById('videoScrubberInput');
+            videoScrubberInput.addEventListener('input', (e) => {
+                e.stopPropagation();
+                if (cinemaVideoEl.duration) {
+                    cinemaVideoEl.currentTime = (parseFloat(e.target.value) / 100) * cinemaVideoEl.duration;
+                }
+                revealHudWith5SecTimer();
+            });
+
+            document.getElementById('muteToggleBtn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                cinemaVideoEl.muted = !cinemaVideoEl.muted;
+                document.getElementById('muteLabelText').textContent = cinemaVideoEl.muted ? 'Muted' : 'Sound';
+                revealHudWith5SecTimer();
+            });
+
+            document.getElementById('fullscreenToggleBtn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!document.fullscreenElement) {
+                    cinemaPlayerModal.requestFullscreen().catch(() => {});
+                } else {
+                    document.exitFullscreen().catch(() => {});
+                }
+                revealHudWith5SecTimer();
+            });
+
+            function closeCinemaPlayer() {
+                cinemaVideoEl.pause();
+                cinemaVideoEl.removeAttribute('src');
+                cinemaVideoEl.load();
+                clearTimeout(hudHideTimer);
+
+                if (currentBlobUrl) {
+                    URL.revokeObjectURL(currentBlobUrl);
+                    currentBlobUrl = null;
+                }
+
+                setSidewaysState(false);
+                if (screen.orientation && screen.orientation.unlock) {
+                    try { screen.orientation.unlock(); } catch (err) {}
+                }
+                if (document.fullscreenElement) {
+                    document.exitFullscreen().catch(() => {});
+                }
+
+                cinemaPlayerModal.classList.remove('is-open');
+                document.body.style.overflow = '';
+                playingItem = null;
+            }
+
+            document.getElementById('closePlayerBtn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeCinemaPlayer();
+            });
+
+            // Time updates & auto-next episode
+            cinemaVideoEl.addEventListener('timeupdate', () => {
+                const cur = cinemaVideoEl.currentTime || 0;
+                const dur = cinemaVideoEl.duration || 0;
+                document.getElementById('timeCurrentText').textContent = formatDuration(cur);
+                document.getElementById('timeTotalText').textContent = formatDuration(dur);
+                if (dur > 0) {
+                    videoScrubberInput.value = (cur / dur) * 100;
+                }
+            });
+
+            cinemaVideoEl.addEventListener('play', () => {
+                syncPlayPauseSvg();
+                revealHudWith5SecTimer();
+            });
+
+            cinemaVideoEl.addEventListener('pause', () => {
+                syncPlayPauseSvg();
+                revealHudWith5SecTimer();
+            });
+
+            cinemaVideoEl.addEventListener('ended', () => {
+                syncPlayPauseSvg();
+                if (playingItem && playingItem.type === 'serial' && playingEpisodeIdx < playingItem.episodes.length - 1) {
+                    playEpisodeAt(playingEpisodeIdx + 1);
+                } else {
+                    revealHudWith5SecTimer();
+                }
+            });
+
+            // Strict 5-Second HUD Auto-Hide Logic
+            function revealHudWith5SecTimer() {
+                hudVisible = true;
+                playerTopHud.classList.remove('hud-hidden');
+                playerCenterHud.classList.remove('hud-hidden');
+                playerBottomHud.classList.remove('hud-hidden');
+
+                clearTimeout(hudHideTimer);
+                hudHideTimer = setTimeout(() => {
+                    if (!cinemaVideoEl.paused && playerEpisodesDrawer.classList.contains('hidden')) {
+                        hideHud();
+                    }
+                }, 5000);
+            }
+
+            function hideHud() {
+                hudVisible = false;
+                playerTopHud.classList.add('hud-hidden');
+                playerCenterHud.classList.add('hud-hidden');
+                playerBottomHud.classList.add('hud-hidden');
+            }
+
+            // Tapping anywhere on the video stage reveals controls if hidden, or toggles play/pause if visible
+            cinemaStage.addEventListener('click', (e) => {
+                if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('#playerEpisodesDrawer')) {
+                    return;
+                }
+                if (!hudVisible) {
+                    revealHudWith5SecTimer();
+                } else {
+                    toggleVideoPlayback();
+                }
+            });
+
+            /* ===============================================================
+               8. HELPERS
+               =============================================================== */
+            function formatDuration(sec) {
+                if (!sec || isNaN(sec)) return '00:00';
+                const total = Math.floor(sec);
+                const h = Math.floor(total / 3600);
+                const m = Math.floor((total % 3600) / 60);
+                const s = total % 60;
+                if (h > 0) {
+                    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                }
+                return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            }
+
+            function escapeHtml(str) {
+                return String(str || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            }
+
+            let toastTimeout = null;
+            function showToast(msg) {
+                const banner = document.getElementById('toastBanner');
+                banner.textContent = msg;
+                banner.classList.remove('hidden');
+                clearTimeout(toastTimeout);
+                toastTimeout = setTimeout(() => {
+                    banner.classList.add('hidden');
+                }, 3000);
+            }
+
+            // Boot Application
+            openDatabase().then(() => {
+                loadSavedCatalog();
+                renderCatalog();
+            });
         });
-    });
-    updateStatusUI();
-}
-
-function handleSquareClick(sqName) {
-    if (isEditMode) {
-        if (selectedPaletteTool === 'trash') game.remove(sqName);
-        else {
-            const color = selectedPaletteTool[0];
-            const type = selectedPaletteTool[1].toLowerCase();
-            game.put({ type, color }, sqName);
-        }
-        renderBoard();
-        return;
-    }
-    if (game.game_over()) return;
-
-    const chosenMove = legalMovesForSelected.find(m => m.to === sqName);
-    if (chosenMove) {
-        if (chosenMove.flags.includes('p')) {
-            pendingPromotionMove = { from: chosenMove.from, to: chosenMove.to };
-            showPromotionModal(game.turn());
-            return;
-        }
-        executeMove(chosenMove);
-        return;
-    }
-    const piece = game.get(sqName);
-    if (piece && piece.color === game.turn()) {
-        if (selectedSquare === sqName) {
-            selectedSquare = null; legalMovesForSelected = [];
-        } else {
-            selectedSquare = sqName;
-            legalMovesForSelected = game.moves({ square: sqName, verbose: true });
-        }
-    } else {
-        selectedSquare = null; legalMovesForSelected = [];
-    }
-    renderBoard();
-}
-
-function executeMove(moveObj) {
-    game.move(moveObj);
-    redoStack = [];
-    selectedSquare = null;
-    legalMovesForSelected = [];
-    triggerEngineCalculation();
-}
-
-function showPromotionModal(color) {
-    const modal = document.getElementById('promo-modal');
-    const container = document.getElementById('promo-choices');
-    container.innerHTML = '';
-    ['q','n','r','b'].forEach(type => {
-        const btn = document.createElement('button');
-        btn.className = 'bg-slate-700 hover:bg-slate-600 p-2 rounded-xl flex items-center justify-center aspect-square border border-slate-600';
-        btn.innerHTML = PIECE_SVGS[color + type.toUpperCase()];
-        btn.onclick = () => {
-            modal.classList.add('hidden');
-            if (pendingPromotionMove) {
-                executeMove({ ...pendingPromotionMove, promotion: type });
-                pendingPromotionMove = null;
-            }
-        };
-        container.appendChild(btn);
-    });
-    modal.classList.remove('hidden');
-}
-
-function triggerEngineCalculation() {
-    const spinner = document.getElementById('thinking-spinner');
-    spinner.classList.remove('hidden');
-    bestMoveCache = null;
-    // Cancel any previous search timeout
-    clearTimeout(searchTimeoutId);
-    if (stockfishSearching && stockfish) {
-        try { stockfish.postMessage('stop'); } catch (_) {}
-        stockfishSearching = false;
-    }
-    renderBoard();
-
-    // Small delay so the spinner is visible, then search
-    setTimeout(() => {
-        if (game.game_over()) {
-            bestMoveCache = { move: null, score: 0, tag: '' };
-            spinner.classList.add('hidden');
-            updateStatusUI();
-            renderBoard();
-            return;
-        }
-
-        const result = findBestMove();
-
-        // Instant result (trap book or fallback)
-        if (result) {
-            bestMoveCache = result;
-            spinner.classList.add('hidden');
-            updateStatusUI();
-            renderBoard();
-        }
-        // else Stockfish is thinking; bestmove handler OR the hard timeout will finish
-    }, 30);
-}
-
-function updateStatusUI() {
-    const turnBadge = document.getElementById('turn-badge');
-    const roleLabel = document.getElementById('move-role-label');
-    const bestMoveText = document.getElementById('best-move-text');
-    const tacticTag = document.getElementById('tactic-tag');
-    const suggestionCard = document.getElementById('suggestion-card');
-    const applyBtn = document.getElementById('btn-apply-best');
-    const evalFill = document.getElementById('eval-fill');
-    const evalScore = document.getElementById('eval-score');
-
-    const isWhiteTurn = game.turn() === 'w';
-    const isMyTurn = game.turn() === mySide;
-
-    turnBadge.textContent = isMyTurn ? 'YOUR TURN' : 'OPPONENT';
-    turnBadge.className = isMyTurn
-        ? 'px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-[11px] font-black uppercase tracking-wider shadow'
-        : 'px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 text-[11px] font-bold uppercase tracking-wider';
-
-    if (!isEditMode) {
-        suggestionCard.className = isMyTurn
-            ? 'w-full bg-gradient-to-r from-rose-950/90 to-slate-900 border border-rose-500/60 rounded-xl p-3 flex items-center justify-between shadow-lg'
-            : 'w-full bg-gradient-to-r from-emerald-950/80 to-slate-800/95 border border-emerald-500/30 rounded-xl p-3 flex items-center justify-between shadow-md';
-    }
-
-    roleLabel.textContent = isMyTurn ? 'YOUR KILLER MOVE' : 'BEST ENEMY REPLY';
-    roleLabel.className = isMyTurn ? 'text-rose-400' : 'text-emerald-400';
-
-    if (game.in_checkmate()) {
-        const winner = isWhiteTurn ? 'Brown' : 'White';
-        bestMoveText.innerHTML = `<span class="text-amber-400">CHECKMATE! ${winner} Wins!</span>`;
-        tacticTag.textContent = '👑 Total Domination';
-        applyBtn.disabled = true;
-        applyBtn.classList.add('opacity-40');
-    } else if (game.in_draw() || game.in_stalemate()) {
-        bestMoveText.innerHTML = `<span class="text-slate-300">Game Drawn</span>`;
-        tacticTag.textContent = 'Stalemate / Repetition';
-        applyBtn.disabled = true;
-        applyBtn.classList.add('opacity-40');
-    } else if (bestMoveCache && bestMoveCache.move) {
-        const m = bestMoveCache.move;
-        const accent = isMyTurn ? 'text-rose-400' : 'text-emerald-400';
-        bestMoveText.innerHTML = `${m.from} → ${m.to} <span class="${accent} font-mono text-sm ml-1">(${m.san})</span>`;
-        tacticTag.textContent = bestMoveCache.tag || '';
-        applyBtn.disabled = false;
-        applyBtn.classList.remove('opacity-40');
-        applyBtn.className = isMyTurn
-            ? 'bg-rose-500 hover:bg-rose-400 active:scale-95 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow transition shrink-0 ml-2'
-            : 'bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold text-xs px-3.5 py-2.5 rounded-xl shadow transition shrink-0 ml-2';
-    } else {
-        if (engineMode === 'stockfish' && stockfishReady) {
-            bestMoveText.textContent = 'Stockfish thinking…';
-            tacticTag.textContent = 'Deep analysis in progress';
-        } else if (engineMode === 'loading') {
-            bestMoveText.textContent = 'Loading engine…';
-            tacticTag.textContent = 'Please wait a moment';
-        } else {
-            bestMoveText.textContent = 'Calculating…';
-            tacticTag.textContent = 'Fast mode active';
-        }
-    }
-
-    // Eval bar
-    const rawScore = bestMoveCache ? bestMoveCache.score : 0;
-    // Stockfish score is from the side to move perspective in some builds,
-    // but we normalize: positive = White advantage
-    let displayScore = rawScore;
-    if (game.turn() === 'b' && Math.abs(rawScore) < 90000) {
-        // Many SF builds report score relative to side-to-move
-        // For simplicity we keep raw and let the bar show approximate
-    }
-    const pawns = (displayScore / 100).toFixed(1);
-    const clamped = Math.max(-800, Math.min(800, displayScore));
-    const whitePercent = 50 + (clamped / 800) * 46;
-    evalFill.style.width = `${whitePercent}%`;
-
-    if (Math.abs(displayScore) >= 90000) {
-        evalScore.textContent = displayScore > 0 ? 'White Mates!' : 'Brown Mates!';
-    } else if (displayScore > 25) {
-        evalScore.textContent = `+${pawns} White`;
-    } else if (displayScore < -25) {
-        evalScore.textContent = `+${Math.abs(pawns)} Brown`;
-    } else {
-        evalScore.textContent = '0.0 (Even)';
-    }
-
-    document.getElementById('btn-undo').disabled = game.history().length === 0 || isEditMode;
-    document.getElementById('btn-redo').disabled = redoStack.length === 0 || isEditMode;
-}
-
-// ==========================================
-// 8. CONTROLS
-// ==========================================
-function setMySide(side) {
-    mySide = side;
-    boardOrientation = side;
-    const wBtn = document.getElementById('side-w-btn');
-    const bBtn = document.getElementById('side-b-btn');
-    if (side === 'w') {
-        wBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-emerald-600 text-white shadow';
-        bBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white';
-    } else {
-        bBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-emerald-600 text-white shadow';
-        wBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white';
-    }
-    renderBoard();
-}
-
-function applySuggestedMove() {
-    if (bestMoveCache && bestMoveCache.move && !isEditMode) {
-        executeMove(bestMoveCache.move);
-    }
-}
-
-function undoMove() {
-    if (isEditMode) return;
-    const undone = game.undo();
-    if (undone) {
-        redoStack.push(undone);
-        selectedSquare = null;
-        legalMovesForSelected = [];
-        triggerEngineCalculation();
-    }
-}
-
-function redoMove() {
-    if (isEditMode || !redoStack.length) return;
-    const move = redoStack.pop();
-    game.move(move);
-    selectedSquare = null;
-    legalMovesForSelected = [];
-    triggerEngineCalculation();
-}
-
-function resetBoard() {
-    game.reset();
-    redoStack = [];
-    selectedSquare = null;
-    legalMovesForSelected = [];
-    if (isEditMode) toggleEditMode();
-    triggerEngineCalculation();
-}
-
-function toggleEditMode() {
-    isEditMode = !isEditMode;
-    const panel = document.getElementById('editor-panel');
-    const btnLabel = document.getElementById('edit-btn-label');
-    const suggestionCard = document.getElementById('suggestion-card');
-    if (isEditMode) {
-        panel.classList.remove('hidden');
-        suggestionCard.classList.add('opacity-50', 'pointer-events-none');
-        btnLabel.textContent = 'Exit Edit';
-        selectedSquare = null;
-        legalMovesForSelected = [];
-        buildPalette();
-        updateEditorTurnButtons();
-        renderBoard();
-    } else {
-        panel.classList.add('hidden');
-        suggestionCard.classList.remove('opacity-50', 'pointer-events-none');
-        btnLabel.textContent = 'Edit Board';
-        redoStack = [];
-        triggerEngineCalculation();
-    }
-}
-
-function buildPalette() {
-    const palette = document.getElementById('piece-palette');
-    palette.innerHTML = '';
-    const items = ['wK','wQ','wR','wB','wN','wP','trash','bK','bQ','bR','bB','bN','bP'];
-    items.forEach(item => {
-        const btn = document.createElement('button');
-        const isSelected = selectedPaletteTool === item;
-        btn.className = `aspect-square rounded-lg flex items-center justify-center p-1 border transition ${
-            isSelected ? 'bg-emerald-600/40 border-emerald-400 scale-105' : 'bg-slate-700/80 border-slate-600'
-        }`;
-        if (item === 'trash') btn.innerHTML = `<span class="text-rose-400 text-base font-bold">✕</span>`;
-        else btn.innerHTML = PIECE_SVGS[item];
-        btn.onclick = () => { selectedPaletteTool = item; buildPalette(); };
-        palette.appendChild(btn);
-    });
-}
-
-function clearBoard() { game.clear(); renderBoard(); }
-
-function setEditorTurn(color) {
-    const tokens = game.fen().split(' ');
-    tokens[1] = color;
-    tokens[2] = '-';
-    tokens[3] = '-';
-    game.load(tokens.join(' '));
-    updateEditorTurnButtons();
-    renderBoard();
-}
-
-function updateEditorTurnButtons() {
-    const isW = game.turn() === 'w';
-    document.getElementById('turn-w-btn').className = isW
-        ? 'px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold'
-        : 'px-2.5 py-1 rounded-lg bg-slate-700 text-slate-300 font-semibold';
-    document.getElementById('turn-b-btn').className = !isW
-        ? 'px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold'
-        : 'px-2.5 py-1 rounded-lg bg-slate-700 text-slate-300 font-semibold';
-}
-
-// ==========================================
-// 9. START
-// ==========================================
-window.onload = () => {
-    setMySide('b');
-    initStockfish();          // loads Stockfish, then triggers first calculation
-};
-</script>
+    </script>
 </body>
 </html>
