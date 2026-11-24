@@ -2,1154 +2,349 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Apex Charts</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Luba AI — Minecraft Skin</title>
 <style>
   :root {
-    --bg: #0b0e11;
-    --panel: #12161c;
-    --panel2: #161b22;
-    --border: #1e2630;
-    --text: #e7ecf3;
+    --bg: #0c0e12;
+    --panel: #141820;
+    --border: #252b36;
+    --text: #e8eef8;
     --muted: #8b98a8;
-    --green: #0ecb81;
-    --red: #f6465d;
-    --yellow: #f0b90b;
-    --safe-top: env(safe-area-inset-top, 0px);
-    --safe-bot: env(safe-area-inset-bottom, 0px);
-    --chart-flex: 1.7;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body {
-    height: 100%;
-    background: var(--bg);
+  body {
+    min-height: 100dvh;
+    background: radial-gradient(900px 500px at 50% -10%, #1a2230 0%, var(--bg) 55%);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, system-ui, sans-serif;
-    overflow: hidden;
-    -webkit-user-select: none;
-    user-select: none;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    padding: 20px 14px 40px;
   }
-  button, input, select { font-family: inherit; font-size: 16px; }
-  /* 16px inputs = no iOS zoom */
-
-  .app {
-    height: 100dvh;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    padding-top: var(--safe-top);
-    padding-bottom: var(--safe-bot);
+  h1 { font-size: 1.25rem; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 18px; }
+  .row {
+    display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;
+    margin-bottom: 22px;
   }
-
-  /* TOP */
-  .top {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
+  .card {
     background: var(--panel);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    text-align: center;
   }
-  .logo { font-weight: 800; font-size: 13px; color: var(--yellow); letter-spacing: 0.06em; }
-  .pair-tabs {
-    display: flex; gap: 4px; overflow-x: auto; flex: 1; scrollbar-width: none;
+  .card h2 {
+    font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 10px; font-weight: 600;
   }
-  .pair-tabs::-webkit-scrollbar { display: none; }
-  .pair-tab {
-    background: transparent; border: 1px solid transparent; color: var(--muted);
-    padding: 5px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;
-    white-space: nowrap; cursor: pointer;
+  canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background: #0a0c10;
+    border-radius: 8px;
+    max-width: 100%;
   }
-  .pair-tab.active { color: var(--text); background: var(--panel2); border-color: var(--border); }
-  .chg.up { color: var(--green); }
-  .chg.down { color: var(--red); }
-  .bal-pill {
-    font-size: 11px; font-variant-numeric: tabular-nums; font-weight: 600;
-    background: var(--panel2); border: 1px solid var(--border);
-    padding: 5px 8px; border-radius: 7px; white-space: nowrap;
+  .hint {
+    max-width: 520px; margin: 0 auto; color: var(--muted);
+    font-size: 0.85rem; line-height: 1.5; text-align: center;
   }
-
-  /* invisible LARP money corner */
-  .secret-hit {
-    position: absolute;
-    top: 0; right: 0;
-    width: 44px; height: 44px;
-    z-index: 5;
-    background: transparent;
-    border: none;
+  .btns {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 16px 0 10px;
   }
-  .secret-hit-left {
-    right: auto;
-    left: 0;
+  button {
+    background: #1e293b; color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; font-weight: 600; cursor: pointer;
+    font-size: 13px;
   }
-
-  /* CHART zone grows */
-  .chart-wrap {
-    flex: var(--chart-flex) 1 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    background: var(--bg);
-  }
-  .chart-header {
-    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
-    padding: 8px 10px 2px; flex-shrink: 0;
-  }
-  .chart-header .name { font-size: 14px; font-weight: 700; }
-  .chart-header .price { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .chart-header .meta { font-size: 11px; color: var(--muted); }
-  .tf-row {
-    display: flex; gap: 2px; padding: 2px 8px 6px; flex-shrink: 0;
-  }
-  .tf {
-    background: transparent; border: none; color: var(--muted);
-    font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; cursor: pointer;
-  }
-  .tf.active { color: var(--yellow); background: rgba(240,185,11,0.1); }
-  .canvas-box {
-    flex: 1;
-    min-height: 140px;
-    position: relative;
-    touch-action: none;
-  }
-  canvas { width: 100%; height: 100%; display: block; }
-  .zoom-hint {
-    position: absolute; left: 8px; bottom: 6px;
-    font-size: 10px; color: rgba(255,255,255,0.2); pointer-events: none;
-  }
-
-  /* BOTTOM trade sheet — compact */
-  .sheet {
-    flex: 0 0 auto;
-    max-height: 38vh;
-    background: var(--panel);
-    border-top: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-  .side-tabs {
-    display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0;
-  }
-  .side-tab {
-    flex: 1; background: transparent; border: none; color: var(--muted);
-    font-size: 12px; font-weight: 700; padding: 10px 4px; cursor: pointer;
-    border-bottom: 2px solid transparent;
-  }
-  .side-tab.active { color: var(--text); border-bottom-color: var(--yellow); }
-  .side-body {
-    padding: 10px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    flex: 1;
-    min-height: 0;
-  }
-
-  .field { margin-bottom: 8px; }
-  .field label {
-    display: block; font-size: 10px; color: var(--muted); margin-bottom: 3px;
-    text-transform: uppercase; letter-spacing: 0.05em;
-  }
-  .field input, .field select {
-    width: 100%; background: var(--bg); border: 1px solid var(--border);
-    color: var(--text); border-radius: 8px; padding: 10px 12px; font-size: 16px;
-    font-variant-numeric: tabular-nums;
-  }
-  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .pct-row {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px;
-  }
-  .pct-row button {
-    background: var(--panel2); border: 1px solid var(--border); color: var(--text);
-    border-radius: 8px; padding: 8px 4px; font-size: 12px; font-weight: 700; cursor: pointer;
-  }
-  .side-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .btn {
-    border: none; border-radius: 10px; padding: 12px; font-weight: 800; font-size: 15px; cursor: pointer;
-  }
-  .btn-buy { background: var(--green); color: #04140c; }
-  .btn-sell { background: var(--red); color: #fff; }
-  .btn-ghost {
-    background: var(--panel2); color: var(--text); border: 1px solid var(--border); width: 100%;
-  }
-  .hint { font-size: 10px; color: var(--muted); margin-top: 8px; line-height: 1.35; }
-  .err { color: var(--red); font-size: 12px; min-height: 14px; margin-top: 4px; }
-  .timer-list { margin-top: 10px; }
-  .timer-card {
-    background: var(--panel2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; font-size: 11px;
-  }
-  .timer-card .t { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 2px; }
-  .timer-card .clock { color: var(--yellow); font-variant-numeric: tabular-nums; }
-
-  .pos-card, .hist-row {
-    background: var(--panel2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 10px; margin-bottom: 8px; font-size: 12px;
-  }
-  .pos-card .t, .hist-row .t { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 4px; }
-  .s { color: var(--muted); font-variant-numeric: tabular-nums; }
-  .empty { color: var(--muted); font-size: 12px; text-align: center; padding: 16px; }
-
-  .book { font-size: 11px; font-variant-numeric: tabular-nums; }
-  .book-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; padding: 3px 0; }
-  .book-row.head { color: var(--muted); font-size: 10px; }
-  .bid { color: var(--green); }
-  .ask { color: var(--red); }
-
-  .footer {
-    display: flex; justify-content: space-between; gap: 8px;
-    padding: 6px 10px; background: var(--panel); border-top: 1px solid var(--border);
-    font-size: 10px; color: var(--muted); flex-shrink: 0;
-  }
-  .footer strong { color: var(--text); font-weight: 700; }
-
-  .gate {
-    position: fixed; inset: 0; background: var(--bg);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 40; padding: 20px;
-  }
-  .gate.hidden { display: none; }
-  .gate-card {
-    width: 100%; max-width: 360px; background: var(--panel);
-    border: 1px solid var(--border); border-radius: 14px; padding: 20px;
-  }
-  .gate-card h1 { font-size: 18px; margin-bottom: 6px; }
-  .gate-card p { font-size: 13px; color: var(--muted); margin-bottom: 12px; line-height: 1.45; }
-  .gate-card .btn { width: 100%; margin-top: 8px; background: var(--yellow); color: #111; }
-
-  .toast {
-    position: fixed; left: 50%; bottom: 70px; transform: translateX(-50%) translateY(12px);
-    background: #1a2330; border: 1px solid var(--border); color: var(--text);
-    padding: 10px 14px; border-radius: 10px; font-size: 13px; opacity: 0;
-    pointer-events: none; transition: 0.2s; z-index: 60; max-width: 90vw;
-  }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-  .money-modal {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.65);
-    display: none; align-items: center; justify-content: center;
-    z-index: 80; padding: 20px;
-  }
-  .money-modal.open { display: flex; }
-  .money-card {
-    width: 100%; max-width: 320px; background: var(--panel);
-    border: 1px solid var(--border); border-radius: 14px; padding: 16px;
-  }
-  .money-card h2 { font-size: 15px; margin-bottom: 8px; }
-  .money-card .btn { width: 100%; margin-top: 8px; background: var(--yellow); color: #111; }
+  button.primary { background: #2563eb; border-color: #3b82f6; }
+  button:active { transform: scale(0.98); }
 </style>
 </head>
 <body>
-<div class="gate" id="gate">
-  <div class="gate-card">
-    <h1>Apex Charts</h1>
-    <p>Trading desk for LARP. Charts, order book, longs/shorts. No jobs. Deposit is your only bankroll unless you use the desk override.</p>
-    <div class="field">
-      <label>Trader name</label>
-      <input id="gate-name" maxlength="20" placeholder="name" autocomplete="off">
-    </div>
-    <div class="field">
-      <label>Starting deposit</label>
-      <select id="gate-deposit">
-        <option value="1000">$1,000</option>
-        <option value="2500">$2,500</option>
-        <option value="5000">$5,000</option>
-        <option value="10000" selected>$10,000</option>
-        <option value="25000">$25,000</option>
-        <option value="50000">$50,000</option>
-        <option value="100000">$100,000</option>
-      </select>
-    </div>
-    <button class="btn" id="gate-go">Open desk</button>
-  </div>
-</div>
+  <h1>Luba AI — Minecraft skin</h1>
+  <p class="sub">Black body · kid face · white logo on chest · back text by Kobiverse AI</p>
 
-<div class="app" id="app" style="visibility:hidden">
-  <header class="top">
-    <div class="logo">APEX</div>
-    <div class="pair-tabs" id="pair-tabs"></div>
-    <div class="bal-pill" id="bal-pill">$0.00</div>
-    <button type="button" class="secret-hit secret-hit-left" id="secret-hit-left" aria-label=""></button>
-    <button type="button" class="secret-hit" id="secret-hit" aria-label=""></button>
-  </header>
-
-  <section class="chart-wrap" id="chart-wrap">
-    <div class="chart-header">
-      <span class="name" id="sym-name">—</span>
-      <span class="price" id="sym-price">—</span>
-      <span class="meta" id="sym-meta">—</span>
+  <div class="row">
+    <div class="card">
+      <h2>Front</h2>
+      <canvas id="front" width="240" height="480"></canvas>
     </div>
-    <div class="tf-row" id="tf-row">
-      <button class="tf" data-tf="1m">1m</button>
-      <button class="tf" data-tf="5m">5m</button>
-      <button class="tf active" data-tf="15m">15m</button>
-      <button class="tf" data-tf="1h">1h</button>
-      <button class="tf" data-tf="4h">4h</button>
-      <button class="tf" data-tf="1d">1D</button>
+    <div class="card">
+      <h2>Back</h2>
+      <canvas id="back" width="240" height="480"></canvas>
     </div>
-    <div class="canvas-box" id="canvas-box">
-      <canvas id="chart"></canvas>
-      <div class="zoom-hint">pinch to zoom</div>
-    </div>
-  </section>
-
-  <div class="sheet">
-    <div class="side-tabs">
-      <button class="side-tab active" data-panel="trade">Trade</button>
-      <button class="side-tab" data-panel="book">Book</button>
-      <button class="side-tab" data-panel="pos">Positions</button>
-      <button class="side-tab" data-panel="hist">History</button>
-    </div>
-    <div class="side-body" id="panel-trade">
-      <div class="row2">
-        <div class="field">
-          <label>Type</label>
-          <select id="order-type">
-            <option value="market">Market</option>
-            <option value="limit">Limit</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Amount USD</label>
-          <input id="order-usd" type="number" min="5" step="1" value="100" inputmode="decimal">
-        </div>
-      </div>
-      <div class="field" id="limit-wrap" style="display:none">
-        <label>Limit price</label>
-        <input id="limit-price" type="number" step="any" inputmode="decimal">
-      </div>
-      <div class="pct-row">
-        <button type="button" data-pct="25">25%</button>
-        <button type="button" data-pct="50">50%</button>
-        <button type="button" data-pct="75">75%</button>
-        <button type="button" data-pct="100">100%</button>
-      </div>
-      <div class="field">
-        <label>Timer (auto-close)</label>
-        <select id="order-timer">
-          <option value="0">Off — normal trade</option>
-          <option value="5">5 seconds</option>
-          <option value="15">15 seconds</option>
-          <option value="30">30 seconds</option>
-          <option value="60">1 minute</option>
-          <option value="180">3 minutes</option>
-          <option value="300" selected>5 minutes</option>
-          <option value="900">15 minutes</option>
-          <option value="1800">30 minutes</option>
-          <option value="3600">1 hour</option>
-        </select>
-      </div>
-      <div class="side-btns">
-        <button class="btn btn-buy" id="btn-buy">Buy</button>
-        <button class="btn btn-sell" id="btn-sell">Sell</button>
-      </div>
-      <div class="err" id="trade-err"></div>
-      <p class="hint">Min $5 · 0.1% fee · timer trades lock amount, close when clock hits 0 — win if price moved your way</p>
-      <div class="timer-list" id="timer-list"></div>
-    </div>
-    <div class="side-body" id="panel-book" style="display:none"><div class="book" id="order-book"></div></div>
-    <div class="side-body" id="panel-pos" style="display:none"><div id="positions-list"></div></div>
-    <div class="side-body" id="panel-hist" style="display:none"><div id="history-list"></div></div>
   </div>
 
-  <footer class="footer">
-    <span>Eq <strong id="eq-val">$0</strong></span>
-    <span>PnL <strong id="pnl-val">$0</strong></span>
-    <span>Fees <strong id="fee-val">$0</strong></span>
-    <span id="trader-name">—</span>
-  </footer>
-</div>
-
-<div class="money-modal" id="money-modal">
-  <div class="money-card">
-    <h2>Desk balance</h2>
-    <p class="hint" style="margin-bottom:8px">LARP override — sets cash. Positions stay. No password.</p>
-    <div class="field">
-      <label>Cash USD</label>
-      <input id="money-input" type="number" min="0" step="1" inputmode="decimal" placeholder="e.g. 250000">
+  <div class="row">
+    <div class="card">
+      <h2>64×64 skin texture (classic)</h2>
+      <canvas id="skin" width="512" height="512"></canvas>
     </div>
-    <button class="btn" id="money-set">Set cash</button>
-    <button class="btn btn-ghost" id="money-close" style="margin-top:8px;padding:10px">Close</button>
   </div>
-</div>
-<div class="toast" id="toast"></div>
+
+  <div class="btns">
+    <button class="primary" id="dl-skin">Download 64×64 skin PNG</button>
+    <button id="dl-front">Download front preview</button>
+    <button id="dl-back">Download back preview</button>
+  </div>
+  <p class="hint">
+    Import the 64×64 PNG in Minecraft (skin customizer / launcher).<br>
+    Layout: head, body, arms, legs on the classic skin map · pure black + white only.
+  </p>
 
 <script>
 (function () {
-  'use strict';
-  const FEE = 0.001, MIN_ORDER = 5, LIQ_RATIO = 0.2;
-  const ASSETS = [
-    { id: 'BTC', name: 'BTC/USD', start: 64250, vol: 0.0016, decimals: 2 },
-    { id: 'ETH', name: 'ETH/USD', start: 3180, vol: 0.002, decimals: 2 },
-    { id: 'SOL', name: 'SOL/USD', start: 148.5, vol: 0.0032, decimals: 3 },
-    { id: 'GOLD', name: 'XAU/USD', start: 2640, vol: 0.00085, decimals: 2 },
-    { id: 'EUR', name: 'EUR/USD', start: 1.082, vol: 0.0003, decimals: 5 },
-    { id: 'OIL', name: 'WTI/USD', start: 72.4, vol: 0.0022, decimals: 3 }
-  ];
-  const TF_MS = { '1m': 6e4, '5m': 3e5, '15m': 9e5, '1h': 36e5, '4h': 144e5, '1d': 864e5 };
+  const BLACK = '#0a0a0a';
+  const WHITE = '#f5f5f5';
+  const GRAY = '#2a2a2a';
 
-  let state = null, activeId = 'BTC', activeTf = '15m', markets = {};
-  let raf = 0, lastTick = 0;
-  let priceScale = 1.15; // >1 = tighter vertical fit
-  let viewCount = 56;
-
-  const $ = id => document.getElementById(id);
-  const fmt = (n, d) => {
-    n = Number(n);
-    if (!isFinite(n)) return '—';
-    const abs = Math.abs(n);
-    const dig = d != null ? d : (abs >= 1000 ? 2 : abs >= 1 ? 3 : 5);
-    return n.toLocaleString('en-US', { minimumFractionDigits: dig, maximumFractionDigits: dig });
-  };
-  const fmtUsd = n => {
-    n = Number(n) || 0;
-    const s = n < 0 ? '-' : '';
-    return s + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
-  function toast(msg) {
-    const el = $('toast');
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => el.classList.remove('show'), 2000);
-  }
-  function save() {
-    if (!state) return;
-    try { localStorage.setItem('apex_charts_v2', JSON.stringify(state)); } catch (_) {}
-  }
-  function load() {
-    try { return JSON.parse(localStorage.getItem('apex_charts_v2') || 'null'); } catch (_) { return null; }
+  // ---- kid face on a small grid (8x8 face area style) ----
+  function drawKidFace(ctx, x, y, s) {
+    // s = pixel size of one face unit (face is 8 units)
+    ctx.fillStyle = BLACK;
+    ctx.fillRect(x, y, 8 * s, 8 * s);
+    ctx.fillStyle = WHITE;
+    // uneven kid eyes
+    ctx.fillRect(x + 1.5 * s, y + 2.5 * s, 1.2 * s, 1.2 * s);
+    ctx.fillRect(x + 5.2 * s, y + 2.2 * s, 1.4 * s, 1.4 * s);
+    // tiny nose scribble
+    ctx.fillRect(x + 3.6 * s, y + 4.2 * s, 0.8 * s, 0.6 * s);
+    // smile curve as blocks
+    ctx.fillRect(x + 2 * s, y + 5.5 * s, 0.8 * s, 0.8 * s);
+    ctx.fillRect(x + 2.8 * s, y + 6 * s, 2.4 * s, 0.7 * s);
+    ctx.fillRect(x + 5.2 * s, y + 5.5 * s, 0.8 * s, 0.8 * s);
   }
 
-  function seedCandles(asset, tf, count) {
-    const ms = TF_MS[tf];
-    const candles = [];
-    let price = asset.start * (0.94 + Math.random() * 0.12);
-    let t = Date.now() - count * ms;
-    for (let i = 0; i < count; i++) {
-      const drift = (Math.random() - 0.49) * asset.vol * price * 7;
-      const open = price;
-      const close = Math.max(1e-8, open + drift);
-      const high = Math.max(open, close) * (1 + Math.random() * asset.vol * 1.8);
-      const low = Math.min(open, close) * (1 - Math.random() * asset.vol * 1.8);
-      candles.push({ t, o: open, h: high, l: low, c: close, v: 40 + Math.random() * 180 });
-      price = close; t += ms;
-    }
-    return candles;
-  }
-
-  function initMarkets() {
-    markets = {};
-    ASSETS.forEach(a => {
-      markets[a.id] = { asset: a, price: a.start, candles: {}, last: a.start };
-      // Seed 15m as master path, then build other TFs from those closes so everything lines up
-      const master = seedCandles(a, '15m', 160);
-      markets[a.id].candles['15m'] = master;
-      const lastPx = master[master.length - 1].c;
-      markets[a.id].price = lastPx;
-      markets[a.id].last = lastPx;
-      Object.keys(TF_MS).forEach(tf => {
-        if (tf === '15m') return;
-        markets[a.id].candles[tf] = aggregateFromMaster(master, tf, a);
-        // pin last candle to live price — no gap
-        const arr = markets[a.id].candles[tf];
-        const L = arr[arr.length - 1];
-        if (L) { L.c = lastPx; L.h = Math.max(L.h, lastPx); L.l = Math.min(L.l, lastPx); }
-      });
-    });
-  }
-
-  function aggregateFromMaster(master, tf, asset) {
-    const ms = TF_MS[tf];
-    const out = [];
-    let cur = null;
-    master.forEach(c => {
-      const bucket = Math.floor(c.t / ms) * ms;
-      if (!cur || cur.t !== bucket) {
-        cur = { t: bucket, o: c.o, h: c.h, l: c.l, c: c.c, v: c.v };
-        out.push(cur);
-      } else {
-        cur.h = Math.max(cur.h, c.h);
-        cur.l = Math.min(cur.l, c.l);
-        cur.c = c.c;
-        cur.v += c.v;
-      }
-    });
-    if (out.length < 30) return seedCandles(asset, tf, 120);
-    return out;
-  }
-
-  function tickMarket() {
-    ASSETS.forEach(a => {
-      const m = markets[a.id];
-      const shock = (Math.random() - 0.5) * a.vol * 1.8;
-      const mean = (Math.random() - 0.5) * a.vol * 0.25;
-      m.price = Math.max(1e-8, m.price * (1 + shock + mean));
-      m.last = m.price;
-      Object.keys(TF_MS).forEach(tf => {
-        const ms = TF_MS[tf];
-        const arr = m.candles[tf];
-        if (!arr || !arr.length) return;
-        const bucket = Math.floor(Date.now() / ms) * ms;
-        let cur = arr[arr.length - 1];
-        // Always keep last close on the live price first (line follows candles)
-        cur.c = m.price;
-        cur.h = Math.max(cur.h, m.price);
-        cur.l = Math.min(cur.l, m.price);
-        if (cur.t < bucket) {
-          // New candle opens at previous close — no gap jump
-          const open = cur.c;
-          arr.push({ t: bucket, o: open, h: Math.max(open, m.price), l: Math.min(open, m.price), c: m.price, v: 1 });
-          if (arr.length > 220) arr.shift();
-          cur = arr[arr.length - 1];
-        }
-        cur.c = m.price;
-        cur.h = Math.max(cur.h, m.price);
-        cur.l = Math.min(cur.l, m.price);
-        cur.v += Math.random() * 2;
-      });
-    });
-    tryFillLimits();
-    checkLiquidations();
-  }
-
-  const markPrice = id => markets[id] ? markets[id].price : 0;
-  function positionUPnL(p) {
-    const px = markPrice(p.id);
-    return p.side === 'long' ? (px - p.entry) * p.qty : (p.entry - px) * p.qty;
-  }
-  function positionNotional(p) { return Math.abs(p.qty) * markPrice(p.id); }
-  function equity() {
-    if (!state) return 0;
-    let e = state.cash;
-    state.positions.forEach(p => { e += positionUPnL(p); });
-    return e;
-  }
-  function usedMargin() {
-    let m = 0;
-    (state?.positions || []).forEach(p => { if (p.side === 'short') m += positionNotional(p); });
-    return m;
-  }
-
-  function pushHist(h) {
-    state.history.unshift(Object.assign({ at: Date.now() }, h));
-    if (state.history.length > 100) state.history.length = 100;
-  }
-
-  function tryFillLimits() {
-    if (!state?.orders) return;
-    const left = [];
-    state.orders.forEach(o => {
-      const px = markPrice(o.id);
-      const hit = o.side === 'buy' ? px <= o.limit : px >= o.limit;
-      if (!hit) left.push(o);
-      else executeClean(o.side, o.id, o.usd, o.limit, 'limit');
-    });
-    state.orders = left;
-  }
-
-  function checkLiquidations() {
-    if (!state) return;
-    const um = usedMargin();
-    if (um > 0 && equity() <= um * LIQ_RATIO) {
-      state.positions.slice().forEach(p => closePosition(p.id, true));
-      toast('Liquidated');
-      save();
-    }
-  }
-
-  function executeClean(side, id, usd, px, typ) {
-    const err = $('trade-err');
-    err.textContent = '';
-    usd = Number(usd);
-    if (!isFinite(usd) || usd < MIN_ORDER) { err.textContent = 'Min $' + MIN_ORDER; return false; }
-    let qty = usd / px;
-
-    if (side === 'buy') {
-      let short = state.positions.find(p => p.id === id && p.side === 'short');
-      if (short) {
-        const closeQty = Math.min(short.qty, qty);
-        const pnl = (short.entry - px) * closeQty;
-        const f = closeQty * px * FEE;
-        if (state.cash < f) { err.textContent = 'Need cash for fee'; return false; }
-        state.cash -= f;
-        state.cash += pnl;
-        state.feesPaid = (state.feesPaid || 0) + f;
-        short.qty -= closeQty; qty -= closeQty;
-        if (short.qty < 1e-12) state.positions = state.positions.filter(p => p !== short);
-        pushHist({ side: 'buy', id, qty: closeQty, px, fee: f, pnl, typ, note: 'close short' });
-      }
-      if (qty * px >= MIN_ORDER) {
-        const cost = qty * px, f = cost * FEE;
-        if (state.cash < cost + f) { err.textContent = 'Not enough cash'; return false; }
-        state.cash -= cost + f;
-        state.feesPaid = (state.feesPaid || 0) + f;
-        let pos = state.positions.find(p => p.id === id && p.side === 'long');
-        if (pos) {
-          const nq = pos.qty + qty;
-          pos.entry = (pos.entry * pos.qty + px * qty) / nq;
-          pos.qty = nq;
-        } else state.positions.push({ id, side: 'long', qty, entry: px, openedAt: Date.now() });
-        pushHist({ side: 'buy', id, qty, px, fee: f, pnl: 0, typ });
-      }
-    } else {
-      let long = state.positions.find(p => p.id === id && p.side === 'long');
-      if (long) {
-        const closeQty = Math.min(long.qty, qty);
-        const proceeds = closeQty * px, f = proceeds * FEE;
-        const pnl = (px - long.entry) * closeQty;
-        state.cash += proceeds - f;
-        state.feesPaid = (state.feesPaid || 0) + f;
-        long.qty -= closeQty; qty -= closeQty;
-        if (long.qty < 1e-12) state.positions = state.positions.filter(p => p !== long);
-        pushHist({ side: 'sell', id, qty: closeQty, px, fee: f, pnl, typ, note: 'close long' });
-      }
-      if (qty * px >= MIN_ORDER) {
-        const notional = qty * px, f = notional * FEE;
-        if (state.cash < f) { err.textContent = 'Need cash for fee'; return false; }
-        if (equity() - f < notional * LIQ_RATIO + 1) { err.textContent = 'Not enough equity to short'; return false; }
-        state.cash -= f;
-        state.feesPaid = (state.feesPaid || 0) + f;
-        let pos = state.positions.find(p => p.id === id && p.side === 'short');
-        if (pos) {
-          const nq = pos.qty + qty;
-          pos.entry = (pos.entry * pos.qty + px * qty) / nq;
-          pos.qty = nq;
-        } else state.positions.push({ id, side: 'short', qty, entry: px, openedAt: Date.now() });
-        pushHist({ side: 'sell', id, qty, px, fee: f, pnl: 0, typ, note: 'open short' });
-      }
-    }
-    save(); renderAll();
-    toast((side === 'buy' ? 'Bought ' : 'Sold ') + id + ' @ ' + fmt(px, markets[id].asset.decimals));
-    return true;
-  }
-
-  function closePosition(id, liq) {
-    const p = state.positions.find(x => x.id === id);
-    if (!p) return;
-    const px = markPrice(id);
-    const usd = Math.max(MIN_ORDER, p.qty * px);
-    executeClean(p.side === 'long' ? 'sell' : 'buy', id, usd, px, liq ? 'liq' : 'market');
-  }
-
-  function drawChart() {
-    const canvas = $('chart');
-    const parent = $('canvas-box');
-    if (!canvas || !parent) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = parent.clientWidth, h = parent.clientHeight;
-    if (w < 20 || h < 40) return;
-    canvas.width = Math.floor(w * dpr);
-    canvas.height = Math.floor(h * dpr);
-    const ctx = canvas.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#0b0e11';
-    ctx.fillRect(0, 0, w, h);
-
-    const m = markets[activeId];
-    if (!m) return;
-    const candles = m.candles[activeTf] || [];
-    const padL = 4, padR = 54, padT = 8, padB = 14;
-    const cw = w - padL - padR, ch = h - padT - padB;
-    const n = Math.max(24, Math.min(120, Math.round(viewCount)));
-    const view = candles.slice(-n);
-    if (view.length < 2) return;
-
-    // Keep last candle glued to live price so the line sits on the last body
-    const live = m.price;
-    view[view.length - 1].c = live;
-    view[view.length - 1].h = Math.max(view[view.length - 1].h, live);
-    view[view.length - 1].l = Math.min(view[view.length - 1].l, live);
-
-    let min = Infinity, max = -Infinity;
-    view.forEach(c => { min = Math.min(min, c.l); max = Math.max(max, c.h); });
-    (state && state.positions || []).forEach(p => {
-      if (p.id !== activeId) return;
-      min = Math.min(min, p.entry, live);
-      max = Math.max(max, p.entry, live);
-    });
-    min = Math.min(min, live);
-    max = Math.max(max, live);
-    let mid = (min + max) / 2;
-    let span = (max - min) || mid * 0.002;
-    span = span * 1.06;
-    span = span / Math.max(0.4, Math.min(4, priceScale));
-    min = mid - span / 2;
-    max = mid + span / 2;
-
-    const yOf = p => padT + (1 - (p - min) / (max - min)) * ch;
-    const xOf = i => padL + (i + 0.5) * (cw / view.length);
-    const bodyW = Math.max(2, (cw / view.length) * 0.62);
-
-    // grid
-    ctx.strokeStyle = '#1a222d';
-    ctx.lineWidth = 1;
-    for (let g = 0; g < 5; g++) {
-      const y = padT + (ch * g) / 4;
-      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
-      const price = max - ((max - min) * g) / 4;
-      ctx.fillStyle = '#6b7785';
-      ctx.font = '10px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(fmt(price, m.asset.decimals), w - padR + 5, y + 3);
-    }
-
-    // candles
-    view.forEach((c, i) => {
-      const x = xOf(i);
-      const up = c.c >= c.o;
-      ctx.strokeStyle = up ? '#0ecb81' : '#f6465d';
-      ctx.fillStyle = up ? '#0ecb81' : '#f6465d';
-      ctx.beginPath(); ctx.moveTo(x, yOf(c.h)); ctx.lineTo(x, yOf(c.l)); ctx.stroke();
-      const y1 = yOf(Math.max(c.o, c.c));
-      const y2 = yOf(Math.min(c.o, c.c));
-      ctx.fillRect(x - bodyW / 2, y1, bodyW, Math.max(1, y2 - y1));
-    });
-
-    // TIMER entry lines
-    if (state && state.timers) {
-      state.timers.forEach(t => {
-        if (t.sym !== activeId) return;
-        const y = yOf(t.entry);
-        const px = live;
-        const winning = (t.side === 'buy' && px >= t.entry) || (t.side === 'sell' && px < t.entry);
-        const col = winning ? '#0ecb81' : '#f6465d';
-        ctx.setLineDash([4, 3]);
-        ctx.strokeStyle = col;
-        ctx.lineWidth = 1.2;
-        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
-        ctx.setLineDash([]);
-        const left = Math.max(0, Math.ceil((t.end - Date.now()) / 1000));
-        const label = (t.side === 'buy' ? 'UP' : 'DOWN') + ' $' + Math.round(t.stake) +
-          ' @ ' + fmt(t.entry, m.asset.decimals) + ' · ' + left + 's';
-        ctx.font = 'bold 10px sans-serif';
-        const tw = ctx.measureText(label).width + 12;
-        const lx = padL + 6;
-        const ly = Math.max(padT + 12, Math.min(y - 6, padT + ch - 4));
-        ctx.fillStyle = 'rgba(12,16,22,0.92)';
-        ctx.strokeStyle = col;
-        roundRect(ctx, lx, ly - 11, tw, 16, 4); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = col; ctx.textAlign = 'left';
-        ctx.fillText(label, lx + 6, ly + 1);
-      });
-    }
-
-    // ENTRY LINES — where you put money (realistic desk markers)
-    if (state && state.positions) {
-      state.positions.forEach(p => {
-        if (p.id !== activeId) return;
-        const y = yOf(p.entry);
-        const upnl = positionUPnL(p);
-        const good = upnl >= 0;
-        const col = p.side === 'long' ? (good ? '#0ecb81' : '#f6465d') : (good ? '#0ecb81' : '#f6465d');
-        ctx.setLineDash([6, 4]);
-        ctx.strokeStyle = col;
-        ctx.lineWidth = 1.25;
-        ctx.beginPath();
-        ctx.moveTo(padL, y);
-        ctx.lineTo(w - padR, y);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // label chip: LONG/SHORT @ entry · size · PnL
-        const notional = Math.abs(p.qty * p.entry);
-        const label = (p.side === 'long' ? 'LONG' : 'SHORT') + '  ' + fmt(p.entry, m.asset.decimals) +
-          '  ·  $' + Math.round(notional).toLocaleString('en-US') +
-          '  ·  ' + (upnl >= 0 ? '+' : '') + fmtUsd(upnl).replace('$','');
-        ctx.font = 'bold 10px sans-serif';
-        const tw = ctx.measureText(label).width + 12;
-        const lx = padL + 6;
-        const ly = Math.max(padT + 12, Math.min(y - 6, padT + ch - 4));
-        ctx.fillStyle = 'rgba(12,16,22,0.92)';
-        ctx.strokeStyle = col;
-        ctx.lineWidth = 1;
-        roundRect(ctx, lx, ly - 11, tw, 16, 4);
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = col;
-        ctx.textAlign = 'left';
-        ctx.fillText(label, lx + 6, ly + 1);
-      });
-    }
-
-    // current mark price line — always m.price (same as header)
-    const last = live;
-    const ly = yOf(last);
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = '#f0b90b';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(padL, ly); ctx.lineTo(w - padR, ly); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#f0b90b';
-    ctx.fillRect(w - padR + 1, ly - 8, padR - 3, 16);
-    ctx.fillStyle = '#111';
-    ctx.font = 'bold 10px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(fmt(last, m.asset.decimals), w - padR / 2, ly + 3);
-  }
-
-  function roundRect(ctx, x, y, w, h, r) {
+  // Luba-style hex logo (simplified for pixels)
+  function drawLubaLogo(ctx, cx, cy, scale) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.strokeStyle = WHITE;
+    ctx.fillStyle = WHITE;
+    ctx.lineWidth = 2.2;
+    ctx.lineJoin = 'miter';
+    // outer hex
     ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
+    for (let i = 0; i < 6; i++) {
+      const a = Math.PI / 6 + (i * Math.PI) / 3;
+      const x = Math.cos(a) * 18;
+      const y = Math.sin(a) * 18;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
     ctx.closePath();
+    ctx.stroke();
+    // inner hex
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = Math.PI / 6 + (i * Math.PI) / 3;
+      const x = Math.cos(a) * 10;
+      const y = Math.sin(a) * 10;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+    // small center diamond
+    ctx.beginPath();
+    ctx.moveTo(0, -5); ctx.lineTo(5, 0); ctx.lineTo(0, 5); ctx.lineTo(-5, 0);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
   }
 
-  // Pinch on chart: vertical = price zoom, spread = candle count
-  (function bindPinch() {
-    const box = () => $('canvas-box');
-    let pins = null;
-    function dist(a, b) {
-      const dx = a.clientX - b.clientX, dy = a.clientY - b.clientY;
-      return Math.hypot(dx, dy);
-    }
-    function midY(a, b) { return (a.clientY + b.clientY) / 2; }
-    document.addEventListener('touchstart', e => {
-      if (!box() || !box().contains(e.target)) return;
-      if (e.touches.length === 2) {
-        pins = {
-          d: dist(e.touches[0], e.touches[1]),
-          y: midY(e.touches[0], e.touches[1]),
-          scale: priceScale,
-          view: viewCount
-        };
+  function drawPixelLogo(ctx, x, y, px) {
+    // pixel hex-ish mark for 64 skin body (24x12-ish usable chest)
+    const g = [
+      '00111100',
+      '01100110',
+      '11000011',
+      '10000001',
+      '10011001',
+      '10011001',
+      '10000001',
+      '11000011',
+      '01100110',
+      '00111100'
+    ];
+    ctx.fillStyle = WHITE;
+    for (let r = 0; r < g.length; r++) {
+      for (let c = 0; c < g[r].length; c++) {
+        if (g[r][c] === '1') ctx.fillRect(x + c * px, y + r * px, px, px);
       }
-    }, { passive: true });
-    document.addEventListener('touchmove', e => {
-      if (!pins || e.touches.length !== 2) return;
-      e.preventDefault();
-      const d = dist(e.touches[0], e.touches[1]);
-      const y = midY(e.touches[0], e.touches[1]);
-      // vertical finger movement → taller/shorter price scale
-      const dy = pins.y - y;
-      priceScale = Math.min(4, Math.max(0.4, pins.scale * (1 + dy / 180)));
-      // pinch spread → more/fewer candles
-      const ratio = d / (pins.d || d);
-      viewCount = Math.min(120, Math.max(24, pins.view / ratio));
-      drawChart();
-    }, { passive: false });
-    document.addEventListener('touchend', () => { pins = null; }, { passive: true });
-  })();
-
-  function renderPairs() {
-    const el = $('pair-tabs');
-    el.innerHTML = '';
-    ASSETS.forEach(a => {
-      const m = markets[a.id];
-      const candles = m.candles['15m'];
-      const first = candles[Math.max(0, candles.length - 24)];
-      const chg = ((m.price - first.o) / first.o) * 100;
-      const btn = document.createElement('button');
-      btn.className = 'pair-tab' + (a.id === activeId ? ' active' : '');
-      btn.innerHTML = a.id + ' <span class="chg ' + (chg >= 0 ? 'up' : 'down') + '">' +
-        (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%</span>';
-      btn.onclick = () => { activeId = a.id; renderAll(); };
-      el.appendChild(btn);
-    });
-  }
-
-  function renderHeader() {
-    const m = markets[activeId];
-    const candles = m.candles[activeTf];
-    const prev = candles[candles.length - 2] || candles[0];
-    const chg = ((m.price - prev.c) / prev.c) * 100;
-    $('sym-name').textContent = m.asset.name;
-    $('sym-price').textContent = fmt(m.price, m.asset.decimals);
-    $('sym-price').style.color = chg >= 0 ? 'var(--green)' : 'var(--red)';
-    $('sym-meta').textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '% · ' + activeTf;
-    $('bal-pill').textContent = fmtUsd(state.cash);
-    const eq = equity(), pnl = eq - state.startCash;
-    $('eq-val').textContent = fmtUsd(eq);
-    $('pnl-val').textContent = fmtUsd(pnl);
-    $('pnl-val').style.color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
-    $('fee-val').textContent = fmtUsd(state.feesPaid || 0);
-    $('trader-name').textContent = state.name;
-  }
-
-  function renderBook() {
-    const m = markets[activeId], px = m.price;
-    let html = '<div class="book-row head"><span>Bid sz</span><span>Price</span><span>Ask sz</span></div>';
-    for (let i = 8; i >= 1; i--) {
-      const bid = px * (1 - 0.00035 * i), ask = px * (1 + 0.00035 * i);
-      const sz = (15 + Math.random() * 90).toFixed(0);
-      html += '<div class="book-row"><span class="bid">' + sz + '</span><span>' +
-        fmt((bid + ask) / 2, m.asset.decimals) + '</span><span class="ask">' + sz + '</span></div>';
     }
-    $('order-book').innerHTML = html;
   }
 
-  function renderPos() {
-    const el = $('positions-list');
-    if (!state.positions.length) { el.innerHTML = '<div class="empty">No positions</div>'; return; }
-    el.innerHTML = state.positions.map(p => {
-      const upnl = positionUPnL(p);
-      const a = markets[p.id].asset;
-      return '<div class="pos-card"><div class="t"><span>' + p.side.toUpperCase() + ' ' + p.id +
-        '</span><span style="color:' + (upnl >= 0 ? 'var(--green)' : 'var(--red)') + '">' + fmtUsd(upnl) +
-        '</span></div><div class="s">Qty ' + fmt(p.qty, 6) + ' · Entry ' + fmt(p.entry, a.decimals) +
-        ' · Mark ' + fmt(markPrice(p.id), a.decimals) +
-        '</div><button class="btn btn-ghost" style="margin-top:8px;padding:8px" data-close="' + p.id +
-        '">Close</button></div>';
-    }).join('');
-    el.querySelectorAll('[data-close]').forEach(btn => {
-      btn.onclick = () => closePosition(btn.getAttribute('data-close'));
-    });
-  }
+  function drawChar(canvas, side) {
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    ctx.fillStyle = '#0a0c10';
+    ctx.fillRect(0, 0, W, H);
 
-  function renderHist() {
-    const el = $('history-list');
-    if (!state.history.length) { el.innerHTML = '<div class="empty">No trades</div>'; return; }
-    el.innerHTML = state.history.slice(0, 40).map(h => {
-      return '<div class="hist-row"><div class="t"><span>' + h.side.toUpperCase() + ' ' + h.id +
-        '</span><span>' + new Date(h.at).toLocaleTimeString() + '</span></div><div class="s">' +
-        fmt(h.qty, 6) + ' @ ' + fmt(h.px) + ' · fee ' + fmtUsd(h.fee) +
-        (h.note ? ' · ' + h.note : '') + '</div></div>';
-    }).join('');
-  }
+    // unit scale — classic proportions
+    const u = W / 10; // body width ~ 4u, head 4u
+    const ox = W / 2;
+    const headTop = H * 0.08;
+    const headS = u * 4;
 
-  function renderAll() {
-    renderPairs(); renderHeader(); drawChart(); renderBook(); renderPos(); renderHist();
-  }
-
-  document.querySelectorAll('.side-tab').forEach(tab => {
-    tab.onclick = () => {
-      document.querySelectorAll('.side-tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      ['trade', 'book', 'pos', 'hist'].forEach(id => {
-        $('panel-' + id).style.display = tab.getAttribute('data-panel') === id ? 'block' : 'none';
-      });
-    };
-  });
-  document.querySelectorAll('.tf').forEach(btn => {
-    btn.onclick = () => {
-      document.querySelectorAll('.tf').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeTf = btn.getAttribute('data-tf');
-      drawChart(); renderHeader();
-    };
-  });
-  $('order-type').onchange = () => {
-    $('limit-wrap').style.display = $('order-type').value === 'limit' ? 'block' : 'none';
-  };
-  document.querySelectorAll('[data-pct]').forEach(btn => {
-    btn.onclick = () => {
-      const pct = Number(btn.getAttribute('data-pct')) / 100;
-      $('order-usd').value = Math.max(MIN_ORDER, Math.floor(Math.max(0, state.cash) * pct * 100) / 100);
-    };
-  });
-
-  function place(side) {
-    const typ = $('order-type').value;
-    const usd = Number($('order-usd').value);
-    const timerSec = Number(($('order-timer') && $('order-timer').value) || 0);
-    if (typ === 'limit' && !timerSec) {
-      const lim = Number($('limit-price').value);
-      if (!isFinite(lim) || lim <= 0) { $('trade-err').textContent = 'Invalid limit'; return; }
-      state.orders = state.orders || [];
-      state.orders.push({ side, id: activeId, usd, limit: lim, at: Date.now() });
-      save(); toast('Limit placed'); return;
-    }
-    if (timerSec > 0) {
-      placeTimed(side, activeId, usd, timerSec);
-      return;
-    }
-    executeClean(side, activeId, usd, markPrice(activeId), 'market');
-  }
-
-  // Timed trade: lock stake, close when timer ends
-  // payoutMode: 'x185' = 1.85× total back (profit 0.85×) | 'x2' = 2× total back (profit = stake)
-  function getPayoutMode() {
-    try { return localStorage.getItem('apex_payout_mode') || 'x2'; } catch (_) { return 'x2'; }
-  }
-  function setPayoutMode(m) {
-    try { localStorage.setItem('apex_payout_mode', m); } catch (_) {}
-  }
-  function getPayoutMult() {
-    return getPayoutMode() === 'x185' ? 1.85 : 2;
-  }
-  function placeTimed(side, id, usd, sec) {
-    const err = $('trade-err');
-    err.textContent = '';
-    usd = Number(usd);
-    if (!isFinite(usd) || usd < MIN_ORDER) { err.textContent = 'Min $' + MIN_ORDER; return; }
-    if (state.cash < usd) { err.textContent = 'Not enough cash'; return; }
-    const entry = markPrice(id);
-    state.cash -= usd;
-    const t = {
-      id: 't' + Date.now() + Math.random().toString(16).slice(2, 6),
-      sym: id,
-      side: side, // buy = call/up, sell = put/down
-      stake: usd,
-      entry: entry,
-      start: Date.now(),
-      end: Date.now() + sec * 1000,
-      sec: sec
-    };
-    state.timers = state.timers || [];
-    state.timers.push(t);
-    save();
-    renderAll();
-    toast((side === 'buy' ? 'UP' : 'DOWN') + ' ' + id + ' · $' + usd + ' · ' + sec + 's');
-  }
-
-  function settleTimed(t, forcePx) {
-    const px = forcePx != null ? forcePx : markPrice(t.sym);
-    const up = px >= t.entry;
-    const win = (t.side === 'buy' && up) || (t.side === 'sell' && !up);
-    const mult = getPayoutMult();
-    let pnl = 0;
-    let returned = 0;
-    if (win) {
-      // total cash returned to wallet (includes stake)
-      returned = t.stake * mult;
-      state.cash += returned;
-      pnl = returned - t.stake; // pure profit
+    // head
+    ctx.fillStyle = BLACK;
+    ctx.fillRect(ox - headS / 2, headTop, headS, headS);
+    if (side === 'front') {
+      drawKidFace(ctx, ox - headS / 2, headTop, headS / 8);
     } else {
-      returned = 0;
-      pnl = -t.stake;
+      // back of head — plain black with tiny white hair-line scribble
+      ctx.fillStyle = GRAY;
+      ctx.fillRect(ox - headS / 2, headTop, headS, headS * 0.15);
     }
-    pushHist({
-      side: t.side,
-      id: t.sym,
-      qty: t.stake / t.entry,
-      px: px,
-      fee: 0,
-      pnl: pnl,
-      typ: 'timer',
-      note: (win ? 'WIN' : 'LOSS') + ' · stake $' + Math.round(t.stake) +
-        (win ? (' · profit $' + Math.round(pnl) + ' · total $' + Math.round(returned)) : '') +
-        ' · ' + fmt(t.entry) + ' → ' + fmt(px)
-    });
-    state.timers = state.timers.filter(x => x.id !== t.id);
-    save();
-    if (win) {
-      toast('WIN · stake $' + Math.round(t.stake) + ' · profit +$' + Math.round(pnl) + ' · total $' + Math.round(returned) + ' · ' + t.sym);
+
+    // body
+    const bodyW = u * 4, bodyH = u * 6;
+    const bodyX = ox - bodyW / 2;
+    const bodyY = headTop + headS;
+    ctx.fillStyle = BLACK;
+    ctx.fillRect(bodyX, bodyY, bodyW, bodyH);
+
+    if (side === 'front') {
+      drawLubaLogo(ctx, ox, bodyY + bodyH * 0.42, u * 0.14);
     } else {
-      toast('LOSS · lost stake $' + Math.round(t.stake) + ' · ' + t.sym);
+      ctx.fillStyle = WHITE;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = 'bold ' + Math.floor(u * 0.55) + 'px monospace';
+      ctx.fillText('LUBA AI', ox, bodyY + bodyH * 0.32);
+      ctx.font = 'bold ' + Math.floor(u * 0.32) + 'px monospace';
+      ctx.fillText('by Kobiverse AI', ox, bodyY + bodyH * 0.48);
     }
-    renderAll();
+
+    // arms
+    const armW = u * 2, armH = u * 6;
+    ctx.fillStyle = BLACK;
+    ctx.fillRect(bodyX - armW, bodyY, armW, armH);
+    ctx.fillRect(bodyX + bodyW, bodyY, armW, armH);
+
+    // legs
+    const legW = u * 2, legH = u * 6;
+    const legY = bodyY + bodyH;
+    ctx.fillRect(ox - legW, legY, legW, legH);
+    ctx.fillRect(ox, legY, legW, legH);
+
+    // outline soft grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.strokeRect(ox - headS / 2, headTop, headS, headS);
+    ctx.strokeRect(bodyX, bodyY, bodyW, bodyH);
   }
 
-  function tickTimers() {
-    if (!state || !state.timers || !state.timers.length) return;
-    const now = Date.now();
-    state.timers.slice().forEach(t => {
-      if (now >= t.end) settleTimed(t);
-    });
-    renderTimerList();
-  }
+  // Classic 64x64 skin map (pre-1.8 compatible front-facing parts)
+  function drawSkin64(targetCanvas, scale) {
+    const size = 64;
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d');
+    // transparent bg then black fill all used regions
+    ctx.clearRect(0, 0, size, size);
 
-  function renderTimerList() {
-    const el = $('timer-list');
-    if (!el) return;
-    const list = (state && state.timers) || [];
-    if (!list.length) { el.innerHTML = ''; return; }
-    const now = Date.now();
-    el.innerHTML = list.map(t => {
-      const left = Math.max(0, Math.ceil((t.end - now) / 1000));
-      const px = markPrice(t.sym);
-      const up = px >= t.entry;
-      const winning = (t.side === 'buy' && up) || (t.side === 'sell' && !up);
-      const m = Math.floor(left / 60), s = left % 60;
-      const clock = (m > 0 ? m + 'm ' : '') + s + 's';
-      return '<div class="timer-card"><div class="t"><span>' +
-        (t.side === 'buy' ? 'UP' : 'DOWN') + ' ' + t.sym + ' · $' + Math.round(t.stake) +
-        '</span><span class="clock">' + clock + '</span></div><div class="s">Entry ' +
-        fmt(t.entry) + ' · Now ' + fmt(px) + ' · <span style="color:' +
-        (winning ? 'var(--green)' : 'var(--red)') + '">' + (winning ? 'in profit' : 'out') +
-        '</span></div></div>';
-    }).join('');
-  }
-
-  $('btn-buy').onclick = () => place('buy');
-  $('btn-sell').onclick = () => place('sell');
-
-  // secret money (top-right)
-  $('secret-hit').onclick = () => {
-    $('money-input').value = String(Math.round(state.cash));
-    $('money-modal').classList.add('open');
-  };
-  // payout mode toggle (top-left) — x2 vs 1.85x
-  const leftHit = $('secret-hit-left');
-  if (leftHit) {
-    leftHit.onclick = () => {
-      const next = getPayoutMode() === 'x2' ? 'x185' : 'x2';
-      setPayoutMode(next);
-      if (next === 'x2') {
-        toast('Payout mode: 2× — put $500, win → total $1000 (profit $500)');
-      } else {
-        toast('Payout mode: 1.85× — put $500, win → total $925 (profit $425)');
-      }
-    };
-  }
-  $('money-close').onclick = () => $('money-modal').classList.remove('open');
-  $('money-set').onclick = () => {
-    const v = Number($('money-input').value);
-    if (!isFinite(v) || v < 0) return;
-    state.cash = v;
-    // optional: treat as new baseline for PnL display
-    // state.startCash = v;
-    save();
-    $('money-modal').classList.remove('open');
-    renderAll();
-    toast('Cash set to ' + fmtUsd(v));
-  };
-
-  function loop(ts) {
-    if (!lastTick) lastTick = ts;
-    if (ts - lastTick > 450) {
-      lastTick = ts;
-      tickMarket();
-      tickTimers();
-      renderHeader();
-      renderPairs();
-      drawChart();
-      const tab = document.querySelector('.side-tab.active');
-      if (tab?.getAttribute('data-panel') === 'book') renderBook();
-      if (tab?.getAttribute('data-panel') === 'pos') renderPos();
+    function box(x, y, w, h, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, w, h);
     }
-    raf = requestAnimationFrame(loop);
+
+    // Head (8x8 faces)
+    // head front 8,8
+    box(8, 8, 8, 8, BLACK);
+    // kid face pixels
+    ctx.fillStyle = WHITE;
+    ctx.fillRect(9, 10, 1, 1);
+    ctx.fillRect(13, 10, 1, 1);
+    ctx.fillRect(11, 12, 1, 1);
+    ctx.fillRect(10, 14, 1, 1);
+    ctx.fillRect(11, 14, 2, 1);
+    ctx.fillRect(13, 14, 1, 1);
+    // head back 24,8
+    box(24, 8, 8, 8, BLACK);
+    box(24, 8, 8, 1, GRAY);
+    // head right/left/top/bottom
+    box(0, 8, 8, 8, BLACK);
+    box(16, 8, 8, 8, BLACK);
+    box(8, 0, 8, 8, BLACK);
+    box(16, 0, 8, 8, BLACK);
+
+    // Body 16,16 size 8x12 front — logo
+    box(16, 20, 8, 12, BLACK);
+    box(32, 20, 8, 12, BLACK); // back
+    box(28, 20, 4, 12, BLACK); // right
+    box(16, 20, 4, 12, BLACK); // wait layout:
+    // Correct classic body:
+    // Right: 16,20 4x12 | Front: 20,20 8x12 | Left: 28,20 4x12 | Back: 32,20 8x12
+    box(16, 20, 4, 12, BLACK);
+    box(20, 20, 8, 12, BLACK);
+    box(28, 20, 4, 12, BLACK);
+    box(32, 20, 8, 12, BLACK);
+    // logo on front body 20,20 (8 wide x 12 tall)
+    drawPixelLogo(ctx, 20, 22, 1);
+    // back text as pixels "LUBA" rough
+    ctx.fillStyle = WHITE;
+    // simple back bars as text substitute + readable letters
+    const backX = 32, backY = 22;
+    // L U B A tiny
+    function letter(px, py, map) {
+      for (let r = 0; r < map.length; r++)
+        for (let c = 0; c < map[0].length; c++)
+          if (map[r][c] === '1') ctx.fillRect(px + c, py + r, 1, 1);
+    }
+    letter(32, 22, ['1...','1...','1...','1...','1111']); // L
+    letter(36, 22, ['1..1','1..1','1..1','1..1','1111']); // U-ish
+    // second line kobiverse mark - 2 white rows
+    ctx.fillRect(33, 29, 6, 1);
+    ctx.fillRect(34, 30, 4, 1);
+
+    // Arms (right arm 40,16 / 44,20)
+    box(44, 20, 4, 12, BLACK);
+    box(40, 20, 4, 12, BLACK);
+    box(48, 20, 4, 12, BLACK);
+    box(52, 20, 4, 12, BLACK);
+    box(44, 16, 4, 4, BLACK);
+    // Left arm legacy 32- overlapping — also 36,48 region for slim; keep classic right only + mirror left at 32?
+    // Legs
+    box(4, 20, 4, 12, BLACK);
+    box(8, 20, 4, 12, BLACK);
+    box(12, 20, 4, 12, BLACK);
+    box(0, 20, 4, 12, BLACK);
+    box(4, 16, 4, 4, BLACK);
+    box(8, 16, 4, 4, BLACK);
+
+    // Scale up to target
+    const out = targetCanvas.getContext('2d');
+    out.imageSmoothingEnabled = false;
+    out.fillStyle = '#0a0c10';
+    out.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+    const sc = targetCanvas.width / 64;
+    out.drawImage(c, 0, 0, 64, 64, 0, 0, 64 * sc, 64 * sc);
+
+    // store raw 64 for download
+    drawSkin64._raw = c;
   }
 
-  function startDesk(name, deposit) {
-    state = {
-      name, startCash: deposit, cash: deposit,
-      positions: [], orders: [], timers: [], history: [], feesPaid: 0, createdAt: Date.now()
-    };
-    save();
-    $('gate').classList.add('hidden');
-    $('app').style.visibility = 'visible';
-    renderAll();
-    cancelAnimationFrame(raf);
-    lastTick = 0;
-    raf = requestAnimationFrame(loop);
-  }
+  drawChar(document.getElementById('front'), 'front');
+  drawChar(document.getElementById('back'), 'back');
+  drawSkin64(document.getElementById('skin'));
 
-  $('gate-go').onclick = () => {
-    const name = ($('gate-name').value || '').trim().slice(0, 20);
-    if (name.length < 2) { alert('Enter a name'); return; }
-    startDesk(name, Number($('gate-deposit').value));
+  function dl(canvas, name) {
+    const a = document.createElement('a');
+    a.download = name;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  }
+  document.getElementById('dl-front').onclick = () => dl(document.getElementById('front'), 'luba-skin-front.png');
+  document.getElementById('dl-back').onclick = () => dl(document.getElementById('back'), 'luba-skin-back.png');
+  document.getElementById('dl-skin').onclick = () => {
+    const raw = drawSkin64._raw;
+    if (!raw) return;
+    const a = document.createElement('a');
+    a.download = 'luba-ai-minecraft-skin-64.png';
+    a.href = raw.toDataURL('image/png');
+    a.click();
   };
-
-  initMarkets();
-  const existing = load();
-  if (existing && existing.name) {
-    state = existing;
-    state.orders = state.orders || [];
-    state.positions = state.positions || [];
-    state.history = state.history || [];
-    state.timers = state.timers || [];
-    $('gate').classList.add('hidden');
-    $('app').style.visibility = 'visible';
-    renderAll();
-    raf = requestAnimationFrame(loop);
-  }
-  window.addEventListener('resize', () => drawChart());
 })();
 </script>
 </body>
