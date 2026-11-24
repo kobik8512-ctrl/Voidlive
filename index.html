@@ -3,331 +3,305 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Luba AI — Minecraft Skin</title>
+<title>Luba AI — Minecraft Skin (fixed)</title>
 <style>
-  :root {
-    --bg: #0c0e12;
-    --panel: #141820;
-    --border: #252b36;
-    --text: #e8eef8;
-    --muted: #8b98a8;
-  }
+  :root { --bg:#0c0e12; --panel:#141820; --border:#252b36; --text:#e8eef8; --muted:#8b98a8; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     min-height: 100dvh;
     background: radial-gradient(900px 500px at 50% -10%, #1a2230 0%, var(--bg) 55%);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
-    padding: 20px 14px 40px;
+    padding: 18px 12px 40px;
   }
-  h1 { font-size: 1.25rem; margin-bottom: 4px; }
-  .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 18px; }
-  .row {
-    display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;
-    margin-bottom: 22px;
-  }
+  h1 { font-size: 1.2rem; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 0.88rem; margin-bottom: 14px; line-height: 1.45; }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-bottom: 16px; }
   .card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 14px;
-    text-align: center;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 12px; text-align: center;
   }
   .card h2 {
-    font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--muted); margin-bottom: 10px; font-weight: 600;
+    font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 8px; font-weight: 600;
   }
   canvas {
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-    background: #0a0c10;
-    border-radius: 8px;
-    max-width: 100%;
+    image-rendering: pixelated; image-rendering: crisp-edges;
+    background: #0a0c10; border-radius: 8px; max-width: 100%;
   }
-  .hint {
-    max-width: 520px; margin: 0 auto; color: var(--muted);
-    font-size: 0.85rem; line-height: 1.5; text-align: center;
-  }
-  .btns {
-    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
-    margin: 16px 0 10px;
-  }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 12px 0; }
   button {
     background: #1e293b; color: var(--text); border: 1px solid var(--border);
-    border-radius: 10px; padding: 10px 14px; font-weight: 600; cursor: pointer;
-    font-size: 13px;
+    border-radius: 10px; padding: 10px 14px; font-weight: 600; cursor: pointer; font-size: 13px;
   }
   button.primary { background: #2563eb; border-color: #3b82f6; }
-  button:active { transform: scale(0.98); }
+  .hint { max-width: 560px; margin: 0 auto; color: var(--muted); font-size: 0.84rem; line-height: 1.5; text-align: center; }
 </style>
 </head>
 <body>
   <h1>Luba AI — Minecraft skin</h1>
-  <p class="sub">Black body · kid face · white logo on chest · back text by Kobiverse AI</p>
-
-  <div class="row">
-    <div class="card">
-      <h2>Front</h2>
-      <canvas id="front" width="240" height="480"></canvas>
-    </div>
-    <div class="card">
-      <h2>Back</h2>
-      <canvas id="back" width="240" height="480"></canvas>
-    </div>
-  </div>
-
-  <div class="row">
-    <div class="card">
-      <h2>64×64 skin texture (classic)</h2>
-      <canvas id="skin" width="512" height="512"></canvas>
-    </div>
-  </div>
-
-  <div class="btns">
-    <button class="primary" id="dl-skin">Download 64×64 skin PNG</button>
-    <button id="dl-front">Download front preview</button>
-    <button id="dl-back">Download back preview</button>
-  </div>
-  <p class="hint">
-    Import the 64×64 PNG in Minecraft (skin customizer / launcher).<br>
-    Layout: head, body, arms, legs on the classic skin map · pure black + white only.
+  <p class="sub">
+    Fixed: both arms + both legs · smiling kid face · readable back text · cleaner logo.<br>
+    <strong>Skins must be pixelated</strong> (64×64). Real photos get crushed to this grid — that’s Minecraft, not a bug.
   </p>
+
+  <div class="row">
+    <div class="card"><h2>Front</h2><canvas id="front" width="220" height="440"></canvas></div>
+    <div class="card"><h2>Back</h2><canvas id="back" width="220" height="440"></canvas></div>
+  </div>
+  <div class="row">
+    <div class="card"><h2>64×64 texture (import this)</h2><canvas id="skin" width="512" height="512"></canvas></div>
+  </div>
+  <div class="btns">
+    <button class="primary" id="dl-skin">Download 64×64 PNG</button>
+    <button id="dl-front">Front preview</button>
+    <button id="dl-back">Back preview</button>
+  </div>
+  <p class="hint">In Skin Editor 3D: open / import the 64×64 PNG. You should see 2 arms, 2 legs, face, chest logo, back text.</p>
 
 <script>
 (function () {
-  const BLACK = '#0a0a0a';
-  const WHITE = '#f5f5f5';
-  const GRAY = '#2a2a2a';
+  const K = '#0a0a0a';
+  const W = '#ffffff';
+  const G = '#1c1c1c';
 
-  // ---- kid face on a small grid (8x8 face area style) ----
-  function drawKidFace(ctx, x, y, s) {
-    // s = pixel size of one face unit (face is 8 units)
-    ctx.fillStyle = BLACK;
-    ctx.fillRect(x, y, 8 * s, 8 * s);
-    ctx.fillStyle = WHITE;
-    // uneven kid eyes
-    ctx.fillRect(x + 1.5 * s, y + 2.5 * s, 1.2 * s, 1.2 * s);
-    ctx.fillRect(x + 5.2 * s, y + 2.2 * s, 1.4 * s, 1.4 * s);
-    // tiny nose scribble
-    ctx.fillRect(x + 3.6 * s, y + 4.2 * s, 0.8 * s, 0.6 * s);
-    // smile curve as blocks
-    ctx.fillRect(x + 2 * s, y + 5.5 * s, 0.8 * s, 0.8 * s);
-    ctx.fillRect(x + 2.8 * s, y + 6 * s, 2.4 * s, 0.7 * s);
-    ctx.fillRect(x + 5.2 * s, y + 5.5 * s, 0.8 * s, 0.8 * s);
+  // 3x5 pixel font (1 = white)
+  const FONT = {
+    A: ['010','101','111','101','101'],
+    B: ['110','101','110','101','110'],
+    C: ['011','100','100','100','011'],
+    D: ['110','101','101','101','110'],
+    E: ['111','100','110','100','111'],
+    F: ['111','100','110','100','100'],
+    G: ['011','100','101','101','011'],
+    H: ['101','101','111','101','101'],
+    I: ['111','010','010','010','111'],
+    K: ['101','101','110','101','101'],
+    L: ['100','100','100','100','111'],
+    M: ['101','111','111','101','101'],
+    N: ['101','111','111','111','101'],
+    O: ['010','101','101','101','010'],
+    R: ['110','101','110','101','101'],
+    S: ['011','100','010','001','110'],
+    U: ['101','101','101','101','010'],
+    V: ['101','101','101','101','010'],
+    Y: ['101','101','010','010','010'],
+    B2: ['110','101','110','101','110'],
+    ' ': ['000','000','000','000','000'],
+    '.': ['000','000','000','000','010']
+  };
+  // thinner 3x5 for "by Kobiverse AI"
+  function drawText(ctx, str, x, y, color) {
+    ctx.fillStyle = color;
+    let cx = x;
+    str = str.toUpperCase();
+    for (const ch of str) {
+      const g = FONT[ch] || FONT[' '];
+      for (let r = 0; r < 5; r++)
+        for (let c = 0; c < 3; c++)
+          if (g[r][c] === '1') ctx.fillRect(cx + c, y + r, 1, 1);
+      cx += 4;
+    }
   }
 
-  // Luba-style hex logo (simplified for pixels)
-  function drawLubaLogo(ctx, cx, cy, scale) {
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.scale(scale, scale);
-    ctx.strokeStyle = WHITE;
-    ctx.fillStyle = WHITE;
-    ctx.lineWidth = 2.2;
-    ctx.lineJoin = 'miter';
-    // outer hex
-    ctx.beginPath();
-    for (let i = 0; i < 6; i++) {
-      const a = Math.PI / 6 + (i * Math.PI) / 3;
-      const x = Math.cos(a) * 18;
-      const y = Math.sin(a) * 18;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.stroke();
-    // inner hex
-    ctx.beginPath();
-    for (let i = 0; i < 6; i++) {
-      const a = Math.PI / 6 + (i * Math.PI) / 3;
-      const x = Math.cos(a) * 10;
-      const y = Math.sin(a) * 10;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.stroke();
-    // small center diamond
-    ctx.beginPath();
-    ctx.moveTo(0, -5); ctx.lineTo(5, 0); ctx.lineTo(0, 5); ctx.lineTo(-5, 0);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.restore();
+  // Kid smiling face on 8x8
+  function paintFace(ctx, x, y) {
+    ctx.fillStyle = K;
+    ctx.fillRect(x, y, 8, 8);
+    ctx.fillStyle = W;
+    // eyes
+    ctx.fillRect(x + 1, y + 2, 2, 2);
+    ctx.fillRect(x + 5, y + 2, 2, 2);
+    // big smile
+    ctx.fillRect(x + 2, y + 6, 1, 1);
+    ctx.fillRect(x + 3, y + 7, 2, 1);
+    ctx.fillRect(x + 5, y + 6, 1, 1);
   }
 
-  function drawPixelLogo(ctx, x, y, px) {
-    // pixel hex-ish mark for 64 skin body (24x12-ish usable chest)
-    const g = [
-      '00111100',
-      '01100110',
-      '11000011',
-      '10000001',
-      '10011001',
-      '10011001',
-      '10000001',
-      '11000011',
-      '01100110',
-      '00111100'
+  // Cleaner Luba-style mark for 8x10 on body front
+  function paintLogo(ctx, x, y) {
+    // hexagonal ring + hollow center (fits 8 wide body)
+    const rows = [
+      '..XXXX..',
+      '.X....X.',
+      'X..XX..X',
+      'X.X..X.X',
+      'X.X..X.X',
+      'X..XX..X',
+      '.X....X.',
+      '..XXXX..'
     ];
-    ctx.fillStyle = WHITE;
-    for (let r = 0; r < g.length; r++) {
-      for (let c = 0; c < g[r].length; c++) {
-        if (g[r][c] === '1') ctx.fillRect(x + c * px, y + r * px, px, px);
-      }
-    }
+    ctx.fillStyle = W;
+    for (let r = 0; r < rows.length; r++)
+      for (let c = 0; c < 8; c++)
+        if (rows[r][c] === 'X') ctx.fillRect(x + c, y + r, 1, 1);
   }
 
-  function drawChar(canvas, side) {
+  function buildSkin64() {
+    const c = document.createElement('canvas');
+    c.width = 64; c.height = 64;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, 64, 64);
+
+    function fill(x, y, w, h, col) {
+      ctx.fillStyle = col;
+      ctx.fillRect(x, y, w, h);
+    }
+
+    // ===== HEAD (8x8 faces) =====
+    // top, bottom
+    fill(8, 0, 8, 8, K);
+    fill(16, 0, 8, 8, K);
+    // right, front, left, back
+    fill(0, 8, 8, 8, K);
+    fill(8, 8, 8, 8, K);
+    paintFace(ctx, 8, 8); // front face
+    fill(16, 8, 8, 8, K);
+    fill(24, 8, 8, 8, K); // back of head
+    // slight back-head detail
+    fill(24, 8, 8, 1, G);
+
+    // ===== BODY =====
+    // body top
+    fill(20, 16, 8, 4, K);
+    // right, front, left, back  (y=20, h=12)
+    fill(16, 20, 4, 12, K);  // right
+    fill(20, 20, 8, 12, K);  // front
+    fill(28, 20, 4, 12, K);  // left
+    fill(32, 20, 8, 12, K);  // back
+    paintLogo(ctx, 20, 22);  // chest logo on front
+    // back text
+    // body back is only 8px wide — split name so nothing is clipped
+    drawText(ctx, 'KO', 33, 22, W);
+    drawText(ctx, 'BI', 33, 29, W);
+
+    // ===== RIGHT ARM (player's right = texture 40–52) =====
+    // top bottom
+    fill(44, 16, 4, 4, K);
+    fill(48, 16, 4, 4, K);
+    // sides + front + back 4x12
+    fill(40, 20, 4, 12, K); // outer
+    fill(44, 20, 4, 12, K); // front
+    fill(48, 20, 4, 12, K); // inner
+    fill(52, 20, 4, 12, K); // back
+
+    // ===== LEFT ARM (mirror region 32–40 on second layer area OR classic 32,48 for old)
+    // Modern 64x64: left arm at 32,48
+    fill(36, 48, 4, 4, K); // top
+    fill(40, 48, 4, 4, K);
+    fill(32, 52, 4, 12, K);
+    fill(36, 52, 4, 12, K);
+    fill(40, 52, 4, 12, K);
+    fill(44, 52, 4, 12, K);
+
+    // ===== RIGHT LEG =====
+    fill(4, 16, 4, 4, K);
+    fill(8, 16, 4, 4, K);
+    fill(0, 20, 4, 12, K);
+    fill(4, 20, 4, 12, K);
+    fill(8, 20, 4, 12, K);
+    fill(12, 20, 4, 12, K);
+
+    // ===== LEFT LEG (16,48) =====
+    fill(20, 48, 4, 4, K);
+    fill(24, 48, 4, 4, K);
+    fill(16, 52, 4, 12, K);
+    fill(20, 52, 4, 12, K);
+    fill(24, 52, 4, 12, K);
+    fill(28, 52, 4, 12, K);
+
+    return c;
+  }
+
+  function drawPreview(canvas, side) {
     const ctx = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
     ctx.fillStyle = '#0a0c10';
     ctx.fillRect(0, 0, W, H);
-
-    // unit scale — classic proportions
-    const u = W / 10; // body width ~ 4u, head 4u
+    const u = W / 10;
     const ox = W / 2;
-    const headTop = H * 0.08;
+    const headTop = H * 0.07;
     const headS = u * 4;
 
     // head
-    ctx.fillStyle = BLACK;
+    ctx.fillStyle = K;
     ctx.fillRect(ox - headS / 2, headTop, headS, headS);
     if (side === 'front') {
-      drawKidFace(ctx, ox - headS / 2, headTop, headS / 8);
+      // scaled kid face
+      const s = headS / 8;
+      const x = ox - headS / 2, y = headTop;
+      ctx.fillStyle = W;
+      ctx.fillRect(x + 1 * s, y + 2 * s, 2 * s, 2 * s);
+      ctx.fillRect(x + 5 * s, y + 2 * s, 2 * s, 2 * s);
+      ctx.fillRect(x + 2 * s, y + 6 * s, 1 * s, 1 * s);
+      ctx.fillRect(x + 3 * s, y + 7 * s, 2 * s, 1 * s);
+      ctx.fillRect(x + 5 * s, y + 6 * s, 1 * s, 1 * s);
     } else {
-      // back of head — plain black with tiny white hair-line scribble
-      ctx.fillStyle = GRAY;
-      ctx.fillRect(ox - headS / 2, headTop, headS, headS * 0.15);
+      ctx.fillStyle = G;
+      ctx.fillRect(ox - headS / 2, headTop, headS, headS * 0.12);
     }
 
-    // body
     const bodyW = u * 4, bodyH = u * 6;
-    const bodyX = ox - bodyW / 2;
-    const bodyY = headTop + headS;
-    ctx.fillStyle = BLACK;
+    const bodyX = ox - bodyW / 2, bodyY = headTop + headS;
+    ctx.fillStyle = K;
     ctx.fillRect(bodyX, bodyY, bodyW, bodyH);
 
     if (side === 'front') {
-      drawLubaLogo(ctx, ox, bodyY + bodyH * 0.42, u * 0.14);
+      // logo preview (vector-ish for preview only)
+      const cx = ox, cy = bodyY + bodyH * 0.4, sc = u * 0.13;
+      ctx.strokeStyle = W; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 6 + i * Math.PI / 3;
+        const x = cx + Math.cos(a) * 18 * sc / 0.13 * 0.13;
+        const y = cy + Math.sin(a) * 18 * sc / 0.13 * 0.13;
+        // simpler:
+      }
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 6 + i * Math.PI / 3;
+        const x = cx + Math.cos(a) * u * 1.15;
+        const y = cy + Math.sin(a) * u * 1.15;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath(); ctx.stroke();
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 6 + i * Math.PI / 3;
+        const x = cx + Math.cos(a) * u * 0.65;
+        const y = cy + Math.sin(a) * u * 0.65;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath(); ctx.stroke();
     } else {
-      ctx.fillStyle = WHITE;
+      ctx.fillStyle = W;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = 'bold ' + Math.floor(u * 0.55) + 'px monospace';
-      ctx.fillText('LUBA AI', ox, bodyY + bodyH * 0.32);
-      ctx.font = 'bold ' + Math.floor(u * 0.32) + 'px monospace';
-      ctx.fillText('by Kobiverse AI', ox, bodyY + bodyH * 0.48);
+      ctx.font = 'bold ' + Math.floor(u * 0.75) + 'px monospace';
+      ctx.fillText('KO', ox, bodyY + bodyH * 0.32);
+      ctx.fillText('BI', ox, bodyY + bodyH * 0.48);
     }
 
-    // arms
+    // BOTH arms
     const armW = u * 2, armH = u * 6;
-    ctx.fillStyle = BLACK;
+    ctx.fillStyle = K;
     ctx.fillRect(bodyX - armW, bodyY, armW, armH);
     ctx.fillRect(bodyX + bodyW, bodyY, armW, armH);
-
-    // legs
-    const legW = u * 2, legH = u * 6;
-    const legY = bodyY + bodyH;
+    // BOTH legs
+    const legW = u * 2, legH = u * 6, legY = bodyY + bodyH;
     ctx.fillRect(ox - legW, legY, legW, legH);
     ctx.fillRect(ox, legY, legW, legH);
-
-    // outline soft grid
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.strokeRect(ox - headS / 2, headTop, headS, headS);
-    ctx.strokeRect(bodyX, bodyY, bodyW, bodyH);
   }
 
-  // Classic 64x64 skin map (pre-1.8 compatible front-facing parts)
-  function drawSkin64(targetCanvas, scale) {
-    const size = 64;
-    const c = document.createElement('canvas');
-    c.width = size; c.height = size;
-    const ctx = c.getContext('2d');
-    // transparent bg then black fill all used regions
-    ctx.clearRect(0, 0, size, size);
-
-    function box(x, y, w, h, color) {
-      ctx.fillStyle = color;
-      ctx.fillRect(x, y, w, h);
-    }
-
-    // Head (8x8 faces)
-    // head front 8,8
-    box(8, 8, 8, 8, BLACK);
-    // kid face pixels
-    ctx.fillStyle = WHITE;
-    ctx.fillRect(9, 10, 1, 1);
-    ctx.fillRect(13, 10, 1, 1);
-    ctx.fillRect(11, 12, 1, 1);
-    ctx.fillRect(10, 14, 1, 1);
-    ctx.fillRect(11, 14, 2, 1);
-    ctx.fillRect(13, 14, 1, 1);
-    // head back 24,8
-    box(24, 8, 8, 8, BLACK);
-    box(24, 8, 8, 1, GRAY);
-    // head right/left/top/bottom
-    box(0, 8, 8, 8, BLACK);
-    box(16, 8, 8, 8, BLACK);
-    box(8, 0, 8, 8, BLACK);
-    box(16, 0, 8, 8, BLACK);
-
-    // Body 16,16 size 8x12 front — logo
-    box(16, 20, 8, 12, BLACK);
-    box(32, 20, 8, 12, BLACK); // back
-    box(28, 20, 4, 12, BLACK); // right
-    box(16, 20, 4, 12, BLACK); // wait layout:
-    // Correct classic body:
-    // Right: 16,20 4x12 | Front: 20,20 8x12 | Left: 28,20 4x12 | Back: 32,20 8x12
-    box(16, 20, 4, 12, BLACK);
-    box(20, 20, 8, 12, BLACK);
-    box(28, 20, 4, 12, BLACK);
-    box(32, 20, 8, 12, BLACK);
-    // logo on front body 20,20 (8 wide x 12 tall)
-    drawPixelLogo(ctx, 20, 22, 1);
-    // back text as pixels "LUBA" rough
-    ctx.fillStyle = WHITE;
-    // simple back bars as text substitute + readable letters
-    const backX = 32, backY = 22;
-    // L U B A tiny
-    function letter(px, py, map) {
-      for (let r = 0; r < map.length; r++)
-        for (let c = 0; c < map[0].length; c++)
-          if (map[r][c] === '1') ctx.fillRect(px + c, py + r, 1, 1);
-    }
-    letter(32, 22, ['1...','1...','1...','1...','1111']); // L
-    letter(36, 22, ['1..1','1..1','1..1','1..1','1111']); // U-ish
-    // second line kobiverse mark - 2 white rows
-    ctx.fillRect(33, 29, 6, 1);
-    ctx.fillRect(34, 30, 4, 1);
-
-    // Arms (right arm 40,16 / 44,20)
-    box(44, 20, 4, 12, BLACK);
-    box(40, 20, 4, 12, BLACK);
-    box(48, 20, 4, 12, BLACK);
-    box(52, 20, 4, 12, BLACK);
-    box(44, 16, 4, 4, BLACK);
-    // Left arm legacy 32- overlapping — also 36,48 region for slim; keep classic right only + mirror left at 32?
-    // Legs
-    box(4, 20, 4, 12, BLACK);
-    box(8, 20, 4, 12, BLACK);
-    box(12, 20, 4, 12, BLACK);
-    box(0, 20, 4, 12, BLACK);
-    box(4, 16, 4, 4, BLACK);
-    box(8, 16, 4, 4, BLACK);
-
-    // Scale up to target
-    const out = targetCanvas.getContext('2d');
-    out.imageSmoothingEnabled = false;
-    out.fillStyle = '#0a0c10';
-    out.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
-    const sc = targetCanvas.width / 64;
-    out.drawImage(c, 0, 0, 64, 64, 0, 0, 64 * sc, 64 * sc);
-
-    // store raw 64 for download
-    drawSkin64._raw = c;
-  }
-
-  drawChar(document.getElementById('front'), 'front');
-  drawChar(document.getElementById('back'), 'back');
-  drawSkin64(document.getElementById('skin'));
+  const raw = buildSkin64();
+  drawPreview(document.getElementById('front'), 'front');
+  drawPreview(document.getElementById('back'), 'back');
+  const skinCanvas = document.getElementById('skin');
+  const sctx = skinCanvas.getContext('2d');
+  sctx.imageSmoothingEnabled = false;
+  sctx.fillStyle = '#0a0c10';
+  sctx.fillRect(0, 0, 512, 512);
+  sctx.drawImage(raw, 0, 0, 64, 64, 0, 0, 512, 512);
 
   function dl(canvas, name) {
     const a = document.createElement('a');
@@ -335,13 +309,11 @@
     a.href = canvas.toDataURL('image/png');
     a.click();
   }
-  document.getElementById('dl-front').onclick = () => dl(document.getElementById('front'), 'luba-skin-front.png');
-  document.getElementById('dl-back').onclick = () => dl(document.getElementById('back'), 'luba-skin-back.png');
+  document.getElementById('dl-front').onclick = () => dl(document.getElementById('front'), 'luba-front.png');
+  document.getElementById('dl-back').onclick = () => dl(document.getElementById('back'), 'luba-back.png');
   document.getElementById('dl-skin').onclick = () => {
-    const raw = drawSkin64._raw;
-    if (!raw) return;
     const a = document.createElement('a');
-    a.download = 'luba-ai-minecraft-skin-64.png';
+    a.download = 'luba-ai-skin-64.png';
     a.href = raw.toDataURL('image/png');
     a.click();
   };
